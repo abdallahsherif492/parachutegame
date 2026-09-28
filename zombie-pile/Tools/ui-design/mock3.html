@@ -1,0 +1,147 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="ui.css">
+<style>
+body { width: 1280px; height: 720px; position: relative; overflow: hidden; background: #000; }
+.a { position: absolute; }
+.ico { position: absolute; background-size: contain; background-repeat: no-repeat; background-position: center; }
+.s9 { position: absolute; border-style: solid; }
+</style></head><body>
+<div id="root"></div>
+<script>
+// Everything here is drawn from the exported sprites (out/*.png) so Unity can rebuild it 1:1.
+const S = new URLSearchParams(location.search).get('s') || 'hudA';
+const R = document.getElementById('root');
+const el = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); const n = t.content.firstChild; R.appendChild(n); return n; };
+const ico = (name, x, y, w, h, extra = '') => el(`<div class="ico" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;background-image:url(out/${name}.png);${extra}"></div>`);
+// 9-slice sprite: border in 1x px (the PNGs are 2x)
+const B = { panel: 32, track: 16, fill: 12, card: 44, keycap: 12, btn_green: 36, btn_red: 36, btn_gold: 36, btn_dark: 36, btn_blue: 36 };
+const s9 = (name, x, y, w, h, extra = '') => { const b = B[name]; return el(`<div class="s9" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;border-width:${b}px;border-image:url(out/${name}.png) ${b * 2} fill / ${b}px stretch;box-sizing:border-box;${extra}"></div>`); };
+const txt = (s, cls, size, color, x, y, w, align = 'center', sw) => el(`<div class="t ${cls}" style="left:${x}px;top:${y}px;width:${w}px;text-align:${align};font-size:${size}px;color:${color};--sw:${sw ?? Math.max(4, size * 0.16)}px;--sd:${Math.max(2, size * 0.07)}px">${s}</div>`);
+const bg = (img, dim) => { el(`<div class="a" style="inset:0;background:url(${img}) 0 0/1280px 720px"></div>`); if (dim) el(`<div class="a" style="inset:0;background:${dim}"></div>`); };
+const vignette = (a) => el(`<div class="a" style="inset:0;background:url(out/vignette.png) 0 0/100% 100%;opacity:${a}"></div>`);
+const fill = (x, y, w, h, color, k) => el(`<div class="a" style="left:${x}px;top:${y}px;width:${w * k}px;height:${h}px;border-radius:${h / 2}px;background:linear-gradient(180deg,#fff 0%,${color} 45%,${color} 100%);box-shadow:inset 0 -3px 0 rgba(0,0,0,.22)"></div>`);
+const coinPanel = (x, y, n) => { s9('panel', x, y, 220, 76); ico('coin', x + 10, y + 6, 64, 64); txt(n, 'bang', 54, '#ffc21f', x + 80, y + 12, 124, 'right'); };
+const shade = (a) => el(`<div class="a" style="inset:0;background:rgba(8,3,14,${a})"></div>`);
+const ribbon = (x, y, w, label, size) => { el(`<div class="a ribbon" style="left:${x}px;top:${y}px;width:${w}px;height:100px"><div class="tail l"></div><div class="tail r"></div><div class="band"></div></div>`); txt(label, 'bang', size, '#fff', x, y + 10 + (62 - size) / 2, w); };
+const btn = (sprite, x, y, w, h, label, size, sub) => { s9(sprite, x, y, w, h); if (label) txt(label, 'bang', size, '#fff', x, y + (h - 9 - size) / 2 - (sub ? 10 : 0), w); if (sub) txt(sub, 'lil', 22, '#fff', x, y + h - 9 - 34, w, 'center', 4); };
+
+function hud(view) {
+  vignette(0.55);
+  s9('panel', 12, 10, 300, 66); txt('LEVEL 5', 'bang', 34, '#ffc21f', 26, 14, 170, 'left'); txt('12 / 45', 'lil', 20, '#fff', 180, 20, 118, 'right', 4);
+  s9('track', 22, 48, 280, 20); fill(25, 51, 274, 14, '#ffb020', 0.3);
+  s9('panel', 12, 80, 300, 56); ico('ic_wall', 20, 84, 48, 48); s9('track', 74, 94, 228, 28); fill(78, 98, 220, 20, '#8fdc2a', 0.72); txt('72%', 'lil', 20, '#fff', 74, 98, 228, 'center', 4);
+  s9('panel', 12, 190, 300, 58); ico('ic_crown', 18, 194, 48, 48); txt('THE TANK', 'bang', 22, '#ff6b52', 72, 194, 220, 'left'); s9('track', 72, 220, 230, 20); fill(75, 223, 224, 14, '#e8372b', 0.6);
+  el(`<div class="a ribbon" style="left:0;top:256px;width:440px;height:74px"><div class="tail l" style="top:16px;height:56px"></div><div class="tail r" style="top:16px;height:56px"></div><div class="band" style="height:62px"></div></div>`);
+  txt('SUPPLY DROP!', 'bang', 40, '#fff', 60, 267, 320); txt('Shoot the crate!', 'lil', 20, '#ffc21f', 16, 334, 420, 'center', 4);
+  s9('panel', 1084, 10, 184, 62); ico('coin', 1092, 17, 48, 48); txt('1,284', 'bang', 42, '#ffc21f', 1144, 20, 112, 'right');
+  // barrel + airstrike (bottom right)
+  el(`<div class="a btn red round" style="left:1082px;top:522px;width:176px;height:176px"></div>`); ico('barrel3d', 1110, 526, 120, 120); txt('BARREL', 'bang', 34, '#fff', 1082, 640, 176);
+  s9('keycap', 1128, 486, 84, 38); txt('SPACE', 'lil', 18, '#2b1d3a', 1128, 494, 84, 'center', 0);
+  ico('round_gold', 946, 574, 124, 124); ico('ic_airstrike', 976, 586, 64, 64); txt('AIRSTRIKE', 'bang', 22, '#fff', 946, 652, 124);
+  s9('keycap', 983, 540, 50, 36); txt('F', 'lil', 18, '#2b1d3a', 983, 547, 50, 'center', 0);
+  // switch shooter (bottom left)
+  const other = view === 'A' ? 'lis' : 'shaun', name = view === 'A' ? 'LIS' : 'SHAUN';
+  ico('por_' + other, 24, 548, 132, 132); ico('round_dark', 112, 540, 58, 58); ico('ic_switch', 120, 548, 42, 42);
+  txt(name, 'bang', 32, '#fff', 24, 670, 132); s9('keycap', 50, 508, 80, 36); txt('TAB', 'lil', 18, '#2b1d3a', 50, 515, 80, 'center', 0);
+}
+
+if (S === 'hudA') {
+  bg('baseA.png'); hud('A');
+  ico('crosshair', 606, 360, 72, 72); document.querySelectorAll('.x').forEach(e=>e.remove());
+  txt('12', 'bang', 38, '#fff', 560, 318, 80); txt('CRIT 31', 'bang', 46, '#ffc21f', 690, 400, 160);
+  for (const [x, y, k] of [[760, 330, 1], [900, 240, 0.9], [1010, 150, 0.8], [1110, 80, 0.75]]) ico('coin', x, y, 34 * k, 34 * k);
+  // climber warning next to the switch button
+  s9('panel', 170, 590, 290, 64, 'filter:drop-shadow(0 0 10px rgba(255,60,40,.8))'); txt('CLIMBERS! SWITCH TO LIS', 'lil', 22, '#ff6b52', 176, 610, 280, 'center', 5);
+}
+if (S === 'hudB') { bg('baseB.png'); hud('B'); ico('crosshair', 560, 300, 72, 72); ico('hitmark', 572, 312, 48, 48); txt('HEADSHOT!', 'bang', 46, '#ffc21f', 600, 250, 300); }
+if (S === 'boss') {
+  bg('baseA.png'); hud('A');
+  s9('panel', 390, 122, 500, 66); ico('ic_crown', 398, 124, 60, 60); txt('THE TANK', 'bang', 30, '#ff6b52', 462, 130, 200, 'left');
+  s9('track', 462, 158, 412, 24); fill(467, 161, 402, 18, '#e8372b', 0.66);
+}
+if (S === 'menu') {
+  bg('baseA.png', 'linear-gradient(180deg,rgba(10,4,16,.35),rgba(10,4,16,.55) 55%,rgba(10,4,16,.9))'); vignette(1);
+  ico('logo', 300, 0, 680, 332);
+  coinPanel(1044, 14, '1,284');
+  btn('btn_green', 440, 342, 400, 134, 'PLAY', 76, 'LEVEL 7');
+  btn('btn_blue', 440, 492, 194, 92, '', 0); ico('ic_infinity', 452, 506, 64, 48); txt('ENDLESS', 'bang', 34, '#fff', 516, 504, 110, 'left'); txt('BEST: WAVE 12', 'lil', 17, '#fff', 516, 544, 120, 'left', 3);
+  btn('btn_gold', 646, 492, 194, 92, '', 0); ico('ic_upgrade', 656, 500, 64, 64); txt('ARMORY', 'bang', 38, '#fff', 722, 514, 110, 'left');
+  s9('panel', 540, 604, 200, 52); ico('ic_trophy', 552, 608, 44, 44); txt('84 STARS', 'lil', 24, '#ffc21f', 600, 618, 130, 'left');
+  el(`<div class="a btn dark round" style="left:1172px;top:612px;width:88px;height:88px"></div>`); ico('ic_sound', 1190, 624, 52, 52);
+}
+function armoryFrame(tab) {
+  bg('baseA.png', 'rgba(8,3,14,.86)');
+  ribbon(390, 12, 500, 'ARMORY', 62);
+  el(`<div class="a btn dark round" style="left:22px;top:18px;width:84px;height:84px"></div>`); ico('ic_back', 36, 28, 56, 56);
+  coinPanel(1044, 20, '1,284');
+  const tabs = [['SHAUN', 'por_shaun'], ['LIS', 'por_lis'], ['GEAR', 'ic_shield']];
+  tabs.forEach(([t, icn], i) => { const x = 250 + i * 270; btn(tab === i ? 'btn_gold' : 'btn_dark', x, 124, 250, 76, '', 0); ico(icn, x + 14, 130, 58, 58); txt(t, 'bang', 40, '#fff', x + 80, 140, 150, 'left'); });
+  btn('btn_green', 430, 612, 420, 96, 'FIGHT! LEVEL 7', 54);
+}
+function upCard(x, y, color, icon, name, lv, statA, statB, cost, can) {
+  s9('panel', x, y, 300, 186);
+  el(`<div class="a" style="left:${x + 8}px;top:${y + 8}px;width:284px;height:48px;border-radius:18px 18px 6px 6px;background:linear-gradient(180deg,${color},rgba(0,0,0,.15)),${color}"></div>`);
+  txt(name, 'bang', 32, '#fff', x + 18, y + 16, 200, 'left');
+  s9('panel', x + 212, y + 14, 74, 36); txt(lv, 'lil', 20, '#fff', x + 212, y + 22, 74, 'center', 4);
+  el(`<div class="a" style="left:${x + 16}px;top:${y + 66}px;width:74px;height:74px;border-radius:50%;background:rgba(0,0,0,.3)"></div>`); ico(icon, x + 21, y + 71, 64, 64);
+  txt(statA + ' <span style="color:#a8f04a">&#9654; ' + statB + '</span>', 'bang', 30, '#fff', x + 100, y + 72, 190, 'left');
+  if (cost) { btn(can ? 'btn_green' : 'btn_dark', x + 100, y + 112, 186, 62, '', 0); ico('coin', x + 112, y + 122, 38, 38); txt(cost, 'bang', 34, can ? '#fff' : '#ff8b7a', x + 150, y + 122, 124, 'center'); }
+  else { txt('MAX', 'bang', 38, '#ffc21f', x + 100, y + 124, 186); }
+}
+function wCard(x, y, img, name, state, cost) {
+  s9('panel', x, y, 300, 170, state === 'EQUIPPED' ? 'filter:drop-shadow(0 0 0 #fff) drop-shadow(0 0 8px rgba(168,240,74,.9))' : '');
+  ico(img, x + 30, y + 6, 240, 110, state === 'LOCKED' ? 'filter:brightness(.25)' : '');
+  if (state === 'LOCKED') { ico('ic_lock', x + 118, y + 20, 64, 64); }
+  txt(name, 'bang', 30, '#fff', x + 16, y + 118, 140, 'left');
+  if (state === 'EQUIPPED') txt('EQUIPPED', 'lil', 22, '#a8f04a', x + 150, y + 126, 134, 'right', 4);
+  else if (state === 'EQUIP') { btn('btn_blue', x + 164, y + 110, 122, 54, 'EQUIP', 30); }
+  else if (state === 'BUY') { btn('btn_green', x + 150, y + 108, 136, 56, '', 0); ico('coin', x + 160, y + 117, 36, 36); txt(cost, 'bang', 32, '#fff', x + 196, y + 117, 84); }
+  else txt('LEVEL ' + cost, 'lil', 22, '#c9c2d6', x + 150, y + 126, 134, 'right', 4);
+}
+if (S === 'armory') {
+  armoryFrame(0);
+  wCard(170, 216, 'w_smg', 'SMG', 'EQUIPPED'); wCard(490, 216, 'w_rifle', 'RIFLE', 'BUY', '250'); wCard(810, 216, 'w_shotgun', 'SHOTGUN', 'LOCKED', '8');
+  upCard(170, 404, '#e8732b', 'ic_damage', 'FIREPOWER', 'LV 3', '14', '17', '120', true);
+  upCard(490, 404, '#e8732b', 'ic_firerate', 'FIRE RATE', 'LV 2', '11/s', '12/s', '95', true);
+  upCard(810, 404, '#e8732b', 'ic_split', 'EXTRA GUN', 'LV 0', '1', '2', '400', false);
+}
+if (S === 'gear') {
+  armoryFrame(2);
+  upCard(170, 216, '#2f86e8', 'barrel3d', 'BARREL BOOM', 'LV 4', '60', '75', '180', true);
+  upCard(490, 216, '#2f86e8', 'ic_quick', 'BARREL RELOAD', 'LV 1', '5.0s', '4.5s', '80', true);
+  upCard(810, 216, '#2f86e8', 'ic_airstrike', 'AIRSTRIKE', 'LOCKED', 'UNLOCK', 'LV 5', '400', false);
+  upCard(170, 414, '#4f9a12', 'ic_wall', 'WALL ARMOR', 'LV 2', '140', '160', '110', true);
+  upCard(490, 414, '#4f9a12', 'ic_magnet', 'COIN BONUS', 'LV 1', '+10%', '+20%', '150', true);
+  upCard(810, 414, '#4f9a12', 'ic_repair', 'FIELD REPAIR', 'LV 0', '0', '+5/s', '220', false);
+}
+if (S === 'complete') {
+  bg('baseA.png', 'rgba(8,3,14,.72)'); vignette(1);
+  ribbon(300, 30, 680, 'LEVEL 7 COMPLETE!', 56);
+  ico('star_on', 472, 150, 110, 110); ico('star_on', 580, 128, 130, 130); ico('star_off', 708, 150, 110, 110);
+  s9('panel', 420, 286, 440, 176);
+  ico('ic_skull', 446, 300, 60, 60); txt('KILLS', 'lil', 34, '#fff', 520, 312, 150, 'left'); txt('84', 'bang', 52, '#fff', 700, 306, 136, 'right');
+  ico('coin', 446, 378, 64, 64); txt('COINS', 'lil', 34, '#fff', 520, 392, 150, 'left'); txt('+156', 'bang', 60, '#ffc21f', 660, 380, 176, 'right');
+  btn('btn_gold', 380, 494, 250, 112, '', 0); ico('ic_video', 396, 516, 60, 60); txt('x2', 'bang', 64, '#fff', 460, 510, 150, 'center');
+  txt('WATCH AD', 'lil', 18, '#fff', 460, 570, 150, 'center', 3);
+  btn('btn_green', 650, 494, 250, 112, 'CONTINUE', 50);
+}
+if (S === 'failed') {
+  bg('baseA.png', 'radial-gradient(ellipse at center, rgba(90,0,0,.55), rgba(20,0,0,.92))');
+  txt('OVERRUN!', 'bang', 150, '#ff4a36', 0, 30, 1280, 'center', 26);
+  s9('panel', 420, 214, 440, 180);
+  ico('zhead', 446, 228, 60, 60); txt('LEVEL', 'lil', 34, '#fff', 520, 240, 150, 'left'); txt('7', 'bang', 52, '#fff', 700, 234, 136, 'right');
+  ico('coin', 446, 300, 64, 64); txt('COINS', 'lil', 34, '#fff', 520, 314, 150, 'left'); txt('+84', 'bang', 60, '#ffc21f', 660, 302, 176, 'right');
+  txt('Your coins are kept. Upgrade and try again!', 'lil', 26, '#fff', 0, 412, 1280, 'center', 5);
+  btn('btn_gold', 380, 470, 250, 112, '', 0); ico('ic_upgrade', 396, 494, 64, 64); txt('ARMORY', 'bang', 46, '#fff', 462, 500, 160, 'center');
+  btn('btn_green', 650, 470, 250, 112, 'RETRY', 60);
+}
+if (S === 'intro') {
+  bg('baseA.png', 'rgba(8,3,14,.8)');
+  ribbon(340, 22, 600, 'NEW ZOMBIE!', 62);
+  s9('panel', 390, 134, 500, 450);
+  ico('glow', 440, 130, 400, 330, 'opacity:.55;filter:sepia(1) saturate(8) hue-rotate(-30deg)');
+  ico('z_leaper', 470, 140, 340, 300);
+  txt('LEAPER', 'bang', 70, '#ff7a4a', 390, 440, 500);
+  txt('Jumps straight onto the pile.<br>Shoot it before it lands!', 'lil', 28, '#fff', 400, 510, 480, 'center', 5);
+  btn('btn_green', 490, 604, 300, 96, 'GOT IT!', 56);
+}
+</script></body></html>

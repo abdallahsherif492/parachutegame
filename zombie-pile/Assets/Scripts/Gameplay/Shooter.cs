@@ -109,7 +109,8 @@ namespace ZombiePile
             if (gunR != null) muzzle.position = gunR.bounds.center + yaw.forward * gunR.bounds.extents.magnitude * 0.85f;
 
             fireT -= dt;
-            float rate = Rate * (active ? 1f : (IsTower ? 0.55f : 0.35f));
+            // the idle shooter is only a safety net: slow, and it only fires at real threats
+            float rate = Rate * (active ? 1f : (IsTower ? 0.18f : 0.12f));
             if (Firing && fireT <= 0f)
             {
                 fireT = 1f / Mathf.Max(0.1f, rate);
@@ -194,7 +195,7 @@ namespace ZombiePile
             }
             if (aiTarget == null || !aiTarget.IsAlive) { ray = new Ray(muzzle.position, yaw.forward); return false; }
             var at = aiTarget.HeadCollider != null && IsTower ? aiTarget.Head.position : aiTarget.Center;
-            at += Random.insideUnitSphere * (IsTower ? 0.12f : 0.35f);
+            at += Random.insideUnitSphere * (IsTower ? 0.3f : 0.6f);
             AimPoint = at;
             var o = muzzle.position;
             ray = new Ray(o, (at - o).normalized);
@@ -206,28 +207,20 @@ namespace ZombiePile
             // whatever is about to climb over first: leapers in the air, then the top of the pile
             foreach (var z in Zombie.Alive) if (z != null && z.State == ZState.Leap) return z;
             var top = Pile.Highest();
-            if (top != null && top.transform.position.y > 1.5f) return top;
-            return Nearest();
+            if (top != null && top.transform.position.y > Arena.WallHeight * 0.45f) return top;
+            return null;
         }
 
         static Zombie PickForWall()
         {
             Zombie best = null;
-            float bz = 30f;
+            float bz = Arena.WallFront + 9f;   // only what is already close to the wall
             foreach (var z in Zombie.Alive)
             {
                 if (z == null || z.State != ZState.Run) continue;
                 float d = z.transform.position.z;
                 if (d < bz) { bz = d; best = z; }
             }
-            return best ?? Nearest();
-        }
-
-        static Zombie Nearest()
-        {
-            Zombie best = null;
-            float bz = 40f;
-            foreach (var z in Zombie.Alive) { if (z == null) continue; float d = z.transform.position.z; if (d < bz) { bz = d; best = z; } }
             return best;
         }
 
@@ -278,7 +271,7 @@ namespace ZombiePile
                 if (seen.Contains(z) || !z.IsAlive) continue;
                 seen.Add(z);
                 bool head = z.HeadCollider != null && hit.collider == z.HeadCollider && z.Armor <= 0f;
-                float dmg = Damage * (head ? w.headMult : 1f) * Random.Range(0.9f, 1.1f);
+                float dmg = Damage * (head ? w.headMult : 1f) * Random.Range(0.9f, 1.1f) * (manual ? 1f : 0.5f);
                 bool killed = z.Hit(dmg, ray.direction, hit.point, head, w.kick);
                 if (Hud.I != null)
                 {

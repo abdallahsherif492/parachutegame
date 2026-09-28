@@ -13,14 +13,14 @@ namespace ZombiePile
         public static Hud I;
         public RectTransform Root { get; private set; }
 
-        static readonly Vector2 TL = new Vector2(0f, 1f), TC = new Vector2(0.5f, 1f), TR = new Vector2(1f, 1f);
-        static readonly Vector2 BL = new Vector2(0f, 0f), BC = new Vector2(0.5f, 0f), BR = new Vector2(1f, 0f), C = new Vector2(0.5f, 0.5f);
+        static readonly Vector2 TL = new Vector2(0f, 1f), TR = new Vector2(1f, 1f);
+        static readonly Vector2 BL = new Vector2(0f, 0f), BC = new Vector2(0.5f, 0f), BR = new Vector2(1f, 0f);
 
         GameObject hud, banner, bossBox, warn, boostBox, airBox;
         RectTransform crosshair, barBox, coinIcon;
         Text levelText, progText, wallPct, coinText, bannerText, bannerSub, boostText, switchName;
         Image wallFill, progFill, bossFill, boostFill, barrelFill, barrelFace, barrelGlow, airFill, airFace, damage, hitmark, portrait;
-        float bannerT, damageT, hitT, wallShown = 1f, wallTarget = 1f, progShown, progTarget, spread, coinPunch;
+        float bannerT, bannerIn, damageT, hitT, wallShown = 1f, wallTarget = 1f, progShown, progTarget, spread, coinPunch;
         int coinsInFlight, coinsShown = -1;
         Color bannerColor = Color.white;
 
@@ -89,9 +89,9 @@ namespace ZombiePile
         /// The coin counter panel (also used by the menu and armory screens).
         internal static Text CoinPanel(Transform p, float x, float y, out RectTransform panel, out RectTransform icon)
         {
-            panel = Pic(p, "panel", Color.white, TR, x, y, 220, 76).rectTransform;
-            icon = Pic(p, "coin", Color.white, TR, x + 10, y + 6, 64, 64).rectTransform;
-            return Label(p, "0", true, 54, UIKit.Gold, TR, x + 80, y + 12, 124, TextAnchor.MiddleRight);
+            panel = Pic(p, "panel", Color.white, TR, x, y, 184, 62).rectTransform;
+            icon = Pic(p, "coin", Color.white, TR, x + 8, y + 7, 48, 48).rectTransform;
+            return Label(p, "0", true, 42, UIKit.Gold, TR, x + 60, y + 10, 112, TextAnchor.MiddleRight);
         }
 
         void Make()
@@ -118,40 +118,36 @@ namespace ZombiePile
             barBox = UIKit.Node("HealthBars", ht);
             UIKit.Stretch(barBox);
 
-            // wall health (top left)
-            Pic(ht, "panel", Color.white, TL, 16, 14, 330, 80);
-            Pic(ht, "ic_wall", Color.white, TL, 26, 20, 68, 68);
-            Label(ht, "WALL", true, 30, Color.white, TL, 104, 22, 120, TextAnchor.MiddleLeft);
-            wallFill = FillIn(Pic(ht, "track", Color.white, TL, 102, 52, 230, 32), UIKit.Green, 4f);
-            wallPct = Label(ht, "100%", false, 22, Color.white, TL, 102, 56, 230);
+            // everything sits in the top-left corner so the street (the middle of the screen) stays clear:
+            // level + progress, wall health, power-up timer, boss bar, announcements
+            Pic(ht, "panel", Color.white, TL, 12, 10, 300, 66);
+            levelText = Label(ht, "LEVEL 1", true, 34, UIKit.Gold, TL, 26, 14, 170, TextAnchor.MiddleLeft);
+            progText = Label(ht, "0 / 0", false, 20, Color.white, TL, 180, 20, 118, TextAnchor.MiddleRight);
+            progFill = FillIn(Pic(ht, "track", Color.white, TL, 22, 48, 280, 20), new Color(1f, 0.69f, 0.13f), 3f);
 
-            // power-up timer under it
+            Pic(ht, "panel", Color.white, TL, 12, 80, 300, 56);
+            Pic(ht, "ic_wall", Color.white, TL, 20, 84, 48, 48);
+            wallFill = FillIn(Pic(ht, "track", Color.white, TL, 74, 94, 228, 28), UIKit.Green, 4f);
+            wallPct = Label(ht, "100%", false, 20, Color.white, TL, 74, 98, 228);
+
             boostBox = UIKit.Node("Boost", ht).gameObject;
             UIKit.Stretch((RectTransform)boostBox.transform);
-            Pic(boostBox.transform, "panel", Color.white, TL, 16, 100, 230, 50);
-            boostText = Label(boostBox.transform, "", true, 26, UIKit.Gold, TL, 30, 106, 200, TextAnchor.MiddleLeft);
-            boostFill = FillIn(Pic(boostBox.transform, "track", Color.white, TL, 28, 132, 206, 14), UIKit.Gold, 2f);
+            Pic(boostBox.transform, "panel", Color.white, TL, 12, 140, 240, 46);
+            boostText = Label(boostBox.transform, "", true, 24, UIKit.Gold, TL, 24, 144, 200, TextAnchor.MiddleLeft);
+            boostFill = FillIn(Pic(boostBox.transform, "track", Color.white, TL, 22, 168, 220, 12), UIKit.Gold, 2f);
             boostBox.SetActive(false);
 
-            // level + progress (top centre)
-            Pic(ht, "panel", Color.white, TC, 430, 14, 420, 98);
-            levelText = Label(ht, "LEVEL 1", true, 48, UIKit.Gold, TC, 430, 22, 420);
-            progFill = FillIn(Pic(ht, "track", Color.white, TC, 452, 70, 330, 30), new Color(1f, 0.69f, 0.13f), 4f);
-            progText = Label(ht, "0 / 0", false, 21, Color.white, TC, 452, 74, 330);
-            Pic(ht, "zhead", Color.white, TC, 770, 46, 76, 76);
-
-            // boss bar
             bossBox = UIKit.Node("Boss", ht).gameObject;
             UIKit.Stretch((RectTransform)bossBox.transform);
-            Pic(bossBox.transform, "panel", Color.white, TC, 390, 122, 500, 66);
-            Pic(bossBox.transform, "ic_crown", Color.white, TC, 398, 124, 60, 60);
-            Label(bossBox.transform, ZType.Boss.name, true, 30, new Color(1f, 0.42f, 0.32f), TC, 462, 130, 300, TextAnchor.MiddleLeft);
-            bossFill = FillIn(Pic(bossBox.transform, "track", Color.white, TC, 462, 158, 412, 24), UIKit.Red, 3f);
+            Pic(bossBox.transform, "panel", Color.white, TL, 12, 190, 300, 58);
+            Pic(bossBox.transform, "ic_crown", Color.white, TL, 18, 194, 48, 48);
+            Label(bossBox.transform, ZType.Boss.name, true, 22, new Color(1f, 0.42f, 0.32f), TL, 72, 194, 220, TextAnchor.MiddleLeft);
+            bossFill = FillIn(Pic(bossBox.transform, "track", Color.white, TL, 72, 220, 230, 20), UIKit.Red, 3f);
             bossBox.SetActive(false);
 
-            // coins (top right)
+            // coins (top right, compact)
             RectTransform coinPanel;
-            coinText = CoinPanel(ht, 1044, 14, out coinPanel, out coinIcon);
+            coinText = CoinPanel(ht, 1084, 10, out coinPanel, out coinIcon);
 
             // barrel button (bottom right)
             var barrel = UIKit.SpriteButton(ht, "round_red", "", 0, () => Shooter.Wall.ThrowBarrel());
@@ -207,15 +203,16 @@ namespace ZombiePile
             hitmark = UIKit.Pic(crosshair, "hitmark", new Color(1f, 1f, 1f, 0f));
             hitmark.rectTransform.sizeDelta = new Vector2(52, 52);
 
-            // banner on a ribbon
+            // announcements: a small ribbon that slides in on the left, away from the street
             banner = UIKit.Node("Banner", Root).gameObject;
             UIKit.Stretch((RectTransform)banner.transform);
-            Pic(banner.transform, "ribbon", Color.white, C, 340, 190, 600, 100);
-            bannerText = Label(banner.transform, "", true, 68, Color.white, C, 340, 200, 600);
-            bannerSub = Label(banner.transform, "", true, 38, UIKit.Gold, C, 140, 302, 1000);
+            var bn = banner.transform;
+            Pic(bn, "ribbon", Color.white, TL, 0, 256, 440, 74);
+            bannerText = Label(bn, "", true, 40, Color.white, TL, 60, 267, 320);
+            bannerSub = Label(bn, "", false, 20, UIKit.Gold, TL, 16, 334, 420);
             banner.SetActive(false);
 
-            for (int i = 0; i < 16; i++) pops.Add(MakePop(44));
+            for (int i = 0; i < 16; i++) pops.Add(MakePop(34));
             for (int i = 0; i < 40; i++) numbers.Add(MakePop(34));
             for (int i = 0; i < 40; i++)
             {
@@ -289,7 +286,7 @@ namespace ZombiePile
             bannerText.text = title; bannerSub.text = sub; bannerT = duration;
             bannerColor = title.Contains("CLEARED") ? UIKit.Lime : Color.white;
             banner.SetActive(true);
-            banner.transform.localScale = Vector3.one * 1.3f;
+            bannerIn = 0f;
         }
 
         public void Popup(Vector3 world, string text, Color c, float size)
@@ -452,7 +449,9 @@ namespace ZombiePile
                     c.a = ba;
                     g.color = c;
                 }
-                banner.transform.localScale = Vector3.Lerp(banner.transform.localScale, Vector3.one, 1f - Mathf.Exp(-dt * 12f));
+                bannerIn = Mathf.Min(1f, bannerIn + dt * 5f);
+                float slide = 1f - (1f - bannerIn) * (1f - bannerIn);
+                ((RectTransform)banner.transform).anchoredPosition = new Vector2(-460f * (1f - slide), 0f);
                 if (bannerT <= 0f) banner.SetActive(false);
             }
 

@@ -75,7 +75,7 @@ namespace ZombiePile
         void Coins(Transform p, float y = 14)
         {
             RectTransform panel, icon;
-            coinText = Hud.CoinPanel(p, 1044, y, out panel, out icon);
+            coinText = Hud.CoinPanel(p, 1084, y, out panel, out icon);
         }
 
         static Transform Group(Transform parent, string name)

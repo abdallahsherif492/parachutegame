@@ -145,7 +145,9 @@ namespace ZombiePile
                     if (k < 0.06f) { feet += v.z; nf++; }
                     else if (k > 0.15f && k < 0.25f) { shin += v.z; ns++; }
                 }
-                if (nf > 0 && ns > 0 && feet / nf - shin / ns < -0.02f) f.yaw = 180f;
+                // every kit character faces +Z (checked on the FBX data); this is only reported, never applied:
+                // applying it turned the shooters around in v0.5/v0.6
+                if (nf > 0 && ns > 0 && feet / nf - shin / ns < -0.02f) Debug.Log("ZombieKit " + name + ": feet test says -Z (ignored)");
             }
             UnityEngine.Object.DestroyImmediate(tmp);
             if (f.scale != 1f || f.yaw != 0f)
