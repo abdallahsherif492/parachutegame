@@ -17,7 +17,8 @@ namespace SkyDrop.EditorTools
         {
             EditorApplication.delayCall += () =>
             {
-                if (!File.Exists(ScenePath)) Setup();
+                // First open of the project: apply the WebGL/player settings once.
+                if (!File.Exists(ScenePath) || PlayerSettings.productName != "Sky Drop") Setup();
             };
         }
 

@@ -12,8 +12,9 @@
 1. افتح **Unity Hub** ← **Add project from disk** واختار الفولدر ده.
    - الإصدار المقترح: **Unity 6 (6000.0 LTS)**. أي إصدار 6000.x هيشتغل.
    - لازم يكون **Built-in Render Pipeline** (المشروع مجهز كده). متنسخش الملفات جوه مشروع URP.
-2. أول ما المشروع يفتح هيتعمل لوحده `Assets/Scenes/Main.unity` وهيتضبط الـ Build Settings.
-   لو محصلش: القائمة **Sky Drop → Setup Project**.
+2. السين `Assets/Scenes/Main.unity` موجودة في الريبو ومضافة للـ Build Settings.
+   أول ما المشروع يفتح، إعدادات WebGL بتتظبط لوحدها. ولو حبيت تعيدها: القائمة **Sky Drop → Setup Project**.
+   (السين فيها كاميرا بس، واللعبة كلها بتتبني بالكود لما تدوس Play.)
 3. افتح `Assets/Scenes/Main.unity` واضغط **Play**.
 
 مفيش أي assets (موديلات، صور، أصوات): كل حاجة بتتولد بالكود. عشان كده البيلد صغير جدًا واللودينج سريع.
