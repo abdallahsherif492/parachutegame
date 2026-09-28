@@ -2,19 +2,21 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Lilita+One&display=swap">
+<!-- CrazyGames build: add <script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script> here. The game detects it. -->
 <style>
-  /* One committed look: a warm sunset arena. Single theme on purpose; every color is explicit. */
+  /* One committed look: a warm cartoon arena. Single theme on purpose; every color is explicit. */
   :root {
     --ink: #2B1B17;
     --cream: #FFF4E2;
     --sun: #FFB86B;
-    --coral: #FF7A59;
-    --clay: #D99A5B;
     --straw: #EBC76A;
-    --sea: #1FB5A8;
+    --gold: #FFC83D;
     --p1: #E63946;
     --p2: #2F6FDE;
-    --panel: rgba(43, 27, 23, 0.78);
+    --green: #2FA35A;
+    --purple: #8A4FD8;
+    --panel: rgba(43, 27, 23, 0.8);
+    --panel-solid: #3A2620;
     color-scheme: light;
   }
   [hidden] { display: none !important; }
@@ -33,76 +35,106 @@
   .layer {
     position: fixed; inset: 0;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    gap: 14px; padding-inline: 16px; padding-block: 16px;
+    gap: 12px; padding-inline: 16px; padding-block: 16px;
     pointer-events: none; text-align: center;
   }
   .layer > * { pointer-events: auto; }
-  .layer.top { justify-content: flex-start; padding-block: calc(env(safe-area-inset-top, 0px) + 4vh) 16px; }
-  .card { display: flex; flex-direction: column; align-items: center; gap: 10px; background: var(--panel); padding: 12px 16px; border-radius: 16px; max-width: 580px; }
-  .card .hint { color: var(--cream); }
+  .layer.top { justify-content: flex-start; padding-block: calc(env(safe-area-inset-top, 0px) + 3vh) 16px; }
   .logo {
     font-family: "Lilita One", "Arial Black", Impact, sans-serif;
-    font-size: clamp(48px, 12vw, 116px); line-height: .88; margin: 0;
-    color: var(--cream); letter-spacing: .01em;
+    font-size: clamp(46px, 11vw, 108px); line-height: .88; margin: 0;
+    color: var(--cream);
     text-shadow: 0 5px 0 var(--ink), 4px 5px 0 var(--ink), -4px 5px 0 var(--ink), 0 -3px 0 var(--ink), 4px 0 0 var(--ink), -4px 0 0 var(--ink);
     transform: rotate(-3deg);
   }
   .logo span { color: var(--straw); display: block; }
   .tag {
-    margin: 0; font-weight: 800; font-size: clamp(16px, 3.4vw, 22px);
-    color: var(--ink); background: var(--cream); padding: 4px 14px; border-radius: 999px;
-    border: 3px solid var(--ink);
+    margin: 0; font-weight: 800; font-size: clamp(15px, 3.3vw, 21px);
+    color: var(--ink); background: var(--cream); padding: 3px 14px; border-radius: 999px; border: 3px solid var(--ink);
   }
-  .row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: center; }
   .btn {
     font-family: "Lilita One", "Arial Black", Impact, sans-serif;
-    font-size: clamp(20px, 4.6vw, 30px); letter-spacing: .02em;
-    padding: 12px 26px; min-width: 180px;
+    font-size: clamp(18px, 4.2vw, 28px); letter-spacing: .02em; line-height: 1.05;
+    padding: 10px 22px; min-width: 150px;
     color: #fff; background: var(--p1);
     border: 4px solid var(--ink); border-radius: 18px;
-    box-shadow: 0 6px 0 var(--ink); cursor: pointer;
+    box-shadow: 0 6px 0 var(--ink); cursor: pointer; position: relative;
     transition: transform .08s ease, box-shadow .08s ease;
   }
+  .btn small { display: block; font-family: "Baloo 2", sans-serif; font-weight: 800; font-size: 13px; opacity: .9; }
+  .btn.big { font-size: clamp(26px, 6vw, 40px); padding: 12px 34px; }
   .btn.blue { background: var(--p2); }
-  .btn.ghost { background: var(--cream); color: var(--ink); min-width: 0; font-size: clamp(16px, 3.6vw, 22px); padding: 8px 18px; }
+  .btn.green { background: var(--green); }
+  .btn.purple { background: var(--purple); }
+  .btn.gold { background: var(--gold); color: var(--ink); }
+  .btn.ghost { background: var(--cream); color: var(--ink); min-width: 0; font-size: clamp(15px, 3.4vw, 20px); padding: 7px 16px; }
   .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--ink); }
   .btn:focus-visible { outline: 4px solid var(--straw); outline-offset: 3px; }
-  .ladder { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: 560px; }
-  .chip {
-    font-weight: 800; font-size: 13px; padding: 2px 10px; border-radius: 999px;
-    background: var(--panel); color: var(--cream); border: 2px solid transparent;
+  .btn:disabled { filter: grayscale(.7) brightness(.85); cursor: default; }
+  .badge {
+    position: absolute; top: -10px; right: -10px; min-width: 26px; height: 26px; padding: 0 6px;
+    border-radius: 999px; background: var(--gold); color: var(--ink); border: 3px solid var(--ink);
+    font: 800 14px/20px "Baloo 2", sans-serif;
   }
-  .chip.beaten { background: var(--straw); color: var(--ink); }
-  .chip.next { border-color: var(--cream); }
-  .hint { margin: 0; font-weight: 600; font-size: 15px; color: var(--ink); max-width: 38ch; }
+  .card { display: flex; flex-direction: column; align-items: center; gap: 8px; background: var(--panel); padding: 10px 16px; border-radius: 16px; max-width: 600px; }
+  .hint { margin: 0; font-weight: 600; font-size: 15px; color: var(--cream); max-width: 44ch; }
+  .coins {
+    position: fixed; top: calc(env(safe-area-inset-top, 0px) + 12px); right: 16px;
+    display: flex; align-items: center; gap: 6px; padding: 3px 14px 3px 6px;
+    background: var(--panel-solid); border: 3px solid var(--ink); border-radius: 999px;
+    font: 800 20px/1 "Baloo 2", sans-serif; color: var(--cream); font-variant-numeric: tabular-nums;
+    pointer-events: none;
+  }
+  .coins.low { top: calc(env(safe-area-inset-top, 0px) + 84px); }
+  .coin { width: 22px; height: 22px; border-radius: 50%; background: var(--gold); border: 3px solid var(--ink); box-shadow: inset -3px -3px 0 #E09A10; }
   #hud {
     position: fixed; left: 0; right: 0; top: 0;
     padding-top: calc(env(safe-area-inset-top, 0px) + 10px); padding-inline: 16px;
-    display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
-    pointer-events: none;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; pointer-events: none;
   }
   .side { display: flex; flex-direction: column; gap: 4px; }
   .side.right { align-items: flex-end; }
-  .name {
-    font-family: "Lilita One", "Arial Black", sans-serif; font-size: clamp(16px, 3.8vw, 24px);
-    color: #fff; padding: 2px 12px; border-radius: 10px; border: 3px solid var(--ink);
-  }
+  .name { font-family: "Lilita One", "Arial Black", sans-serif; font-size: clamp(15px, 3.6vw, 23px); color: #fff; padding: 2px 12px; border-radius: 10px; border: 3px solid var(--ink); }
   .pips { display: flex; gap: 5px; }
   .pip { width: 16px; height: 16px; border-radius: 50%; border: 3px solid var(--ink); background: var(--cream); }
-  .pip.on { background: var(--straw); }
-  .to5 { font-weight: 800; color: var(--ink); font-size: 14px; letter-spacing: .08em; text-transform: uppercase; margin-top: 6px; }
+  .pip.on { background: var(--gold); }
+  .center-note { font-weight: 800; color: var(--ink); font-size: 13px; letter-spacing: .08em; text-transform: uppercase; margin-top: 6px; text-align: center; }
   #touchHint {
     position: fixed; left: 0; right: 0; bottom: 0;
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); padding-inline: 16px;
-    display: flex; justify-content: space-between; pointer-events: none;
-    font-weight: 800; font-size: 14px; color: var(--cream);
+    display: flex; justify-content: space-between; pointer-events: none; font-weight: 800; font-size: 14px;
   }
   #touchHint span { background: var(--panel); padding: 4px 12px; border-radius: 999px; }
-  .big {
-    font-family: "Lilita One", "Arial Black", sans-serif; font-size: clamp(40px, 10vw, 84px); margin: 0; line-height: 1;
-    color: var(--cream); text-shadow: 0 5px 0 var(--ink), 3px 5px 0 var(--ink), -3px 5px 0 var(--ink);
-  }
+  .big-title { font-family: "Lilita One", "Arial Black", sans-serif; font-size: clamp(40px, 10vw, 84px); margin: 0; line-height: 1; color: var(--cream); text-shadow: 0 5px 0 var(--ink), 3px 5px 0 var(--ink), -3px 5px 0 var(--ink); }
+  .earned { font: 800 clamp(20px, 4.5vw, 30px)/1 "Baloo 2", sans-serif; color: var(--gold); text-shadow: 0 3px 0 var(--ink); display: flex; align-items: center; gap: 8px; }
   #soundBtn { position: fixed; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); pointer-events: auto; }
+  /* modals */
+  .modal { position: fixed; inset: 0; background: rgba(20, 12, 10, .55); display: flex; align-items: center; justify-content: center; padding-inline: 16px; padding-block: 16px; }
+  .sheet {
+    width: min(720px, 100%); max-height: 100%; overflow: auto;
+    background: var(--cream); color: var(--ink); border: 4px solid var(--ink); border-radius: 22px; box-shadow: 0 8px 0 var(--ink);
+    padding: 16px; display: flex; flex-direction: column; gap: 12px;
+  }
+  .sheet h2 { font-family: "Lilita One", "Arial Black", sans-serif; font-size: clamp(28px, 6vw, 40px); margin: 0; text-align: center; }
+  .sheet-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .tabs { display: flex; gap: 8px; justify-content: center; }
+  .tab { font: 800 16px "Baloo 2", sans-serif; padding: 4px 16px; border-radius: 999px; border: 3px solid var(--ink); background: #fff; color: var(--ink); cursor: pointer; }
+  .tab[aria-selected="true"] { background: var(--ink); color: var(--cream); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 10px; }
+  .item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px; border: 3px solid var(--ink); border-radius: 14px; background: #fff; cursor: pointer; font: 800 14px "Baloo 2", sans-serif; color: var(--ink); }
+  .item canvas { width: 88px; height: 88px; }
+  .item .price { display: flex; align-items: center; gap: 4px; }
+  .item .price .coin { width: 16px; height: 16px; border-width: 2px; }
+  .item.equipped { background: #FFE9A8; }
+  .item.locked { opacity: .75; }
+  .days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .day { border: 3px solid var(--ink); border-radius: 12px; padding: 6px 2px; text-align: center; font: 800 13px/1.2 "Baloo 2", sans-serif; background: #fff; }
+  .day b { display: block; font-size: 16px; }
+  .day.done { background: #BFE8C9; }
+  .day.today { background: var(--gold); }
+  .muted { color: #6B5049; font-weight: 600; margin: 0; text-align: center; }
+  @media (max-width: 480px) { .days { grid-template-columns: repeat(4, 1fr); } }
   @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
 </style>
 
@@ -110,31 +142,64 @@
 
 <div id="hud" hidden>
   <div class="side"><div class="name" id="n1" style="background:var(--p1)">YOU</div><div class="pips" id="pips1"></div></div>
-  <div class="to5">First to 5</div>
+  <div class="center-note" id="centerNote">First to 5</div>
   <div class="side right"><div class="name" id="n2" style="background:var(--p2)">CPU</div><div class="pips" id="pips2"></div></div>
 </div>
 <div id="touchHint" hidden><span id="h1">P1: W or tap left</span><span id="h2">P2: ↑ or tap right</span></div>
 
+<div class="coins" id="coinPill" hidden><span class="coin"></span><span id="coinText">0</span></div>
+
 <div class="layer top" id="menu">
   <h1 class="logo">SUMO<span>NOODLES</span></h1>
   <p class="tag">One button. Wobbly arms. Push them out!</p>
+  <button class="btn big" id="bPlay" type="button">PLAY<small id="playSub">vs Tofu Tanaka</small></button>
   <div class="row">
-    <button class="btn" id="b1p" type="button">1 PLAYER</button>
-    <button class="btn blue" id="b2p" type="button">2 PLAYERS</button>
+    <button class="btn blue" id="b2p" type="button">2 PLAYERS<small>same device</small></button>
+    <button class="btn purple" id="bCup" type="button">DAILY CUP<small id="cupSub">3 bouts, big prize</small></button>
+    <button class="btn gold" id="bShop" type="button">SHOP<small>hats and belts</small></button>
   </div>
   <div class="card">
-    <div class="ladder" id="ladder"></div>
-    <p class="hint">Hold to crouch and wind up. Release to lunge. Slap with your noodle arms, bounce with your belly, and knock your rival out of the ring.</p>
+    <p class="hint">Hold to wind up, release to lunge. Let go right when the ring turns <b style="color:#7CFF6B">green</b> for a SUPER SLAP.</p>
   </div>
 </div>
 
 <div class="layer" id="end" hidden>
-  <p class="big" id="endTitle">YOU WIN!</p>
+  <p class="big-title" id="endTitle">YOU WIN!</p>
   <p class="tag" id="endSub">Tofu Tanaka is swimming home.</p>
+  <div class="earned"><span class="coin"></span><span id="endCoins">+0</span></div>
   <div class="row">
-    <button class="btn" id="bNext" type="button">NEXT RIVAL</button>
+    <button class="btn green" id="bNext" type="button">NEXT RIVAL</button>
     <button class="btn blue" id="bAgain" type="button">REMATCH</button>
+  </div>
+  <div class="row">
+    <button class="btn purple" id="bDouble" type="button" hidden>x2 COINS<small>watch an ad</small></button>
+    <button class="btn gold" id="bEndShop" type="button">SHOP</button>
     <button class="btn ghost" id="bMenu" type="button">MENU</button>
+  </div>
+</div>
+
+<div class="modal" id="shop" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="shopTitle">
+    <div class="sheet-head">
+      <div class="coins" style="position:static"><span class="coin"></span><span id="shopCoins">0</span></div>
+      <h2 id="shopTitle">SHOP</h2>
+      <button class="btn ghost" id="shopClose" type="button">CLOSE</button>
+    </div>
+    <div class="tabs" role="tablist">
+      <button class="tab" id="tabHats" role="tab" aria-selected="true" type="button">HATS</button>
+      <button class="tab" id="tabBelts" role="tab" aria-selected="false" type="button">BELTS</button>
+    </div>
+    <div class="grid" id="shopGrid"></div>
+    <p class="muted">Win bouts to earn coins. Beat every rival on the ladder for the biggest payouts.</p>
+  </div>
+</div>
+
+<div class="modal" id="gift" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="giftTitle">
+    <h2 id="giftTitle">DAILY GIFT</h2>
+    <div class="days" id="giftDays"></div>
+    <p class="muted" id="giftNote">Come back every day. Miss a day and the streak starts over.</p>
+    <div class="row"><button class="btn green big" id="giftClaim" type="button">CLAIM</button></div>
   </div>
 </div>
 
@@ -156,25 +221,65 @@ function resize() {
 }
 window.addEventListener("resize", resize);
 resize();
-
-const store = {
-  get(k, d) { try { const v = localStorage.getItem("sumo_" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
-  set(k, v) { try { localStorage.setItem("sumo_" + k, JSON.stringify(v)); } catch (e) {} }
-};
 const rand = (a, b) => a + Math.random() * (b - a);
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const lerp = (a, b, t) => a + (b - a) * t;
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 const INK = "#2B1B17";
+const $ = id => document.getElementById(id);
+
+// ============================================================ CrazyGames SDK (optional) + save data
+const CG = {
+  sdk: null,
+  async init() {
+    try {
+      if (window.CrazyGames && window.CrazyGames.SDK) { await window.CrazyGames.SDK.init(); this.sdk = window.CrazyGames.SDK; }
+    } catch (e) { this.sdk = null; }
+  },
+  call(fn) { try { if (this.sdk) fn(this.sdk); } catch (e) {} },
+  gameplayStart() { this.call(s => s.game.gameplayStart()); },
+  gameplayStop() { this.call(s => s.game.gameplayStop()); },
+  happy() { this.call(s => s.game.happytime()); },
+  loadingStop() { this.call(s => s.game.loadingStop()); },
+  ad(type, onStart, onDone, onFail) {
+    if (!this.sdk) { if (onFail) onFail(); return; }
+    try {
+      this.sdk.ad.requestAd(type, {
+        adStarted: () => onStart && onStart(),
+        adFinished: () => onDone && onDone(),
+        adError: () => onFail && onFail()
+      });
+    } catch (e) { if (onFail) onFail(); }
+  }
+};
+
+const DEFAULT_SAVE = { coins: 0, beaten: 0, hats: ["topknot"], belts: ["red"], hat: "topknot", belt: "red",
+  tut: false, giftDay: "", giftStreak: 0, cupDay: "", muted: false, matches: 0 };
+let save = Object.assign({}, DEFAULT_SAVE);
+function loadSave() {
+  let raw = null;
+  try { raw = CG.sdk ? CG.sdk.data.getItem("sumo_save") : localStorage.getItem("sumo_save"); } catch (e) {}
+  let d = {};
+  try { d = raw ? JSON.parse(raw) : {}; } catch (e) {}
+  save = Object.assign({}, DEFAULT_SAVE, d);
+  if (!Array.isArray(save.hats)) save.hats = ["topknot"];
+  if (!Array.isArray(save.belts)) save.belts = ["red"];
+}
+function persist() {
+  const s = JSON.stringify(save);
+  try { if (CG.sdk) CG.sdk.data.setItem("sumo_save", s); else localStorage.setItem("sumo_save", s); } catch (e) {}
+}
+function today() { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
+function yesterday() { const d = new Date(Date.now() - 864e5); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); }
 
 // ============================================================ sound (synthesized)
 const Sfx = (() => {
   let ac = null, master = null, noiseBuf = null;
-  let muted = store.get("muted", false);
   function init() {
     if (ac) { if (ac.state === "suspended") ac.resume(); return; }
     try {
       ac = new (window.AudioContext || window.webkitAudioContext)();
-      master = ac.createGain(); master.gain.value = muted ? 0 : 0.55; master.connect(ac.destination);
+      master = ac.createGain(); master.gain.value = save.muted ? 0 : 0.55; master.connect(ac.destination);
       noiseBuf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
       const d = noiseBuf.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -203,23 +308,146 @@ const Sfx = (() => {
   }
   return {
     init,
-    get muted() { return muted; },
-    toggle() { muted = !muted; store.set("muted", muted); if (master) master.gain.value = muted ? 0 : 0.55; },
+    setMuted(m) { if (master) master.gain.value = m ? 0 : 0.55; },
+    pause(p) { if (ac) { if (p) ac.suspend(); else ac.resume(); } },
     boing() { tone(460, 90, 0.4, "sine", 0.5); tone(700, 160, 0.3, "triangle", 0.12); },
     slap() { noise(0.12, "highpass", 1800, 0.8); tone(260, 110, 0.07, "square", 0.1); },
+    superSlap() { noise(0.25, "highpass", 1200, 1); tone(180, 60, 0.3, "sawtooth", 0.2); tone(900, 300, 0.2, "square", 0.08); },
     whoosh() { noise(0.28, "bandpass", 900, 0.3, 0, 0.8); },
+    ding() { tone(1200, 1500, 0.12, "triangle", 0.2); },
     thud() { tone(130, 40, 0.28, "sine", 0.6); noise(0.12, "lowpass", 500, 0.35); },
     splash() { noise(1.0, "lowpass", 1100, 0.7); noise(0.5, "highpass", 3200, 0.2, 0.05); },
     drum() { tone(95, 48, 0.35, "sine", 0.85); noise(0.07, "lowpass", 300, 0.3); },
     cheer() { noise(1.6, "bandpass", 1300, 0.22, 0, 0.5); noise(1.3, "bandpass", 2500, 0.1, 0.15, 0.7); },
     click() { tone(900, 620, 0.05, "square", 0.07); },
+    coin() { tone(988, 988, 0.08, "square", 0.08); tone(1319, 1319, 0.2, "square", 0.08, 0.07); },
+    wind() { noise(1.4, "bandpass", 500, 0.3, 0, 0.4); },
     win() { [523, 659, 784, 1046].forEach((f, i) => tone(f, f, 0.2, "triangle", 0.25, i * 0.11)); },
     lose() { [392, 330, 262].forEach((f, i) => tone(f, f * 0.97, 0.25, "triangle", 0.2, i * 0.16)); }
   };
 })();
 
+// ============================================================ cosmetics
+const HATS = [
+  { id: "topknot", name: "Topknot", cost: 0 },
+  { id: "headband", name: "Headband", cost: 120 },
+  { id: "shades", name: "Cool Shades", cost: 200 },
+  { id: "cat", name: "Cat Ears", cost: 300 },
+  { id: "party", name: "Party Hat", cost: 400 },
+  { id: "chef", name: "Chef Hat", cost: 600 },
+  { id: "cap", name: "Backwards Cap", cost: 750 },
+  { id: "viking", name: "Viking", cost: 1000 },
+  { id: "pharaoh", name: "Pharaoh", cost: 1500 },
+  { id: "crown", name: "Crown", cost: 2500 }
+];
+const BELTS = [
+  { id: "red", name: "Red", cost: 0 },
+  { id: "blue", name: "Blue", cost: 100 },
+  { id: "green", name: "Green", cost: 150 },
+  { id: "gold", name: "Gold", cost: 400 },
+  { id: "tiger", name: "Tiger", cost: 600 },
+  { id: "polka", name: "Polka", cost: 800 },
+  { id: "rainbow", name: "Rainbow", cost: 1200 },
+  { id: "galaxy", name: "Galaxy", cost: 2000 }
+];
+const BELT_BASE = { red: "#E63946", blue: "#2F6FDE", green: "#3FAE5A", gold: "#FFC83D", tiger: "#FF9A1F", polka: "#FF5C8A", rainbow: "#E63946", galaxy: "#2B1E5C", white: "#F4F4F4", purple: "#9A5BE0", teal: "#1FB5A8", black: "#2A2A2A" };
+
+// belt drawn in the current transform: x,y = top-left, w,h in px
+function drawBelt(c, id, x, y, w, h, r) {
+  c.save();
+  c.beginPath(); c.roundRect(x, y, w, h, r);
+  c.fillStyle = BELT_BASE[id] || id; c.fill();
+  c.clip();
+  if (id === "tiger") {
+    c.fillStyle = INK;
+    for (let i = -1; i < 7; i++) { c.beginPath(); c.moveTo(x + i * w / 6, y); c.lineTo(x + i * w / 6 + w / 14, y); c.lineTo(x + i * w / 6 + w / 9, y + h); c.lineTo(x + i * w / 6 + w / 30, y + h); c.fill(); }
+  } else if (id === "polka") {
+    c.fillStyle = "#FFF4E2";
+    for (let i = 0; i < 6; i++) { c.beginPath(); c.arc(x + (i + 0.5) * w / 6, y + h * (i % 2 ? 0.3 : 0.7), h * 0.16, 0, 7); c.fill(); }
+  } else if (id === "rainbow") {
+    const cols = ["#E63946", "#FF9A1F", "#FFD23F", "#3FAE5A", "#2F6FDE", "#8A4FD8"];
+    cols.forEach((col, i) => { c.fillStyle = col; c.fillRect(x, y + i * h / 6, w, h / 6 + 1); });
+  } else if (id === "galaxy") {
+    c.fillStyle = "#FFFFFF";
+    for (let i = 0; i < 9; i++) { c.beginPath(); c.arc(x + ((i * 37) % 100) / 100 * w, y + ((i * 53) % 100) / 100 * h, Math.max(1, h * 0.07), 0, 7); c.fill(); }
+  } else if (id === "gold") {
+    c.fillStyle = "rgba(255,255,255,0.45)"; c.fillRect(x, y + h * 0.15, w, h * 0.18);
+  }
+  c.restore();
+  c.beginPath(); c.roundRect(x, y, w, h, r); c.lineWidth = 3.5; c.strokeStyle = INK; c.stroke();
+}
+
+// hat drawn in head space: origin = head center, head radius R px, dir = facing (+1 right)
+function drawHat(c, id, R, dir, hair) {
+  c.lineWidth = 3.5; c.strokeStyle = INK; c.lineJoin = "round";
+  const P = (pts, fill) => { c.beginPath(); pts.forEach((p, i) => i ? c.lineTo(p[0] * R, p[1] * R) : c.moveTo(p[0] * R, p[1] * R)); c.closePath(); c.fillStyle = fill; c.fill(); c.stroke(); };
+  switch (id) {
+    case "topknot":
+      c.fillStyle = hair; c.beginPath(); c.ellipse(-dir * 0.28 * R, -0.95 * R, 0.34 * R, 0.24 * R, 0, 0, 7); c.fill(); c.stroke();
+      break;
+    case "headband":
+      c.fillStyle = "#E63946"; c.beginPath(); c.roundRect(-1.02 * R, -0.62 * R, 2.04 * R, 0.3 * R, 0.1 * R); c.fill(); c.stroke();
+      P([[-dir * 0.95, -0.5], [-dir * 1.45, -0.25], [-dir * 1.35, -0.05]], "#E63946");
+      P([[-dir * 0.95, -0.45], [-dir * 1.5, -0.65], [-dir * 1.45, -0.85]], "#E63946");
+      break;
+    case "shades":
+      c.fillStyle = hair; c.beginPath(); c.ellipse(-dir * 0.28 * R, -0.95 * R, 0.34 * R, 0.24 * R, 0, 0, 7); c.fill(); c.stroke();
+      c.fillStyle = "#111";
+      c.beginPath(); c.roundRect(dir * 0.05 * R - 0.28 * R, -0.22 * R, 0.5 * R, 0.3 * R, 0.1 * R); c.fill(); c.stroke();
+      c.beginPath(); c.roundRect(dir * 0.62 * R - 0.25 * R, -0.22 * R, 0.44 * R, 0.3 * R, 0.1 * R); c.fill(); c.stroke();
+      c.strokeStyle = "rgba(255,255,255,.6)"; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(dir * 0.05 * R - 0.15 * R, -0.16 * R); c.lineTo(dir * 0.05 * R - 0.02 * R, -0.16 * R); c.stroke();
+      break;
+    case "cat":
+      P([[-0.85, -0.55], [-0.75, -1.35], [-0.2, -0.85]], hair);
+      P([[0.85, -0.55], [0.75, -1.35], [0.2, -0.85]], hair);
+      P([[-0.7, -0.75], [-0.68, -1.1], [-0.4, -0.85]], "#FF9EBB");
+      P([[0.7, -0.75], [0.68, -1.1], [0.4, -0.85]], "#FF9EBB");
+      break;
+    case "party":
+      P([[-0.55, -0.72], [0.55, -0.72], [dir * 0.15, -1.9]], "#8A4FD8");
+      c.strokeStyle = "#FFD23F"; c.lineWidth = 4;
+      c.beginPath(); c.moveTo(-0.38 * R, -1.02 * R); c.lineTo(0.42 * R, -0.95 * R); c.moveTo(-0.2 * R, -1.38 * R); c.lineTo(0.28 * R, -1.34 * R); c.stroke();
+      c.strokeStyle = INK; c.lineWidth = 3.5;
+      c.fillStyle = "#FFD23F"; c.beginPath(); c.arc(dir * 0.15 * R, -1.95 * R, 0.16 * R, 0, 7); c.fill(); c.stroke();
+      break;
+    case "chef":
+      c.fillStyle = "#FFFFFF";
+      c.beginPath(); c.roundRect(-0.62 * R, -1.25 * R, 1.24 * R, 0.62 * R, 0.1 * R); c.fill(); c.stroke();
+      for (const [x, y, r] of [[-0.45, -1.45, 0.38], [0.05, -1.62, 0.44], [0.5, -1.42, 0.36]]) { c.beginPath(); c.arc(x * R, y * R, r * R, 0, 7); c.fill(); c.stroke(); }
+      c.beginPath(); c.roundRect(-0.62 * R, -1.08 * R, 1.24 * R, 0.4 * R, 0.08 * R); c.fill(); c.stroke();
+      break;
+    case "cap":
+      c.fillStyle = "#2F6FDE";
+      c.beginPath(); c.arc(0, -0.45 * R, 0.95 * R, Math.PI, 0); c.closePath(); c.fill(); c.stroke();
+      c.beginPath(); c.roundRect(dir > 0 ? -1.55 * R : 0.75 * R, -0.62 * R, 0.8 * R, 0.2 * R, 0.08 * R); c.fill(); c.stroke();
+      c.fillStyle = "#FFFFFF"; c.beginPath(); c.arc(0, -1.35 * R, 0.1 * R, 0, 7); c.fill(); c.stroke();
+      break;
+    case "viking":
+      P([[-0.9, -0.55], [-1.45, -1.25], [-1.25, -0.55]], "#FFF4E2");
+      P([[0.9, -0.55], [1.45, -1.25], [1.25, -0.55]], "#FFF4E2");
+      c.fillStyle = "#9AA3AD"; c.beginPath(); c.arc(0, -0.42 * R, 0.98 * R, Math.PI, 0); c.closePath(); c.fill(); c.stroke();
+      c.fillStyle = "#C9A227"; c.beginPath(); c.roundRect(-1.0 * R, -0.58 * R, 2.0 * R, 0.24 * R, 0.08 * R); c.fill(); c.stroke();
+      break;
+    case "pharaoh":
+      P([[-0.95, -0.55], [0.95, -0.55], [1.2, 0.55], [0.8, 0.55], [0.7, -0.1], [-0.7, -0.1], [-0.8, 0.55], [-1.2, 0.55]], "#2F6FDE");
+      c.strokeStyle = "#FFC83D"; c.lineWidth = 4;
+      for (const y of [-0.3, 0.05, 0.35]) { c.beginPath(); c.moveTo(-1.05 * R, y * R); c.lineTo(-0.78 * R, y * R); c.moveTo(0.78 * R, y * R); c.lineTo(1.05 * R, y * R); c.stroke(); }
+      c.strokeStyle = INK; c.lineWidth = 3.5;
+      c.fillStyle = "#FFC83D"; c.beginPath(); c.arc(0, -0.45 * R, 0.98 * R, Math.PI, 0); c.closePath(); c.fill(); c.stroke();
+      c.fillStyle = "#2F6FDE";
+      for (const x of [-0.6, -0.2, 0.2, 0.6]) { c.beginPath(); c.rect(x * R - 0.08 * R, -1.3 * R, 0.16 * R, 0.8 * R); c.fill(); }
+      c.beginPath(); c.arc(0, -0.45 * R, 0.98 * R, Math.PI, 0); c.closePath(); c.stroke();
+      break;
+    case "crown":
+      P([[-0.7, -0.62], [0.7, -0.62], [0.78, -1.35], [0.38, -0.98], [0, -1.5], [-0.38, -0.98], [-0.78, -1.35]], "#FFC83D");
+      c.fillStyle = "#E63946"; c.beginPath(); c.arc(0, -0.85 * R, 0.1 * R, 0, 7); c.fill(); c.stroke();
+      break;
+  }
+}
+
 // ============================================================ physics (Verlet particles + distance links)
-const DT = 1 / 120, ITER = 6, GRAV = -34;
+const DT = 1 / 120, ITER = 6, GRAV = -34, FULL = 0.85, SUPER_WIN = 0.22;
 
 class P {
   constructor(x, y, r, m, kind) {
@@ -232,9 +460,7 @@ class P {
   addVel(vx, vy) { this.px -= vx * DT; this.py -= vy * DT; }
   setVel(vx, vy) { this.px = this.x - vx * DT; this.py = this.y - vy * DT; }
 }
-
 function link(a, b, stiff) { return { a, b, len: Math.hypot(b.x - a.x, b.y - a.y), stiff }; }
-
 function solveLink(c) {
   const a = c.a, b = c.b;
   const dx = b.x - a.x, dy = b.y - a.y;
@@ -247,11 +473,24 @@ function solveLink(c) {
 
 // ============================================================ arenas
 const ARENAS = {
-  classic:  { name: "Classic Dohyo", hw: 5.8, friction: 0.85, rest: 0.05, top: "#E3AE6E", side: "#B97A3F", line: "#FFF4E2" },
-  ice:      { name: "Melting Ice Floe", hw: 6.4, friction: 0.06, rest: 0.05, top: "#DDF3FF", side: "#8CC8E8", line: "#FFFFFF" },
-  seesaw:   { name: "Seesaw of Doom", hw: 6.8, friction: 0.8, rest: 0.05, top: "#C98D55", side: "#8A5A30", line: "#FFE7B8", tilt: true },
-  shrink:   { name: "Shrinking Ring", hw: 7.2, friction: 0.85, rest: 0.05, top: "#E7A06A", side: "#A8683A", line: "#FFF4E2", shrink: true },
-  bouncy:   { name: "Bouncy Castle", hw: 5.6, friction: 0.7, rest: 0.75, top: "#FF6FA8", side: "#D8407E", line: "#FFE36B" }
+  classic:  { name: "Classic Dohyo", hw: 5.8, friction: 0.85, rest: 0.05, top: "#E3AE6E", side: "#B97A3F", line: "#FFF4E2", base: "stilts",
+              sky: ["#FF9A6B", "#FFC98A", "#FFE0A8"], hill: "#F6A56E", sea: ["#29C3B4", "#138C8A"], sun: "#FFE9A6" },
+  ice:      { name: "Melting Ice Floe", hw: 6.4, friction: 0.06, rest: 0.05, top: "#DDF3FF", side: "#8CC8E8", line: "#FFFFFF", base: "float",
+              sky: ["#9FD8F5", "#DDF3FF", "#EAF8FF"], hill: "#BFE3F5", sea: ["#6CC3E8", "#2F8FC0"], sun: "#FFFFFF" },
+  seesaw:   { name: "Seesaw of Doom", hw: 6.8, friction: 0.8, rest: 0.05, top: "#C98D55", side: "#8A5A30", line: "#FFE7B8", base: "pivot", tilt: true,
+              sky: ["#F7A072", "#FFD29D", "#FFE9C2"], hill: "#E89B6A", sea: ["#29C3B4", "#138C8A"], sun: "#FFE9A6" },
+  boat:     { name: "Nile Boat", hw: 5.6, friction: 0.8, rest: 0.05, top: "#D9A05B", side: "#8A4B22", line: "#FFE7B8", base: "boat", boat: true,
+              sky: ["#6FC8EE", "#BDEBFF", "#FFF1C9"], hill: "#E8C98A", sea: ["#2E9BD6", "#1B6FA8"], sun: "#FFF6C9" },
+  shrink:   { name: "Shrinking Ring", hw: 7.0, friction: 0.85, rest: 0.05, top: "#E7A06A", side: "#A8683A", line: "#FFF4E2", base: "stilts", shrink: true,
+              sky: ["#FF8A80", "#FFB88A", "#FFD9A8"], hill: "#F29A7E", sea: ["#29C3B4", "#138C8A"], sun: "#FFE3B0" },
+  bouncy:   { name: "Bouncy Castle", hw: 5.6, friction: 0.7, rest: 0.75, top: "#FF6FA8", side: "#D8407E", line: "#FFE36B", base: "inflate",
+              sky: ["#B388FF", "#FFB3E6", "#FFE3F3"], hill: "#D59BE0", sea: ["#5FC9E0", "#2F8FC0"], sun: "#FFF1FA" },
+  windy:    { name: "Windy Rooftop", hw: 5.8, friction: 0.8, rest: 0.05, top: "#8C8FA3", side: "#4A4D63", line: "#FFE36B", base: "stilts", windy: true,
+              sky: ["#1F2A5A", "#5B4B8A", "#F08A6B"], hill: "#2A2F55", sea: ["#2B3F73", "#18284F"], sun: "#FFE3B0", night: true },
+  conveyor: { name: "Conveyor Belt", hw: 5.8, friction: 0.85, rest: 0.05, top: "#444A55", side: "#6B7280", line: "#FFC83D", base: "rollers", conveyor: true,
+              sky: ["#FFB36B", "#FFD08A", "#FFE6B8"], hill: "#C98B5B", sea: ["#29C3B4", "#138C8A"], sun: "#FFE9A6" },
+  tiny:     { name: "Tiny Pillar", hw: 5.0, friction: 0.9, rest: 0.05, top: "#E8B77A", side: "#B07A45", line: "#FFF4E2", base: "pillar",
+              sky: ["#FFCF70", "#FFE7A8", "#FFF4D2"], hill: "#F2C27A", sea: ["#29C3B4", "#138C8A"], sun: "#FFFFFF" }
 };
 
 class Platform {
@@ -260,11 +499,14 @@ class Platform {
     Object.assign(this, ARENAS[kind]);
     this.hw0 = this.hw;
     this.thick = 1.1;
-    this.ang = 0; this.angVel = 0; this.torque = 0;
+    this.reset();
   }
-  reset() { this.hw = this.hw0; this.ang = 0; this.angVel = 0; }
-  // pivot is 1m below the surface center
-  center() { const s = Math.sin(this.ang), c = Math.cos(this.ang); return [-s, -1 + c]; }
+  reset() {
+    this.hw = this.hw0; this.ang = 0; this.angVel = 0; this.torque = 0;
+    this.ox = 0; this.oy = 0; this.vx = 0; this.vy = 0; this.t = 0;
+    this.belt = 0; this.beltDir = Math.random() < 0.5 ? -1 : 1; this.beltT = 0;
+  }
+  center() { const s = Math.sin(this.ang), c = Math.cos(this.ang); return [this.ox - s, this.oy - 1 + c]; }
   toLocal(x, y) {
     const [cx, cy] = this.center(); const c = Math.cos(this.ang), s = Math.sin(this.ang);
     const dx = x - cx, dy = y - cy;
@@ -275,6 +517,7 @@ class Platform {
     return [cx + lx * c - ly * s, cy + lx * s + ly * c];
   }
   step(dt, active) {
+    this.t += dt;
     if (this.shrink && active) this.hw = Math.max(3.4, this.hw - dt * 0.18);
     // sudden death: a bout that drags on shrinks every ring
     if (active && world.roundT > 10) this.hw = Math.max(2.6, this.hw - dt * 0.35);
@@ -283,6 +526,20 @@ class Platform {
       this.angVel += acc * dt;
       this.ang = clamp(this.ang + this.angVel * dt, -0.38, 0.38);
       if (Math.abs(this.ang) >= 0.38) this.angVel *= 0.5;
+    }
+    if (this.boat) {
+      // rocking on the Nile: drift side to side, bob, and tilt a little
+      const nx = 1.5 * Math.sin(this.t * 0.75), ny = 0.18 * Math.sin(this.t * 1.4);
+      this.vx = (nx - this.ox) / dt; this.vy = (ny - this.oy) / dt;
+      this.ox = nx; this.oy = ny;
+      this.ang = 0.07 * Math.sin(this.t * 0.95);
+    }
+    if (this.kind === "ice") this.oy = 0.08 * Math.sin(this.t * 1.2);
+    if (this.conveyor && active) {
+      this.beltT += dt;
+      if (this.beltT > 5) { this.beltT = 0; this.beltDir *= -1; }
+      const want = this.beltT > 4.2 ? 0 : this.beltDir * 1.1;   // slows down before it flips
+      this.belt = lerp(this.belt, want, 1 - Math.exp(-dt * 3));
     }
     this.torque = 0;
   }
@@ -295,18 +552,17 @@ class Platform {
       if (d >= p.r) return;
       nx /= d; ny /= d; pen = p.r - d;
     } else {
-      // center inside the block: push out through the nearest face
       const top = -ly, left = lx + this.hw, right = this.hw - lx;
       if (top <= left && top <= right) { nx = 0; ny = 1; pen = top + p.r; }
       else if (left < right) { nx = -1; ny = 0; pen = left + p.r; }
       else { nx = 1; ny = 0; pen = right + p.r; }
     }
-    // local velocity
     const c = Math.cos(this.ang), s = Math.sin(this.ang);
-    const vx = p.vx, vy = p.vy;
+    // velocity relative to the (possibly moving) surface
+    const svx = this.vx + (ny > 0.5 ? this.belt * c : 0), svy = this.vy + (ny > 0.5 ? this.belt * s : 0);
+    const vx = p.vx - svx, vy = p.vy - svy;
     let vlx = vx * c + vy * s, vly = -vx * s + vy * c;
-    const nlx = lx + nx * pen, nly = ly + ny * pen;
-    const [wx, wy] = this.toWorld(nlx, nly);
+    const [wx, wy] = this.toWorld(lx + nx * pen, ly + ny * pen);
     p.x = wx; p.y = wy;
     const vn = vlx * nx + vly * ny;
     let tx = vlx - vn * nx, ty = vly - vn * ny;
@@ -314,7 +570,7 @@ class Platform {
     tx *= 1 - fr; ty *= 1 - fr;
     const vn2 = vn < 0 ? -vn * (this.rest * (p.kind === "belly" || p.kind === "hip" ? 1 : 0.6)) : vn;
     vlx = tx + nx * vn2; vly = ty + ny * vn2;
-    p.setVel(vlx * c - vly * s, vlx * s + vly * c);
+    p.setVel(vlx * c - vly * s + svx, vlx * s + vly * c + svy);
     if (ny > 0.5) {
       p.gt = 0.1;
       if (this.tilt) this.torque += p.m * lx;
@@ -322,23 +578,31 @@ class Platform {
   }
 }
 
-// ============================================================ wrestlers
+// ============================================================ rivals (the ladder)
 const RIVALS = [
-  { name: "TOFU TANAKA", skin: "#FFD6B0", belt: "#7BC47F", hair: "#2B1B17", arena: "classic", react: 0.75, noise: 1.0, counter: 0.05, range: 4.2 },
-  { name: "CHONKY CHAD", skin: "#F5C29A", belt: "#5AB0E6", hair: "#E0A030", arena: "ice", react: 0.6, noise: 0.8, counter: 0.12, range: 4.6 },
-  { name: "NOODLE NANA", skin: "#FFE0C4", belt: "#B07AE0", hair: "#DDDDDD", arena: "seesaw", react: 0.5, noise: 0.65, counter: 0.2, range: 4.8 },
-  { name: "BIG MAMA MEATBALL", skin: "#E8A97F", belt: "#FF8A3D", hair: "#5A2D1A", arena: "shrink", react: 0.4, noise: 0.5, counter: 0.3, range: 5.0 },
-  { name: "BOUNCY BAO", skin: "#FFF0DE", belt: "#FF5C8A", hair: "#2B1B17", arena: "bouncy", react: 0.33, noise: 0.4, counter: 0.35, range: 5.2 },
-  { name: "YOKOZUNA YUKI", skin: "#F2C6A0", belt: "#F4F4F4", hair: "#111111", arena: "classic", react: 0.22, noise: 0.25, counter: 0.5, range: 5.5, boss: true }
+  { name: "TOFU TANAKA",       skin: "#FFD6B0", belt: "green",   hat: "topknot",  hair: "#2B1B17", arena: "classic",  react: 0.8,  noise: 1.0,  counter: 0.05, range: 4.2, sup: 0 },
+  { name: "CHONKY CHAD",       skin: "#F5C29A", belt: "blue",    hat: "cap",      hair: "#E0A030", arena: "ice",      react: 0.65, noise: 0.85, counter: 0.1,  range: 4.5, sup: 0 },
+  { name: "NOODLE NANA",       skin: "#FFE0C4", belt: "purple",  hat: "topknot",  hair: "#DDDDDD", arena: "seesaw",   react: 0.58, noise: 0.75, counter: 0.15, range: 4.7, sup: 0.1 },
+  { name: "CAPTAIN DUMPLING",  skin: "#F2C6A0", belt: "white",   hat: "headband", hair: "#3A2A20", arena: "boat",     react: 0.52, noise: 0.7,  counter: 0.2,  range: 4.8, sup: 0.15 },
+  { name: "BIG MAMA MEATBALL", skin: "#E8A97F", belt: "tiger",   hat: "topknot",  hair: "#5A2D1A", arena: "shrink",   react: 0.46, noise: 0.62, counter: 0.25, range: 5.0, sup: 0.2 },
+  { name: "BOUNCY BAO",        skin: "#FFF0DE", belt: "polka",   hat: "party",    hair: "#2B1B17", arena: "bouncy",   react: 0.42, noise: 0.55, counter: 0.3,  range: 5.1, sup: 0.25 },
+  { name: "WINDY WASABI",      skin: "#E9C39C", belt: "green",   hat: "shades",   hair: "#1E6B3A", arena: "windy",    react: 0.38, noise: 0.5,  counter: 0.32, range: 5.2, sup: 0.3 },
+  { name: "CONVEYOR KENJI",    skin: "#F0BE94", belt: "teal",    hat: "chef",     hair: "#2B1B17", arena: "conveyor", react: 0.34, noise: 0.45, counter: 0.35, range: 5.2, sup: 0.35 },
+  { name: "MOCHI MONSTER",     skin: "#FFF6EE", belt: "rainbow", hat: "cat",      hair: "#FFFFFF", arena: "tiny",     react: 0.3,  noise: 0.4,  counter: 0.4,  range: 5.3, sup: 0.4 },
+  { name: "THE PHARAOH",       skin: "#D9A27A", belt: "gold",    hat: "pharaoh",  hair: "#111111", arena: "boat",     react: 0.27, noise: 0.35, counter: 0.45, range: 5.4, sup: 0.5 },
+  { name: "VIKING VLAD",       skin: "#F7D2B6", belt: "black",   hat: "viking",   hair: "#C9772B", arena: "windy",    react: 0.24, noise: 0.3,  counter: 0.5,  range: 5.5, sup: 0.55 },
+  { name: "YOKOZUNA YUKI",     skin: "#F2C6A0", belt: "galaxy",  hat: "crown",    hair: "#111111", arena: "classic",  react: 0.2,  noise: 0.22, counter: 0.55, range: 5.6, sup: 0.7, boss: true }
 ];
 
+// ============================================================ wrestlers
 class Wrestler {
   constructor(idx, x, look) {
     this.idx = idx; this.look = look;
     this.face = idx === 0 ? 1 : -1;
     this.ps = []; this.links = []; this.arms = [[], []];
-    this.charging = false; this.charge = 0; this.cool = 0; this.balance = 1;
+    this.charging = false; this.charge = 0; this.fullT = 0; this.cool = 0; this.balance = 1;
     this.flyT = 0; this.slapCool = 0; this.boingCool = 0; this.headT = 0; this.out = false; this.dazed = 0;
+    this.superT = 0; this.stats = { slaps: 0, boings: 0, supers: 0 };
     const mk = (dx, y, r, m, kind) => { const p = new P(x + dx, y, r, m, kind); p.w = this; this.ps.push(p); return p; };
     this.hip = mk(0, 1.35, 0.5, 3, "hip");
     this.belly = mk(0.05 * this.face, 2.15, 0.95, 5, "belly");
@@ -353,7 +617,6 @@ class Wrestler {
     S(this.sh[0], this.sh[1]);
     for (let i = 0; i < 2; i++) { S(this.hip, this.knee[i]); S(this.knee[i], this.foot[i]); }
     S(this.foot[0], this.foot[1], 0.12);
-    // noodle arms: 5 soft segments hanging from each shoulder
     for (let a = 0; a < 2; a++) {
       let prev = this.sh[a];
       for (let i = 1; i <= 5; i++) {
@@ -370,30 +633,33 @@ class Wrestler {
     this.body = [this.hip, this.belly, this.head, this.sh[0], this.sh[1], this.knee[0], this.knee[1], this.foot[0], this.foot[1]];
   }
   grounded() { return this.foot[0].gt > 0 || this.foot[1].gt > 0 || this.hip.gt > 0; }
+  // timing state of the wind-up: 0 building, 1 perfect (green), 2 overheld
+  meterState() { return this.charge < FULL ? 0 : this.fullT <= SUPER_WIN ? 1 : 2; }
   press() {
     if (this.out || this.cool > 0 || this.charging) return;
-    this.charging = true; this.charge = 0;
+    this.charging = true; this.charge = 0; this.fullT = 0;
   }
   release() {
     if (!this.charging) return;
     this.charging = false;
-    const p = 0.32 + 0.68 * Math.min(1, this.charge / 0.85);
+    const state = this.meterState();
+    let p = 0.32 + 0.68 * Math.min(1, this.charge / FULL);
+    if (state === 1) { p = 1.3; this.superT = 0.6; this.stats.supers++; emit("super", this.head.x, this.head.y + 1.2, 0, this); }
+    else if (state === 2) p = 0.85;   // held too long: a sloppier lunge
     const dir = this.face;
     if (this.grounded()) {
-      for (const q of this.body) q.addVel(dir * 15 * p, 10 * p);
+      for (const q of this.body) q.addVel(dir * 15 * p, 10 * Math.min(p, 1.1));
       this.balance = 0.2; this.flyT = 0.45;
       Sfx.whoosh();
     }
-    // the noodle arms always fling forward: faster toward the hands
-    for (const arm of this.arms) arm.forEach((q, i) => q.addVel(dir * (8 + i * 5.5) * p, (3 + i) * p));
+    for (const arm of this.arms) arm.forEach((q, i) => q.addVel(dir * (8 + i * 5.5) * p, (3 + i) * Math.min(p, 1.1)));
     this.cool = 0.28;
-    this.charge = 0;
+    this.charge = 0; this.fullT = 0;
   }
-  // internal "muscles": keep upright, legs under the body, wind up while charging
   muscles(dt, opp) {
     const dir = this.face;
     const bal = this.out ? 0.05 : this.balance * (this.dazed > 0 ? 0.3 : 1);
-    const ch = this.charging ? Math.min(1, this.charge / 0.85) : 0;
+    const ch = this.charging ? Math.min(1, this.charge / FULL) : 0;
     const lean = -dir * 0.55 * ch + (this.flyT > 0 ? dir * 0.5 : 0);
     const pull = (p, q, tx, ty, k, d) => {
       const fx = (tx - p.x) * k - (p.vx - q.vx) * d;
@@ -410,24 +676,27 @@ class Wrestler {
       pull(this.foot[i], h, h.x + side * 0.5, h.y - legLen, 70 * bal, 4 * bal);
       pull(this.knee[i], h, h.x + side * 0.3 + dir * 0.25, h.y - legLen * 0.5, 25 * bal, 2 * bal);
     }
-    // arms: wind back and up while charging, otherwise dangle loosely toward the opponent
     for (let a = 0; a < 2; a++) {
       const hand = this.arms[a][4];
       const s = this.sh[a];
       if (ch > 0) pull(hand, s, s.x - dir * (0.9 + a * 0.3), s.y + 0.9, 30 * ch, 2);
       else if (!this.out) pull(hand, s, s.x + dir * 0.9, s.y - 0.9, 2.5, 0.3);
     }
-    // shaky belly while winding up (sumo tension!)
     if (ch > 0.2) this.belly.ax += rand(-1, 1) * 60 * ch;
+    if (this.meterState() === 2) this.head.ax += rand(-1, 1) * 120;   // overheld: wobbly!
   }
   step(dt, opp) {
     this.face = opp.belly.x >= this.belly.x ? 1 : -1;
-    if (this.charging) this.charge = Math.min(0.85, this.charge + dt);
+    if (this.charging) {
+      if (this.charge >= FULL) this.fullT += dt;
+      this.charge = Math.min(FULL, this.charge + dt);
+    }
     this.cool = Math.max(0, this.cool - dt);
     this.flyT = Math.max(0, this.flyT - dt);
     this.slapCool = Math.max(0, this.slapCool - dt);
     this.boingCool = Math.max(0, this.boingCool - dt);
     this.dazed = Math.max(0, this.dazed - dt);
+    this.superT = Math.max(0, this.superT - dt);
     this.balance = Math.min(1, this.balance + dt * (this.grounded() ? 1.2 : 0.3));
     this.muscles(dt, opp);
   }
@@ -436,14 +705,15 @@ class Wrestler {
 // ============================================================ world
 const world = {
   plat: new Platform("classic"),
-  w: [],
-  fx: [], pops: [],
+  w: [], fx: [], pops: [],
   time: 0, slow: 1, shake: 0, roundT: 0,
+  wind: { acc: 0, target: 0, next: 3, warn: 0, dir: 1 },
   onEvent: null
 };
 
 function spawnWrestlers(looks) {
   world.roundT = 0;
+  world.wind = { acc: 0, target: 0, next: rand(2.5, 4), warn: 0, dir: 1 };
   world.w = [new Wrestler(0, -3.1, looks[0]), new Wrestler(1, 3.1, looks[1])];
 }
 
@@ -454,7 +724,6 @@ function collideWrestlers(A, B) {
     if (d2 >= r * r || d2 < 1e-9) continue;
     const d = Math.sqrt(d2), nx = dx / d, ny = dy / d;
     const pen = r - d, wa = a.im / (a.im + b.im), wb = 1 - wa;
-    // relative speed along the normal (before separation)
     const rv = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
     a.x -= nx * pen * wa; a.y -= ny * pen * wa;
     b.x += nx * pen * wb; b.y += ny * pen * wb;
@@ -463,41 +732,62 @@ function collideWrestlers(A, B) {
 }
 
 function impact(a, b, nx, ny, rv) {
-  // noodle slap: a fast hand hitting any part of the rival knocks them back
   const slapper = a.kind === "hand" && rv > 7 ? a : b.kind === "hand" && rv > 7 ? b : null;
   if (slapper) {
     const me = slapper.w, them = slapper === a ? b.w : a.w;
     if (me.slapCool <= 0) {
       me.slapCool = 0.3;
       const dir = slapper === a ? 1 : -1;
-      const k = clamp(rv * 0.6, 4, 14);
-      for (const q of them.body) q.addVel(nx * dir * k, Math.abs(ny) * k * 0.3 + 2.5);
-      them.balance = Math.min(them.balance, 0.25);
-      them.dazed = 0.25;
-      world.shake = Math.max(world.shake, 0.35);
-      emit("slap", (a.x + b.x) / 2, (a.y + b.y) / 2, rv);
+      const sup = me.superT > 0;
+      const k = clamp(rv * 0.6, 4, 14) * (sup ? 1.45 : 1);
+      for (const q of them.body) q.addVel(nx * dir * k, Math.abs(ny) * k * 0.3 + (sup ? 5 : 2.5));
+      them.balance = Math.min(them.balance, sup ? 0.05 : 0.25);
+      them.dazed = sup ? 0.6 : 0.25;
+      me.stats.slaps++;
+      if (sup) me.superT = 0;
+      world.shake = Math.max(world.shake, sup ? 0.8 : 0.35);
+      emit(sup ? "superhit" : "slap", (a.x + b.x) / 2, (a.y + b.y) / 2, rv, me);
     }
     return;
   }
-  // belly bump: big round bellies bounce each other apart
   if (a.kind === "belly" && b.kind === "belly" && rv > 4.5 && a.w.boingCool <= 0) {
     a.w.boingCool = b.w.boingCool = 0.35;
-    const k = clamp(rv * 0.75, 3.5, 12);
-    for (const q of a.w.body) q.addVel(-nx * k, 1.5);
-    for (const q of b.w.body) q.addVel(nx * k, 1.5);
+    const ka = clamp(rv * 0.75, 3.5, 12) * (b.w.superT > 0 ? 1.4 : 1);
+    const kb = clamp(rv * 0.75, 3.5, 12) * (a.w.superT > 0 ? 1.4 : 1);
+    for (const q of a.w.body) q.addVel(-nx * ka, 1.5);
+    for (const q of b.w.body) q.addVel(nx * kb, 1.5);
     a.w.balance = Math.min(a.w.balance, 0.5); b.w.balance = Math.min(b.w.balance, 0.5);
+    a.w.stats.boings++; b.w.stats.boings++;
     world.shake = Math.max(world.shake, 0.3);
-    emit("boing", (a.x + b.x) / 2, (a.y + b.y) / 2, rv);
+    emit("boing", (a.x + b.x) / 2, (a.y + b.y) / 2, rv, null);
   }
+}
+
+function stepWind(active) {
+  const wd = world.wind, plat = world.plat;
+  if (!plat.windy || !active) { wd.acc = lerp(wd.acc, 0, 0.05); return; }
+  wd.next -= DT;
+  if (wd.warn > 0) {
+    wd.warn -= DT;
+    if (wd.warn <= 0) { wd.target = wd.dir * 26; wd.next = rand(1.2, 1.8); emit("gust", 0, 0, 0, null); }
+  } else if (wd.target !== 0 && wd.next <= 0) {
+    wd.target = 0; wd.next = rand(2.2, 3.5);
+  } else if (wd.target === 0 && wd.next <= 0) {
+    wd.dir = Math.random() < 0.5 ? -1 : 1; wd.warn = 1.0;
+  }
+  wd.acc = lerp(wd.acc, wd.target, 1 - Math.exp(-DT * 4));
 }
 
 function physicsStep(active) {
   const plat = world.plat;
   if (active) world.roundT += DT;
   plat.step(DT, active);
+  stepWind(active);
   const ws = world.w;
   if (ws.length === 2) { ws[0].step(DT, ws[1]); ws[1].step(DT, ws[0]); }
+  const wind = world.wind.acc;
   for (const w of ws) for (const p of w.ps) {
+    if (wind) p.ax += wind * (p.r / 0.6);
     const vx = (p.x - p.px) * 0.996, vy = (p.y - p.py) * 0.996;
     p.px = p.x; p.py = p.y;
     p.x += vx + p.ax * DT * DT;
@@ -512,29 +802,37 @@ function physicsStep(active) {
   }
 }
 
-function emit(type, x, y, strength) { if (world.onEvent) world.onEvent(type, x, y, strength); }
+function emit(type, x, y, strength, who) { if (world.onEvent) world.onEvent(type, x, y, strength, who); }
 
 // ============================================================ AI
 class Brain {
-  constructor(w, rival) { this.w = w; this.r = rival; this.wait = rand(0.3, 0.8); this.target = 0.3; }
+  constructor(w, rival) { this.w = w; this.r = rival; this.wait = rand(0.3, 0.8); this.target = 0.3; this.aimSuper = false; this.superAt = 0; }
   update(dt) {
     const me = this.w, op = world.w[1 - me.idx], R = this.r;
     if (me.out) return;
-    if (me.charging) { if (me.charge >= this.target) me.release(); return; }
+    if (me.charging) {
+      if (this.aimSuper) { if (me.charge >= FULL && me.fullT >= this.superAt) me.release(); }
+      else if (me.charge >= this.target) me.release();
+      return;
+    }
     this.wait -= dt;
     if (this.wait > 0 || !me.grounded() || me.cool > 0) return;
     const d = Math.abs(op.belly.x - me.belly.x);
-    // counter: the rival is winding up close by -> quick jab
+    this.aimSuper = false;
     if (op.charging && d < 3.2 && Math.random() < R.counter) {
       this.target = rand(0.08, 0.22); me.press(); this.wait = R.react * 0.6; return;
     }
-    // near my own edge -> lunge back toward the middle (toward the rival)
     const [lx] = world.plat.toLocal(me.belly.x, me.belly.y);
     const nearEdge = Math.abs(lx) > world.plat.hw - 1.6;
     if (d < R.range || nearEdge) {
-      this.target = clamp(0.1 + (d - 1.5) * 0.15 + rand(-0.15, 0.15) * R.noise, 0.06, 0.85);
+      if (d > 2.6 && Math.random() < (R.sup || 0)) {
+        // go for the perfect release (sometimes just a little off)
+        this.aimSuper = true; this.superAt = rand(0.02, SUPER_WIN + 0.12 * R.noise);
+      } else {
+        this.target = clamp(0.1 + (d - 1.5) * 0.15 + rand(-0.15, 0.15) * R.noise, 0.06, FULL - 0.02);
+      }
     } else {
-      this.target = rand(0.05, 0.2);   // shuffle closer with a small hop
+      this.target = rand(0.05, 0.2);
     }
     me.press();
     this.wait = R.react + rand(0, 0.4) * R.noise;
@@ -545,12 +843,11 @@ class Brain {
 function burst(x, y, n, colors, speed, grav, size) {
   for (let i = 0; i < n; i++) {
     const a = rand(0, Math.PI * 2), s = rand(0.3, 1) * speed;
-    world.fx.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s + speed * 0.3, life: rand(0.5, 1), max: 1,
-      c: colors[i % colors.length], r: rand(0.6, 1.2) * size, g: grav });
+    world.fx.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s + speed * 0.3, life: rand(0.5, 1), c: colors[i % colors.length], r: rand(0.6, 1.2) * size, g: grav });
   }
 }
 function pop(text, x, y, color, size) {
-  if (world.pops.some(p => p.text === text && p.t < 0.25)) return;
+  if (world.pops.some(p => p.text === text && p.t < 0.6)) return;
   world.pops.push({ text, x, y, t: 0, color, size: size || 1 });
 }
 function stepFx(dt) {
@@ -562,37 +859,43 @@ function stepFx(dt) {
 
 // ============================================================ game flow
 const game = {
-  mode: "attract",      // attract | 1p | 2p
+  mode: "attract",      // attract | 1p | 2p | cup
   state: "fight",       // countdown | fight | point | end
   t: 0, score: [0, 0], target: 5,
-  rival: 0, brains: [null, null],
-  looks: null, arenaKind: "classic",
-  loser: -1, msg: "", msgT: 0
+  rival: 0, brains: [null, null], looks: null, arenaKind: "classic",
+  loser: -1, cup: null, paused: false,
+  matchesSinceAd: 0, lastAd: -1e9, tutorial: false
 };
-const P1LOOK = { name: "YOU", skin: "#FFD2A8", belt: "#E63946", hair: "#2B1B17" };
-const P2LOOK = { name: "PLAYER 2", skin: "#F0BE94", belt: "#2F6FDE", hair: "#3A2A20" };
+function playerLook(name) {
+  return { name, skin: "#FFD2A8", belt: save.belt, hat: save.hat, hair: "#2B1B17" };
+}
+const P2LOOK_BASE = { name: "PLAYER 2", skin: "#F0BE94", hair: "#3A2A20" };
 
-function setupMatch(mode, rivalIdx) {
+function setupMatch(mode, arg) {
   game.mode = mode;
   game.score = [0, 0];
+  game.target = mode === "cup" ? 3 : 5;
   if (mode === "1p") {
-    game.rival = rivalIdx;
-    const R = RIVALS[rivalIdx];
-    game.looks = [P1LOOK, R];
+    game.rival = arg;
+    const R = RIVALS[arg];
+    game.looks = [playerLook("YOU"), R];
     game.arenaKind = R.arena;
+  } else if (mode === "cup") {
+    const R = RIVALS[game.cup.rivals[game.cup.stage]];
+    game.looks = [playerLook("YOU"), R];
+    game.arenaKind = game.cup.arenas[game.cup.stage];
   } else if (mode === "2p") {
-    game.looks = [{ ...P1LOOK, name: "PLAYER 1" }, P2LOOK];
-    const kinds = Object.keys(ARENAS);
-    game.arenaKind = kinds[Math.floor(Math.random() * kinds.length)];
+    const p2 = Object.assign({}, P2LOOK_BASE, { belt: pick(["blue", "tiger", "galaxy", "polka"]), hat: pick(HATS).id });
+    game.looks = [playerLook("PLAYER 1"), p2];
+    game.arenaKind = arg || pick(Object.keys(ARENAS));
   } else {
-    const a = RIVALS[Math.floor(Math.random() * RIVALS.length)];
-    let b = RIVALS[Math.floor(Math.random() * RIVALS.length)];
-    if (b === a) b = RIVALS[(RIVALS.indexOf(a) + 2) % RIVALS.length];
+    const a = pick(RIVALS); let b = pick(RIVALS);
+    if (b === a) b = RIVALS[(RIVALS.indexOf(a) + 3) % RIVALS.length];
     game.looks = [a, b];
-    const kinds = Object.keys(ARENAS);
-    game.arenaKind = kinds[Math.floor(Math.random() * kinds.length)];
+    game.arenaKind = pick(Object.keys(ARENAS));
   }
   world.plat = new Platform(game.arenaKind);
+  game.tutorial = mode === "1p" && !save.tut;
   startRound();
   updateHud();
 }
@@ -602,9 +905,12 @@ function startRound() {
   spawnWrestlers(game.looks);
   world.fx = []; world.pops = [];
   game.loser = -1;
-  if (game.mode === "1p") game.brains = [null, new Brain(world.w[1], RIVALS[game.rival])];
+  if (game.mode === "1p" || game.mode === "cup") game.brains = [null, new Brain(world.w[1], game.looks[1])];
   else if (game.mode === "2p") game.brains = [null, null];
-  else game.brains = [new Brain(world.w[0], { react: 0.45, noise: 0.6, counter: 0.2, range: 4.8 }), new Brain(world.w[1], { react: 0.45, noise: 0.6, counter: 0.2, range: 4.8 })];
+  else {
+    const mid = { react: 0.45, noise: 0.6, counter: 0.2, range: 4.8, sup: 0.3 };
+    game.brains = [new Brain(world.w[0], mid), new Brain(world.w[1], mid)];
+  }
   game.state = game.mode === "attract" ? "fight" : "countdown";
   game.t = 0;
   input.held = [false, false];
@@ -613,26 +919,30 @@ function startRound() {
 function checkPoint() {
   for (let i = 0; i < 2; i++) {
     const w = world.w[i];
-    const [lx, ly] = world.plat.toLocal(w.belly.x, w.belly.y);
+    const [, ly] = world.plat.toLocal(w.belly.x, w.belly.y);
     let why = null;
     if (ly < -1.4 || w.belly.y < -4) why = "RING OUT!";
-    // sumo rule: anything but the feet touching the floor for too long = you lose the bout
     if (w.head.gt > 0 && ly < 1.3) { w.headT += DT; if (w.headT > 0.8) why = "FLOPPED!"; } else w.headT = Math.max(0, w.headT - DT * 2);
     if (why) return { loser: i, why };
   }
   return null;
 }
 
+const matchStats = { slaps: 0, boings: 0, supers: 0, points: 0 };
 function scorePoint(res) {
   game.state = "point"; game.t = 0; game.loser = res.loser;
   const loser = world.w[res.loser];
   loser.out = true; loser.charging = false;
   const winner = 1 - res.loser;
   game.score[winner]++;
+  const me = world.w[0];
+  matchStats.slaps += me.stats.slaps; matchStats.boings += me.stats.boings; matchStats.supers += me.stats.supers;
+  if (winner === 0) matchStats.points++;
   world.slow = 0.3;
   pop(res.why, loser.belly.x, loser.belly.y + 2.5, "#FFF4E2", 1.6);
   Sfx.cheer();
   if (res.why === "FLOPPED!") Sfx.thud();
+  if (game.tutorial && winner === 0) { game.tutorial = false; save.tut = true; persist(); }
   updateHud();
 }
 
@@ -641,19 +951,15 @@ function onPointOver() {
   const w = game.score[0] >= game.target ? 0 : game.score[1] >= game.target ? 1 : -1;
   if (w < 0) { startRound(); return; }
   game.state = "end";
-  showEnd(w);
+  endMatch(w);
 }
+
+function resetMatchStats() { matchStats.slaps = 0; matchStats.boings = 0; matchStats.supers = 0; matchStats.points = 0; }
 
 // ============================================================ input
 const input = { held: [false, false], pointers: new Map() };
-
-function playerFor(clientX) {
-  if (game.mode === "2p") return clientX < W / 2 ? 0 : 1;
-  return 0;
-}
-function canControl(i) {
-  return (game.mode === "1p" && i === 0) || game.mode === "2p";
-}
+function playerFor(clientX) { return game.mode === "2p" ? (clientX < W / 2 ? 0 : 1) : 0; }
+function canControl(i) { return ((game.mode === "1p" || game.mode === "cup") && i === 0) || game.mode === "2p"; }
 function down(i) {
   if (!canControl(i) || input.held[i]) return;
   input.held[i] = true;
@@ -667,14 +973,15 @@ function up(i) {
 const P1KEYS = ["KeyW", "KeyA", "KeyS", "KeyD", "Space", "ShiftLeft"];
 const P2KEYS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "KeyL", "ShiftRight"];
 function keyPlayer(code) {
-  if (game.mode === "1p") return P1KEYS.includes(code) || P2KEYS.includes(code) ? 0 : -1;
+  if (game.mode !== "2p") return P1KEYS.includes(code) || P2KEYS.includes(code) ? 0 : -1;
   if (P1KEYS.includes(code)) return 0;
   if (P2KEYS.includes(code)) return 1;
   return -1;
 }
+function modalOpen() { return !$("shop").hidden || !$("gift").hidden; }
 window.addEventListener("keydown", e => {
   Sfx.init();
-  if (e.repeat) return;
+  if (e.repeat || modalOpen()) return;
   const i = keyPlayer(e.code);
   if (i >= 0 && game.mode !== "attract" && game.state !== "end") { down(i); e.preventDefault(); }
 });
@@ -700,157 +1007,355 @@ function pointerEnd(e) {
 cv.addEventListener("pointerup", pointerEnd);
 cv.addEventListener("pointercancel", pointerEnd);
 cv.addEventListener("contextmenu", e => e.preventDefault());
+document.addEventListener("visibilitychange", () => {
+  game.paused = document.hidden;
+  Sfx.pause(document.hidden);
+  if (document.hidden) { up(0); up(1); }
+});
 
 // ============================================================ UI
-const $ = id => document.getElementById(id);
-const ui = { menu: $("menu"), end: $("end"), hud: $("hud"), hint: $("touchHint") };
+const ui = { menu: $("menu"), end: $("end"), hud: $("hud"), hint: $("touchHint"), coins: $("coinPill") };
+const soundBtn = $("soundBtn");
 
-function beaten() { return store.get("beaten", 0); }
-function renderLadder() {
-  const b = beaten();
-  $("ladder").innerHTML = RIVALS.map((r, i) =>
-    `<span class="chip ${i < b ? "beaten" : ""} ${i === Math.min(b, RIVALS.length - 1) ? "next" : ""}">${i + 1}. ${r.name}</span>`).join("");
+function renderCoins() {
+  $("coinText").textContent = save.coins;
+  $("shopCoins").textContent = save.coins;
 }
 function updateHud() {
-  const L = game.looks || [P1LOOK, RIVALS[0]];
+  const L = game.looks || [playerLook("YOU"), RIVALS[0]];
   $("n1").textContent = L[0].name;
   $("n2").textContent = L[1].name;
-  $("n2").style.background = game.mode === "2p" ? "var(--p2)" : L[1].belt;
-  $("n2").style.color = game.mode === "1p" && (L[1].belt === "#F4F4F4") ? "#2B1B17" : "#fff";
-  for (let i = 0; i < 2; i++) {
-    $("pips" + (i + 1)).innerHTML = Array.from({ length: game.target }, (_, k) =>
-      `<span class="pip ${k < game.score[i] ? "on" : ""}"></span>`).join("");
-  }
+  const c2 = game.mode === "2p" ? "#2F6FDE" : BELT_BASE[L[1].belt] || "#2F6FDE";
+  $("n2").style.background = c2;
+  $("n2").style.color = c2 === "#F4F4F4" || c2 === "#FFC83D" ? INK : "#fff";
+  for (let i = 0; i < 2; i++)
+    $("pips" + (i + 1)).innerHTML = Array.from({ length: game.target }, (_, k) => `<span class="pip ${k < game.score[i] ? "on" : ""}"></span>`).join("");
+  let note = "First to " + game.target;
+  if (game.mode === "cup") note = "Daily Cup · Bout " + (game.cup.stage + 1) + "/3 · First to 3";
+  else if (game.mode === "1p") note = "Rival " + (game.rival + 1) + "/" + RIVALS.length + " · " + ARENAS[game.arenaKind].name;
+  else if (game.mode === "2p") note = ARENAS[game.arenaKind].name + " · First to 5";
+  $("centerNote").textContent = note;
 }
+function renderMenu() {
+  const next = Math.min(save.beaten, RIVALS.length - 1);
+  $("playSub").textContent = save.beaten >= RIVALS.length ? "Champion! Replay the Yokozuna" : "Rival " + (next + 1) + ": " + titleCase(RIVALS[next].name);
+  const cupDone = save.cupDay === today();
+  $("cupSub").textContent = cupDone ? "Won today. Back tomorrow!" : "3 bouts, +300 coins";
+  $("bCup").querySelector(".badge") && $("bCup").querySelector(".badge").remove();
+  if (!cupDone) $("bCup").insertAdjacentHTML("beforeend", '<span class="badge">!</span>');
+  renderCoins();
+}
+function titleCase(s) { return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()); }
+
 function showMenu() {
+  CG.gameplayStop();
   setupMatch("attract");
   ui.menu.hidden = false; ui.end.hidden = true; ui.hud.hidden = true; ui.hint.hidden = true;
-  soundBtn.hidden = false;
-  renderLadder();
+  ui.coins.hidden = false; ui.coins.classList.remove("low"); soundBtn.hidden = false;
+  renderMenu();
+  if (save.giftDay !== today()) openGift();
 }
-function startPlay(mode) {
-  Sfx.init(); Sfx.click();
-  ui.menu.hidden = true; ui.end.hidden = true; ui.hud.hidden = false;
+function enterPlay() {
+  ui.menu.hidden = true; ui.end.hidden = true; ui.hud.hidden = false; ui.coins.hidden = true;
   ui.hint.hidden = false; soundBtn.hidden = true;
   const touch = matchMedia("(pointer: coarse)").matches;
-  if (mode === "1p") {
-    $("h1").textContent = touch ? "HOLD anywhere, release to lunge" : "HOLD W / SPACE, release to lunge";
-    $("h2").textContent = "";
-    $("h2").hidden = true;
-  } else {
+  if (game.mode === "2p") {
     $("h1").textContent = touch ? "P1: hold left side" : "P1: hold W";
     $("h2").textContent = touch ? "P2: hold right side" : "P2: hold ↑";
     $("h2").hidden = false;
+  } else {
+    $("h1").textContent = touch ? "HOLD anywhere, release to lunge" : "HOLD W / SPACE, release to lunge";
+    $("h2").hidden = true;
   }
-  setupMatch(mode, Math.min(beaten(), RIVALS.length - 1));
+  resetMatchStats();
+  CG.gameplayStart();
 }
-function showEnd(winner) {
-  ui.hud.hidden = false; ui.hint.hidden = true; ui.end.hidden = false;
-  const L = game.looks;
+// a midgame ad at a natural break, rate limited
+function withBreak(then) {
+  game.matchesSinceAd++;
+  const now = performance.now() / 1000;
+  if (CG.sdk && game.matchesSinceAd >= 2 && now - game.lastAd > 150) {
+    game.matchesSinceAd = 0; game.lastAd = now;
+    CG.ad("midgame", () => { game.paused = true; Sfx.pause(true); }, () => { game.paused = false; Sfx.pause(false); then(); }, () => { game.paused = false; Sfx.pause(false); then(); });
+  } else then();
+}
+function play1P(idx) { Sfx.init(); Sfx.click(); setupMatch("1p", idx); enterPlay(); }
+function play2P(arena) { Sfx.init(); Sfx.click(); setupMatch("2p", arena); enterPlay(); }
+function playCup() {
+  Sfx.init(); Sfx.click();
+  const pool = RIVALS.map((_, i) => i).filter(i => i >= 2 && i <= Math.max(5, Math.min(10, save.beaten + 3)));
+  const rivals = [];
+  while (rivals.length < 3) { const r = pick(pool); if (!rivals.includes(r)) rivals.push(r); }
+  rivals.sort((a, b) => a - b);
+  const kinds = Object.keys(ARENAS);
+  game.cup = { rivals, arenas: rivals.map(() => pick(kinds)), stage: 0 };
+  setupMatch("cup"); enterPlay();
+}
+
+let lastEarned = 0;
+function endMatch(winner) {
+  CG.gameplayStop();
+  ui.hint.hidden = true; ui.end.hidden = false;
+  const won = winner === 0;
+  let earned = 10 + matchStats.points * 5 + Math.min(matchStats.slaps, 20) + Math.min(matchStats.boings, 10) + matchStats.supers * 5;
+  $("bNext").hidden = false;
   if (game.mode === "1p") {
-    const won = winner === 0;
     const R = RIVALS[game.rival];
     if (won) {
-      if (beaten() <= game.rival) store.set("beaten", game.rival + 1);
-      $("endTitle").textContent = R.boss ? "YOKOZUNA!" : "YOU WIN!";
-      $("endSub").textContent = R.boss ? "You beat the grand champion. Legend." : R.name + " is swimming home.";
-      Sfx.win();
+      const first = save.beaten <= game.rival;
+      earned += 40 + game.rival * 12 + (first ? 60 + game.rival * 20 : 0) + (game.score[1] === 0 ? 25 : 0);
+      if (first) save.beaten = game.rival + 1;
+      $("endTitle").textContent = R.boss ? "YOKOZUNA!" : game.score[1] === 0 ? "FLAWLESS!" : "YOU WIN!";
+      $("endSub").textContent = R.boss ? "You beat the grand champion. Legend." : titleCase(R.name) + " is swimming home.";
+      Sfx.win(); CG.happy();
+      $("bNext").textContent = "NEXT RIVAL";
+      $("bNext").hidden = game.rival >= RIVALS.length - 1;
+      $("bAgain").textContent = "PLAY AGAIN";
     } else {
       $("endTitle").textContent = "SPLASH...";
-      $("endSub").textContent = R.name + " wins " + game.score[1] + " to " + game.score[0] + ". Try shorter jabs!";
+      $("endSub").textContent = titleCase(R.name) + " wins " + game.score[1] + " to " + game.score[0] + ". Try a SUPER SLAP!";
+      Sfx.lose();
+      $("bNext").hidden = true;
+      $("bAgain").textContent = "REMATCH";
+    }
+  } else if (game.mode === "cup") {
+    const cup = game.cup;
+    if (won && cup.stage < 2) {
+      earned += 20;
+      $("endTitle").textContent = "BOUT " + (cup.stage + 1) + " WON!";
+      $("endSub").textContent = "Next up: " + titleCase(RIVALS[cup.rivals[cup.stage + 1]].name) + " on the " + ARENAS[cup.arenas[cup.stage + 1]].name;
+      $("bNext").textContent = "NEXT BOUT";
+      $("bAgain").textContent = "RESTART CUP";
+      Sfx.win();
+    } else if (won) {
+      const first = save.cupDay !== today();
+      earned += first ? 300 : 60;
+      save.cupDay = today();
+      $("endTitle").textContent = "CUP WINNER!";
+      $("endSub").textContent = first ? "Daily Cup won. A new cup opens tomorrow." : "Already won today, but nice slapping.";
+      $("bNext").hidden = true;
+      $("bAgain").textContent = "PLAY AGAIN";
+      Sfx.win(); CG.happy();
+    } else {
+      $("endTitle").textContent = "KNOCKED OUT";
+      $("endSub").textContent = "The cup ends at bout " + (cup.stage + 1) + ". Try again!";
+      $("bNext").hidden = true;
+      $("bAgain").textContent = "RESTART CUP";
       Sfx.lose();
     }
-    $("bNext").hidden = !won || game.rival >= RIVALS.length - 1;
-    $("bAgain").textContent = won ? "PLAY AGAIN" : "REMATCH";
   } else {
+    const L = game.looks;
+    earned = Math.round(earned * 0.5);
     $("endTitle").textContent = L[winner].name + " WINS!";
     $("endSub").textContent = game.score[0] + " - " + game.score[1] + " on the " + ARENAS[game.arenaKind].name;
-    $("bNext").hidden = false;
     $("bNext").textContent = "NEW ARENA";
     $("bAgain").textContent = "REMATCH";
     Sfx.win();
   }
+  save.coins += earned; save.matches++;
+  lastEarned = earned;
+  persist();
+  $("endCoins").textContent = "+" + earned + " coins";
+  $("bDouble").hidden = !CG.sdk;
+  $("bDouble").disabled = false;
+  ui.coins.hidden = false; ui.coins.classList.add("low"); renderCoins();
+  setTimeout(() => Sfx.coin(), 400);
 }
-$("b1p").addEventListener("click", () => startPlay("1p"));
-$("b2p").addEventListener("click", () => startPlay("2p"));
-$("bAgain").addEventListener("click", () => {
-  Sfx.click(); ui.end.hidden = true; ui.hint.hidden = false;
-  setupMatch(game.mode, game.rival);
-});
+
+$("bPlay").addEventListener("click", () => play1P(Math.min(save.beaten, RIVALS.length - 1)));
+$("b2p").addEventListener("click", () => play2P());
+$("bCup").addEventListener("click", () => playCup());
 $("bNext").addEventListener("click", () => {
-  Sfx.click(); ui.end.hidden = true; ui.hint.hidden = false;
-  if (game.mode === "1p") setupMatch("1p", Math.min(game.rival + 1, RIVALS.length - 1));
-  else setupMatch("2p");
+  Sfx.click();
+  withBreak(() => {
+    if (game.mode === "1p") play1P(Math.min(game.rival + 1, RIVALS.length - 1));
+    else if (game.mode === "cup") { game.cup.stage++; setupMatch("cup"); enterPlay(); }
+    else play2P();
+  });
+});
+$("bAgain").addEventListener("click", () => {
+  Sfx.click();
+  withBreak(() => {
+    if (game.mode === "1p") play1P(game.rival);
+    else if (game.mode === "cup") playCup();
+    else play2P(game.arenaKind);
+  });
 });
 $("bMenu").addEventListener("click", () => { Sfx.click(); showMenu(); });
-const soundBtn = $("soundBtn");
-function renderSound() { soundBtn.textContent = Sfx.muted ? "SOUND OFF" : "SOUND ON"; }
-soundBtn.addEventListener("click", () => { Sfx.init(); Sfx.toggle(); renderSound(); });
-renderSound();
+$("bDouble").addEventListener("click", () => {
+  $("bDouble").disabled = true;
+  CG.ad("rewarded", () => { game.paused = true; Sfx.pause(true); }, () => {
+    game.paused = false; Sfx.pause(false);
+    save.coins += lastEarned; persist(); renderCoins();
+    $("endCoins").textContent = "+" + (lastEarned * 2) + " coins";
+    $("bDouble").hidden = true; Sfx.coin();
+  }, () => { game.paused = false; Sfx.pause(false); $("bDouble").disabled = false; });
+});
+function renderSound() { soundBtn.textContent = save.muted ? "SOUND OFF" : "SOUND ON"; }
+soundBtn.addEventListener("click", () => { Sfx.init(); save.muted = !save.muted; persist(); Sfx.setMuted(save.muted); renderSound(); });
 
-world.onEvent = (type, x, y, s) => {
+// ---------------- shop
+let shopTab = "hats";
+function openShop() { Sfx.init(); Sfx.click(); $("shop").hidden = false; renderShop(); }
+function renderShop() {
+  renderCoins();
+  $("tabHats").setAttribute("aria-selected", shopTab === "hats");
+  $("tabBelts").setAttribute("aria-selected", shopTab === "belts");
+  const list = shopTab === "hats" ? HATS : BELTS;
+  const owned = shopTab === "hats" ? save.hats : save.belts;
+  const equipped = shopTab === "hats" ? save.hat : save.belt;
+  const grid = $("shopGrid");
+  grid.innerHTML = "";
+  for (const it of list) {
+    const has = owned.includes(it.id);
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "item" + (equipped === it.id ? " equipped" : "") + (has ? "" : " locked");
+    const pc = document.createElement("canvas");
+    pc.width = 176; pc.height = 176;
+    b.appendChild(pc);
+    const name = document.createElement("span"); name.textContent = it.name; b.appendChild(name);
+    const price = document.createElement("span"); price.className = "price";
+    price.innerHTML = equipped === it.id ? "EQUIPPED" : has ? "EQUIP" : '<span class="coin"></span>' + it.cost;
+    b.appendChild(price);
+    drawPreview(pc, shopTab === "hats" ? it.id : save.hat, shopTab === "belts" ? it.id : save.belt);
+    b.addEventListener("click", () => {
+      if (!has) {
+        if (save.coins < it.cost) { Sfx.lose(); price.animate([{ transform: "translateX(-4px)" }, { transform: "translateX(4px)" }, { transform: "none" }], 200); return; }
+        save.coins -= it.cost; owned.push(it.id); Sfx.coin();
+      } else Sfx.click();
+      if (shopTab === "hats") save.hat = it.id; else save.belt = it.id;
+      persist(); renderShop();
+    });
+    grid.appendChild(b);
+  }
+}
+function drawPreview(pc, hat, belt) {
+  const c = pc.getContext("2d");
+  c.clearRect(0, 0, pc.width, pc.height);
+  c.save(); c.translate(88, 110);
+  c.lineWidth = 3.5; c.strokeStyle = INK;
+  c.fillStyle = "#FFD2A8"; c.beginPath(); c.ellipse(0, 36, 58, 44, 0, 0, 7); c.fill(); c.stroke();
+  drawBelt(c, belt, -58, 52, 116, 22, 8);
+  c.translate(0, -24);
+  const R = 34;
+  c.fillStyle = "#FFD2A8"; c.beginPath(); c.arc(0, 0, R, 0, 7); c.fill(); c.stroke();
+  if (hat !== "chef" && hat !== "viking" && hat !== "pharaoh" && hat !== "cap" && hat !== "crown") {
+    c.fillStyle = "#2B1B17"; c.beginPath(); c.arc(0, 0, R, Math.PI * 1.05, Math.PI * 1.95); c.closePath(); c.fill();
+  }
+  c.fillStyle = "#fff";
+  for (const o of [-9, 9]) { c.beginPath(); c.arc(8 + o, -2, 6, 0, 7); c.fill(); c.stroke(); c.fillStyle = INK; c.beginPath(); c.arc(10 + o, -2, 2.8, 0, 7); c.fill(); c.fillStyle = "#fff"; }
+  c.beginPath(); c.arc(10, 12, 7, 0.2, Math.PI - 0.2); c.stroke();
+  drawHat(c, hat, R, 1, "#2B1B17");
+  c.restore();
+}
+$("bShop").addEventListener("click", openShop);
+$("bEndShop").addEventListener("click", openShop);
+$("shopClose").addEventListener("click", () => { Sfx.click(); $("shop").hidden = true; renderMenu(); });
+$("tabHats").addEventListener("click", () => { shopTab = "hats"; renderShop(); });
+$("tabBelts").addEventListener("click", () => { shopTab = "belts"; renderShop(); });
+
+// ---------------- daily gift
+const GIFTS = [50, 80, 120, 160, 220, 300, 500];
+function giftIndex() { return save.giftDay === yesterday() ? save.giftStreak % GIFTS.length : 0; }
+function openGift() {
+  $("gift").hidden = false;
+  const idx = giftIndex(), can = save.giftDay !== today();
+  $("giftDays").innerHTML = GIFTS.map((g, i) => {
+    const done = can ? i < idx : i < ((save.giftStreak - 1) % GIFTS.length) + 1;
+    const now = can && i === idx;
+    return `<div class="day ${done ? "done" : ""} ${now ? "today" : ""}">DAY ${i + 1}<b>${done ? "✓" : "+" + g}</b></div>`;
+  }).join("");
+  $("giftClaim").textContent = can ? "CLAIM +" + GIFTS[idx] : "OK";
+}
+$("giftClaim").addEventListener("click", () => {
+  Sfx.init();
+  if (save.giftDay !== today()) {
+    const idx = giftIndex();
+    save.coins += GIFTS[idx]; save.giftStreak = idx + 1; save.giftDay = today();
+    persist(); Sfx.coin();
+  }
+  $("gift").hidden = true; renderMenu();
+});
+
+world.onEvent = (type, x, y, s, who) => {
   if (type === "slap") {
     Sfx.slap();
     pop("SLAP!", x, y + 0.6, "#FFE36B", 1 + clamp(s / 20, 0, 0.6));
     burst(x, y, 10, ["#FFFFFF", "#FFE36B"], 7, -10, 0.14);
+  } else if (type === "superhit") {
+    Sfx.superSlap();
+    pop("SUPER SLAP!!", x, y + 0.8, "#7CFF6B", 1.7);
+    burst(x, y, 24, ["#FFFFFF", "#7CFF6B", "#FFE36B"], 12, -8, 0.2);
+  } else if (type === "super") {
+    Sfx.ding();
+    burst(x, y, 12, ["#7CFF6B", "#FFFFFF"], 5, 0, 0.12);
   } else if (type === "boing") {
     Sfx.boing();
     pop("BOING!", x, y + 1.2, "#FF9ECF", 1 + clamp(s / 16, 0, 0.6));
     burst(x, y, 8, ["#FFFFFF", "#FF9ECF"], 5, -6, 0.16);
+  } else if (type === "gust") {
+    Sfx.wind();
   }
 };
 
 // ============================================================ rendering
 const cam = { x: 0, y: 1.6, scale: 40, zoom: 1, ground: 0.58 };
-
 function w2s(x, y) { return [W / 2 + (x - cam.x) * cam.scale, H * cam.ground - (y - cam.y) * cam.scale]; }
 
 function updateCamera(dt) {
   const ws = world.w;
   let cx = 0, span = 10;
-  if (ws.length === 2) {
-    cx = (ws[0].belly.x + ws[1].belly.x) / 2;
-    span = Math.abs(ws[0].belly.x - ws[1].belly.x);
-  }
+  if (ws.length === 2) { cx = (ws[0].belly.x + ws[1].belly.x) / 2; span = Math.abs(ws[0].belly.x - ws[1].belly.x); }
   if (game.state === "point" && game.loser >= 0) cx = lerp(cx, ws[game.loser].belly.x, 0.5);
   cx = clamp(cx, -world.plat.hw0 + 2, world.plat.hw0 - 2);
   const wantZoom = game.state === "point" ? 1.25 : 1;
   cam.zoom = lerp(cam.zoom, wantZoom, 1 - Math.exp(-dt * 3));
   const portrait = H > W;
   const visW = (portrait ? clamp(span + 5, 10, 18) : clamp(span + 9, 15, 24)) / cam.zoom;
-  const target = Math.min(W / visW, H / 12);
-  cam.scale = lerp(cam.scale, target, 1 - Math.exp(-dt * 4));
+  cam.scale = lerp(cam.scale, Math.min(W / visW, H / 12), 1 - Math.exp(-dt * 4));
   cam.x = lerp(cam.x, cx, 1 - Math.exp(-dt * 4));
-  // on the menu the arena sits low so the title and buttons have the top of the screen
-  const wantGround = game.mode === "attract" ? (H > W ? 0.72 : 0.8) : (H > W ? 0.62 : 0.58);
+  const wantGround = game.mode === "attract" ? (portrait ? 0.74 : 0.8) : (portrait ? 0.62 : 0.58);
   cam.ground = lerp(cam.ground, wantGround, 1 - Math.exp(-dt * 3));
 }
 
 function drawBackground(t) {
+  const A = world.plat;
   const g = ctx.createLinearGradient(0, 0, 0, H);
-  const night = game.arenaKind === "ice";
-  g.addColorStop(0, night ? "#9FD8F5" : "#FF9A6B");
-  g.addColorStop(0.55, night ? "#DDF3FF" : "#FFC98A");
-  g.addColorStop(1, night ? "#EAF8FF" : "#FFE0A8");
+  g.addColorStop(0, A.sky[0]); g.addColorStop(0.55, A.sky[1]); g.addColorStop(1, A.sky[2]);
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  // sun
-  const [sx, sy] = [W * 0.5 - cam.x * cam.scale * 0.05, H * 0.3];
-  ctx.fillStyle = night ? "rgba(255,255,255,0.8)" : "#FFE9A6";
-  ctx.beginPath(); ctx.arc(sx, sy, Math.min(W, H) * 0.16, 0, Math.PI * 2); ctx.fill();
-  // far hills (parallax)
-  ctx.fillStyle = night ? "#BFE3F5" : "#F6A56E";
-  ctx.beginPath(); ctx.moveTo(0, H);
-  for (let x = 0; x <= W + 40; x += 40) {
-    const wx = x / W * 30 + cam.x * 0.2;
-    ctx.lineTo(x, H * 0.5 - Math.sin(wx * 0.5) * H * 0.04 - Math.sin(wx * 1.3) * H * 0.02);
+  if (A.night) {
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    for (let i = 0; i < 40; i++) { const x = (i * 97.3) % W, y = (i * 53.1) % (H * 0.4); ctx.fillRect(x, y, 2, 2); }
   }
-  ctx.lineTo(W, H); ctx.fill();
-  // crowd: rows of bobbing heads, cheering harder after a point
+  ctx.fillStyle = A.sun;
+  ctx.beginPath(); ctx.arc(W * 0.5 - cam.x * cam.scale * 0.05, H * 0.3, Math.min(W, H) * 0.16, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = A.hill;
+  if (A.night) {
+    // city skyline
+    for (let x = -20, i = 0; x < W + 40; i++) {
+      const bw = 30 + (i * 37) % 50, bh = H * (0.12 + ((i * 53) % 100) / 100 * 0.18);
+      ctx.fillRect(x, H * 0.52 - bh, bw, bh + H);
+      ctx.fillStyle = "#FFD86B";
+      for (let wy = H * 0.52 - bh + 8; wy < H * 0.5; wy += 14) for (let wx = x + 6; wx < x + bw - 8; wx += 12) if ((wx * 7 + wy * 3) % 5 < 2) ctx.fillRect(wx, wy, 5, 7);
+      ctx.fillStyle = A.hill;
+      x += bw + 4;
+    }
+  } else {
+    ctx.beginPath(); ctx.moveTo(0, H);
+    for (let x = 0; x <= W + 40; x += 40) {
+      const wx = x / W * 30 + cam.x * 0.2;
+      const peak = A.kind === "boat" ? Math.max(0, Math.sin(wx * 0.35)) * H * 0.1 : 0;   // pyramids on the Nile
+      ctx.lineTo(x, H * 0.5 - Math.sin(wx * 0.5) * H * 0.04 - Math.sin(wx * 1.3) * H * 0.02 - peak);
+    }
+    ctx.lineTo(W, H); ctx.fill();
+  }
   const hype = game.state === "point" ? 1 : 0.25;
-  const rows = [{ y: 0.47, s: 0.5, c: ["#C0674A", "#8E4A3A", "#D98B5F", "#6B3A2E"] }, { y: 0.51, s: 0.62, c: ["#A5533E", "#7A3F31", "#C9784F", "#5C3228"] }];
+  const rows = A.night
+    ? [{ y: 0.53, s: 0.5, c: ["#3A3060", "#2A2450", "#4A3A70", "#221E40"] }, { y: 0.57, s: 0.62, c: ["#2E2855", "#1E1A3A", "#3C3265", "#18152E"] }]
+    : [{ y: 0.47, s: 0.5, c: ["#C0674A", "#8E4A3A", "#D98B5F", "#6B3A2E"] }, { y: 0.51, s: 0.62, c: ["#A5533E", "#7A3F31", "#C9784F", "#5C3228"] }];
   for (const row of rows) {
-    const r = cam.scale * row.s * 0.55;
-    const step = r * 2.1;
+    const r = cam.scale * row.s * 0.55, step = r * 2.1;
     const off = ((cam.x * cam.scale * 0.4) % step + step) % step;
     for (let x = -step + off, i = 0; x < W + step; x += step, i++) {
       const bob = Math.abs(Math.sin(t * (4 + (i % 3)) + i)) * r * 0.5 * hype;
@@ -859,10 +1364,9 @@ function drawBackground(t) {
       ctx.fillRect(x - r * 1.1, H * row.y - bob + r * 0.6, r * 2.2, H * 0.05);
     }
   }
-  // sea
   const [, seaY] = w2s(0, -3.2);
   const sg = ctx.createLinearGradient(0, seaY, 0, H);
-  sg.addColorStop(0, night ? "#6CC3E8" : "#29C3B4"); sg.addColorStop(1, night ? "#2F8FC0" : "#138C8A");
+  sg.addColorStop(0, A.sea[0]); sg.addColorStop(1, A.sea[1]);
   ctx.fillStyle = sg;
   ctx.beginPath(); ctx.moveTo(0, H);
   for (let x = 0; x <= W + 20; x += 20) ctx.lineTo(x, seaY + Math.sin(x * 0.03 + t * 2) * 5);
@@ -873,47 +1377,66 @@ function drawBackground(t) {
   ctx.stroke();
 }
 
-function drawPlatform() {
+function poly(points, fill, lw) {
+  ctx.beginPath(); points.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath();
+  ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = lw || 4; ctx.strokeStyle = INK; ctx.stroke();
+}
+
+function drawPlatform(t) {
   const p = world.plat, s = cam.scale;
-  // stilts into the sea
-  ctx.fillStyle = "#7A4B2A"; ctx.strokeStyle = INK; ctx.lineWidth = 3;
-  for (const x of [-p.hw0 * 0.6, 0, p.hw0 * 0.6]) {
-    const [a, b] = w2s(x - 0.3, -1); const [, bb] = w2s(0, -6);
-    ctx.fillRect(a, b, 0.6 * s, bb - b); ctx.strokeRect(a, b, 0.6 * s, bb - b);
-  }
-  const c = [p.toWorld(-p.hw, 0), p.toWorld(p.hw, 0), p.toWorld(p.hw, -p.thick), p.toWorld(-p.hw, -p.thick)].map(q => w2s(q[0], q[1]));
+  const P = (lx, ly) => w2s(...p.toWorld(lx, ly));
   ctx.lineJoin = "round";
-  ctx.fillStyle = p.side; ctx.lineWidth = 4; ctx.strokeStyle = INK;
-  ctx.beginPath(); c.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); ctx.fill(); ctx.stroke();
-  // top surface strip
-  const t0 = w2s(...p.toWorld(-p.hw, 0)), t1 = w2s(...p.toWorld(p.hw, 0));
-  const t2 = w2s(...p.toWorld(p.hw, -0.28)), t3 = w2s(...p.toWorld(-p.hw, -0.28));
-  ctx.fillStyle = p.top;
-  ctx.beginPath(); ctx.moveTo(...t0); ctx.lineTo(...t1); ctx.lineTo(...t2); ctx.lineTo(...t3); ctx.closePath(); ctx.fill(); ctx.stroke();
-  // straw rope bales at the ring edge + center lines
+  // what holds the ring up
+  if (p.base === "stilts" || p.base === "rollers") {
+    ctx.fillStyle = p.base === "rollers" ? "#6B7280" : "#7A4B2A";
+    for (const x of [-p.hw0 * 0.6, 0, p.hw0 * 0.6]) {
+      const [a, b] = w2s(x - 0.3, -1); const [, bb] = w2s(0, -6);
+      ctx.fillRect(a, b, 0.6 * s, bb - b); ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.strokeRect(a, b, 0.6 * s, bb - b);
+    }
+  } else if (p.base === "pillar") {
+    const [a, b] = w2s(-1.2, -1); const [, bb] = w2s(0, -7);
+    ctx.fillStyle = "#B07A45"; ctx.fillRect(a, b, 2.4 * s, bb - b); ctx.lineWidth = 4; ctx.strokeStyle = INK; ctx.strokeRect(a, b, 2.4 * s, bb - b);
+  } else if (p.base === "pivot") {
+    const [cx, cy] = w2s(0, -1);
+    poly([[cx, cy], [cx - 1.4 * s, cy + 4 * s], [cx + 1.4 * s, cy + 4 * s]], "#6B4424");
+    ctx.fillStyle = "#FFC83D"; ctx.beginPath(); ctx.arc(cx, cy, 0.25 * s, 0, 7); ctx.fill(); ctx.stroke();
+  } else if (p.base === "boat") {
+    const hw = p.hw0 + 0.9;
+    poly([P(-hw - 0.8, 0.3), P(hw + 1.2, 0.5), P(hw * 0.75, -2.4), P(-hw * 0.8, -2.4)], "#A0522D");
+    ctx.strokeStyle = "#FFC83D"; ctx.lineWidth = 0.18 * s;
+    ctx.beginPath(); ctx.moveTo(...P(-hw - 0.4, -0.6)); ctx.lineTo(...P(hw + 0.8, -0.5)); ctx.stroke();
+    // little sail at the back
+    poly([P(-hw + 0.3, 0.2), P(-hw + 0.3, 5.5), P(-hw + 2.3, 1.2)], "#FFF4E2", 3);
+  }
+  // ring block
+  poly([P(-p.hw, 0), P(p.hw, 0), P(p.hw, -p.thick), P(-p.hw, -p.thick)], p.side);
+  poly([P(-p.hw, 0), P(p.hw, 0), P(p.hw, -0.28), P(-p.hw, -0.28)], p.top);
+  // straw bales at the edge
   for (const e of [-1, 1]) {
-    const [bx, by] = w2s(...p.toWorld(e * (p.hw - 0.35), 0.12));
-    ctx.fillStyle = "#EBC76A"; ctx.lineWidth = 3;
+    const [bx, by] = P(e * (p.hw - 0.35), 0.12);
+    ctx.fillStyle = p.kind === "windy" ? "#FFE36B" : "#EBC76A"; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.ellipse(bx, by, 0.36 * s, 0.16 * s, p.ang, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   }
   ctx.strokeStyle = p.line; ctx.lineWidth = Math.max(2, 0.08 * s);
-  for (const x of [-0.7, 0.7]) {
-    const a = w2s(...p.toWorld(x, 0.02)), b = w2s(...p.toWorld(x, -0.26));
-    ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke();
-  }
-  if (p.kind === "bouncy") {
+  for (const x of [-0.7, 0.7]) { ctx.beginPath(); ctx.moveTo(...P(x, 0.02)); ctx.lineTo(...P(x, -0.26)); ctx.stroke(); }
+  if (p.base === "inflate") {
     ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 3;
-    for (let x = -p.hw + 1; x < p.hw; x += 1.2) {
-      const a = w2s(...p.toWorld(x, -0.4)), b = w2s(...p.toWorld(x + 0.6, -0.9));
-      ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke();
-    }
+    for (let x = -p.hw + 1; x < p.hw; x += 1.2) { ctx.beginPath(); ctx.moveTo(...P(x, -0.4)); ctx.lineTo(...P(x + 0.6, -0.9)); ctx.stroke(); }
   }
   if (p.kind === "ice") {
     ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 2;
-    for (let x = -p.hw + 1.5; x < p.hw; x += 2.6) {
-      const a = w2s(...p.toWorld(x, -0.05)), b = w2s(...p.toWorld(x + 0.4, -0.5)), d = w2s(...p.toWorld(x + 0.1, -0.9));
-      ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.lineTo(...d); ctx.stroke();
+    for (let x = -p.hw + 1.5; x < p.hw; x += 2.6) { ctx.beginPath(); ctx.moveTo(...P(x, -0.05)); ctx.lineTo(...P(x + 0.4, -0.5)); ctx.lineTo(...P(x + 0.1, -0.9)); ctx.stroke(); }
+  }
+  if (p.conveyor) {
+    // chevrons scroll with the belt so you can read its direction
+    ctx.strokeStyle = "#FFC83D"; ctx.lineWidth = Math.max(2, 0.1 * s);
+    const off = ((t * p.belt) % 1.4 + 1.4) % 1.4;
+    const d = p.belt >= 0 ? 1 : -1;
+    for (let x = -p.hw + off; x < p.hw - 0.3; x += 1.4) {
+      ctx.beginPath(); ctx.moveTo(...P(x, -0.62)); ctx.lineTo(...P(x + 0.3 * d, -0.78)); ctx.lineTo(...P(x, -0.94)); ctx.stroke();
     }
+    ctx.fillStyle = "#9AA3AD"; ctx.strokeStyle = INK; ctx.lineWidth = 3;
+    for (let x = -p.hw + 0.6; x < p.hw; x += 1.3) { const [rx, ry] = P(x, -p.thick); ctx.beginPath(); ctx.arc(rx, ry, 0.28 * s, 0, 7); ctx.fill(); ctx.stroke(); }
   }
 }
 
@@ -932,7 +1455,6 @@ function strokeLimb(pts, width, color) {
   ctx.strokeStyle = INK; ctx.lineWidth = width * s + 5; path(); ctx.stroke();
   ctx.strokeStyle = color; ctx.lineWidth = width * s; path(); ctx.stroke();
 }
-
 function circle(x, y, r, fill, stroke) {
   const [sx, sy] = w2s(x, y);
   ctx.beginPath(); ctx.arc(sx, sy, r * cam.scale, 0, Math.PI * 2);
@@ -943,12 +1465,14 @@ function circle(x, y, r, fill, stroke) {
 function drawWrestler(w) {
   const L = w.look, s = cam.scale, dir = w.face;
   const back = dir > 0 ? 0 : 1, front = 1 - back;
-  // back arm + back leg
+  if (w.superT > 0) { // green power glow
+    const [gx, gy] = w2s(w.belly.x, w.belly.y);
+    ctx.fillStyle = "rgba(124,255,107,0.35)"; ctx.beginPath(); ctx.arc(gx, gy, 1.9 * s, 0, 7); ctx.fill();
+  }
   strokeLimb([w.sh[back], ...w.arms[back]], 0.34, L.skin);
   circle(w.arms[back][4].x, w.arms[back][4].y, 0.26, L.skin, true);
   strokeLimb([w.hip, w.knee[back], w.foot[back]], 0.52, L.skin);
   circle(w.foot[back].x, w.foot[back].y, 0.26, L.skin, true);
-  // belly: big ellipse along the spine
   const ang = Math.atan2(w.head.x - w.hip.x, w.head.y - w.hip.y);
   const [bx, by] = w2s(w.belly.x, w.belly.y);
   ctx.save(); ctx.translate(bx, by); ctx.rotate(ang);
@@ -957,25 +1481,22 @@ function drawWrestler(w) {
   ctx.fillStyle = "rgba(255,255,255,0.28)";
   ctx.beginPath(); ctx.ellipse(dir * 0.35 * s, -0.25 * s, 0.5 * s, 0.6 * s, 0, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(dir * 0.75 * s, 0.25 * s, 0.06 * s, 0, Math.PI * 2); ctx.fill();
-  // mawashi belt
-  ctx.fillStyle = L.belt; ctx.lineWidth = 4;
-  ctx.beginPath(); ctx.roundRect(-1.1 * s + dir * 0.12 * s, 0.55 * s, 2.24 * s, 0.5 * s, 0.14 * s); ctx.fill(); ctx.stroke();
-  ctx.beginPath(); ctx.roundRect(dir * 0.55 * s - 0.2 * s, 0.9 * s, 0.4 * s, 0.55 * s, 0.1 * s); ctx.fill(); ctx.stroke();
+  drawBelt(ctx, L.belt, -1.1 * s + dir * 0.12 * s, 0.55 * s, 2.24 * s, 0.5 * s, 0.14 * s);
+  drawBelt(ctx, L.belt, dir * 0.55 * s - 0.2 * s, 0.9 * s, 0.4 * s, 0.55 * s, 0.1 * s);
   ctx.restore();
-  // front leg
   strokeLimb([w.hip, w.knee[front], w.foot[front]], 0.52, L.skin);
   circle(w.foot[front].x, w.foot[front].y, 0.26, L.skin, true);
   // head
   const h = w.head;
   const [hx, hy] = w2s(h.x, h.y);
   ctx.save(); ctx.translate(hx, hy); ctx.rotate(ang * 0.7);
-  ctx.fillStyle = L.hair; ctx.strokeStyle = INK; ctx.lineWidth = 3.5;
-  ctx.beginPath(); ctx.ellipse(-dir * 0.15 * s, -0.52 * s, 0.2 * s, 0.14 * s, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  ctx.fillStyle = L.skin;
-  ctx.beginPath(); ctx.arc(0, 0, 0.56 * s, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  const R = 0.56 * s;
+  const hat = L.hat || "topknot";
+  if (hat === "topknot" || hat === "shades" || hat === "headband") drawHat(ctx, "topknot", R, dir, L.hair);
+  ctx.fillStyle = L.skin; ctx.strokeStyle = INK; ctx.lineWidth = 3.5;
+  ctx.beginPath(); ctx.arc(0, 0, R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
   ctx.fillStyle = L.hair;
-  ctx.beginPath(); ctx.arc(0, 0, 0.56 * s, Math.PI * 1.05, Math.PI * 1.95); ctx.closePath(); ctx.fill();
-  // face
+  ctx.beginPath(); ctx.arc(0, 0, R, Math.PI * 1.05, Math.PI * 1.95); ctx.closePath(); ctx.fill();
   const out = w.out, charging = w.charging, flying = w.flyT > 0 || w.dazed > 0;
   const ex = dir * 0.28 * s, ey = -0.02 * s;
   ctx.fillStyle = "#FFFFFF"; ctx.strokeStyle = INK; ctx.lineWidth = 2.5;
@@ -991,7 +1512,7 @@ function drawWrestler(w) {
       ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(ex + o * s + dir * 0.04 * s, ey, 0.045 * s, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = "#FFFFFF";
     }
-    if (charging) { // angry brows
+    if (charging) {
       ctx.lineWidth = 3.5; ctx.beginPath();
       ctx.moveTo(ex - 0.26 * s, ey - 0.2 * s); ctx.lineTo(ex - 0.02 * s, ey - 0.13 * s);
       ctx.moveTo(ex + 0.3 * s, ey - 0.2 * s); ctx.lineTo(ex + 0.06 * s, ey - 0.13 * s); ctx.stroke();
@@ -1003,17 +1524,18 @@ function drawWrestler(w) {
   if (out || flying) { ctx.fillStyle = "#7A2020"; ctx.ellipse(mx, my, 0.09 * s, 0.12 * s, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
   else if (charging) { ctx.moveTo(mx - 0.13 * s, my); ctx.lineTo(mx + 0.13 * s, my); ctx.stroke(); }
   else { ctx.arc(mx, my - 0.08 * s, 0.12 * s, 0.2, Math.PI - 0.2); ctx.stroke(); }
+  if (hat !== "topknot") drawHat(ctx, hat, R, dir, L.hair);
   ctx.restore();
-  // charge meter over the head
+  // wind-up meter: yellow while building, GREEN = perfect release window, red = held too long
   if (charging) {
-    const k = Math.min(1, w.charge / 0.85);
-    const [cx, cy] = w2s(h.x, h.y + 1.1);
-    ctx.lineWidth = 6; ctx.strokeStyle = "rgba(43,27,23,0.35)";
-    ctx.beginPath(); ctx.arc(cx, cy, 0.32 * s, 0, Math.PI * 2); ctx.stroke();
-    ctx.strokeStyle = k >= 1 ? "#FF3B3B" : "#FFE36B";
-    ctx.beginPath(); ctx.arc(cx, cy, 0.32 * s, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); ctx.stroke();
+    const k = Math.min(1, w.charge / FULL), st = w.meterState();
+    const [cx, cy] = w2s(h.x, h.y + 1.25);
+    const rr = (st === 1 ? 0.42 : 0.34) * s;
+    ctx.lineWidth = st === 1 ? 9 : 6; ctx.strokeStyle = "rgba(43,27,23,0.35)";
+    ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = st === 1 ? "#7CFF6B" : st === 2 ? "#FF3B3B" : "#FFE36B";
+    ctx.beginPath(); ctx.arc(cx, cy, rr, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); ctx.stroke();
   }
-  // front arm on top
   strokeLimb([w.sh[front], ...w.arms[front]], 0.34, L.skin);
   circle(w.arms[front][4].x, w.arms[front][4].y, 0.26, L.skin, true);
 }
@@ -1038,41 +1560,66 @@ function drawFx() {
   ctx.globalAlpha = 1;
 }
 
-function drawBanner(text, color) {
+function drawWind(t) {
+  const wd = world.wind;
+  if (wd.warn > 0 && Math.floor(t * 6) % 2 === 0) drawBanner(wd.dir > 0 ? "GUST  >>>" : "<<<  GUST", "#BFE8FF", 0.2, 0.6);
+  const k = Math.abs(wd.acc) / 26;
+  if (k < 0.05) return;
+  ctx.strokeStyle = "rgba(255,255,255," + (0.5 * k) + ")"; ctx.lineWidth = 3;
+  for (let i = 0; i < 18; i++) {
+    const y = ((i * 71) % 100) / 100 * H * 0.8;
+    const len = 60 + (i * 13) % 60;
+    const x = ((t * 900 * Math.sign(wd.acc) + i * 211) % (W + 200) + W + 200) % (W + 200) - 100;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - Math.sign(wd.acc) * len, y); ctx.stroke();
+  }
+}
+
+function drawBanner(text, color, yFrac, sizeK) {
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  const size = Math.round(Math.min(W * 0.14, 110));
+  const size = Math.round(Math.min(W * 0.14, 110) * (sizeK || 1));
   ctx.font = size + "px 'Lilita One', 'Arial Black', sans-serif";
-  ctx.lineWidth = 10; ctx.strokeStyle = INK; ctx.strokeText(text, W / 2, H * 0.3);
-  ctx.fillStyle = color; ctx.fillText(text, W / 2, H * 0.3);
+  ctx.lineWidth = 10; ctx.strokeStyle = INK; ctx.strokeText(text, W / 2, H * (yFrac || 0.3));
+  ctx.fillStyle = color; ctx.fillText(text, W / 2, H * (yFrac || 0.3));
+}
+
+function drawTutorial() {
+  if (!game.tutorial || game.state !== "fight") return;
+  const me = world.w[0];
+  let text = null, color = "#FFF4E2";
+  if (!me.charging) text = matchMedia("(pointer: coarse)").matches ? "HOLD THE SCREEN..." : "HOLD SPACE...";
+  else if (me.meterState() === 0) text = "KEEP HOLDING...";
+  else if (me.meterState() === 1) { text = "RELEASE NOW!"; color = "#7CFF6B"; }
+  else { text = "TOO LATE, LET GO!"; color = "#FF7A59"; }
+  drawBanner(text, color, 0.2, 0.55);
 }
 
 // ============================================================ main loop
 let last = performance.now(), acc = 0;
 function frame(now) {
   let dt = Math.min(0.05, (now - last) / 1000); last = now;
+  if (game.paused) { requestAnimationFrame(frame); return; }
   world.time += dt;
   game.t += dt;
 
-  // flow
   if (game.state === "countdown") {
     if (game.t < 0.05) Sfx.drum();
     if (game.t > 1.1 && game.t - dt <= 1.1) Sfx.drum();
     if (game.t > 1.5) {
       game.state = "fight"; game.t = 0; Sfx.drum();
-      // a player already holding the button starts winding up right away
       for (let i = 0; i < 2; i++) if (input.held[i]) world.w[i].press();
     }
   }
-  const active = game.state === "fight";
   world.slow = lerp(world.slow, game.state === "point" && game.t < 1 ? 0.3 : 1, 1 - Math.exp(-dt * 6));
 
   if (game.state !== "end") {
     acc += dt * world.slow;
     let steps = 0;
     while (acc >= DT && steps < 12) {
-      if (active) for (const b of game.brains) if (b) b.update(DT);
-      physicsStep(active);
-      if (active) { const res = checkPoint(); if (res) scorePoint(res); }
+      // re-check every substep: once a point is scored this frame, nobody can score again
+      const live = game.state === "fight";
+      if (live) for (const b of game.brains) if (b) b.update(DT);
+      physicsStep(live);
+      if (live) { const res = checkPoint(); if (res) scorePoint(res); }
       acc -= DT; steps++;
     }
     if (game.state === "point") {
@@ -1088,32 +1635,33 @@ function frame(now) {
   updateCamera(dt);
   world.shake = Math.max(0, world.shake - dt * 1.5);
 
-  // draw
   ctx.save();
   if (world.shake > 0) ctx.translate(rand(-1, 1) * world.shake * 14, rand(-1, 1) * world.shake * 14);
   drawBackground(world.time);
-  drawPlatform();
+  drawPlatform(world.time);
   for (const w of world.w) drawWrestler(w);
   drawFx();
   ctx.restore();
+  if (game.mode !== "attract") drawWind(world.time);
   if (game.state === "countdown") drawBanner(game.t < 1.1 ? "READY..." : "HAKKEYOI!", game.t < 1.1 ? "#FFF4E2" : "#FFE36B");
   if (game.state === "fight" && game.t < 0.6 && game.mode !== "attract") drawBanner("HAKKEYOI!", "#FFE36B");
   if (game.state === "fight" && world.roundT > 10 && world.roundT < 12.5 && game.mode !== "attract" && Math.floor(world.roundT * 4) % 2 === 0)
     drawBanner("RING SHRINKING!", "#FF7A59");
-
+  drawTutorial();
   requestAnimationFrame(frame);
 }
 
 // ============================================================ test hook (headless tuning: bot vs bot)
-window.__sumoSim = function (seconds, levels) {
+window.__sumoSim = function (seconds, cfg) {
   const results = [];
-  const saved = { mode: game.mode };
+  const saved = game.mode;
   game.mode = "sim";
   let t = 0, pointT = 0, nan = false;
-  world.plat = new Platform(levels.arena || "classic");
-  world.plat.reset();
-  spawnWrestlers([RIVALS[0], RIVALS[1]]);
-  const brains = [new Brain(world.w[0], levels.a), new Brain(world.w[1], levels.b)];
+  const looks = [RIVALS[0], RIVALS[1]];
+  const reset = () => { world.plat.reset(); spawnWrestlers(looks); brains[0] = new Brain(world.w[0], cfg.a); brains[1] = new Brain(world.w[1], cfg.b); pointT = 0; };
+  world.plat = new Platform(cfg.arena || "classic");
+  const brains = [];
+  reset();
   while (t < seconds) {
     for (const b of brains) b.update(DT);
     physicsStep(true);
@@ -1121,21 +1669,24 @@ window.__sumoSim = function (seconds, levels) {
     for (const w of world.w) for (const p of w.ps) if (!isFinite(p.x) || !isFinite(p.y)) nan = true;
     if (nan) break;
     const res = checkPoint();
-    if (res) {
-      results.push({ loser: res.loser, why: res.why, t: +pointT.toFixed(2) });
-      pointT = 0;
-      world.plat.reset();
-      spawnWrestlers([RIVALS[0], RIVALS[1]]);
-      brains[0] = new Brain(world.w[0], levels.a); brains[1] = new Brain(world.w[1], levels.b);
-    }
-    if (pointT > 40) { results.push({ loser: -1, why: "TIMEOUT", t: 40 }); pointT = 0; world.plat.reset(); spawnWrestlers([RIVALS[0], RIVALS[1]]); brains[0] = new Brain(world.w[0], levels.a); brains[1] = new Brain(world.w[1], levels.b); }
+    if (res) { results.push({ loser: res.loser, why: res.why, t: +pointT.toFixed(2) }); reset(); }
+    else if (pointT > 40) { results.push({ loser: -1, why: "TIMEOUT", t: 40 }); reset(); }
   }
-  game.mode = saved.mode;
+  game.mode = saved;
   showMenu();
   return { nan, results };
 };
 
-showMenu();
-requestAnimationFrame(frame);
+window.__sumoDebug = { play1P, play2P, playCup, openShop };
+
+// ============================================================ boot
+CG.init().then(() => {
+  loadSave();
+  Sfx.setMuted(save.muted);
+  renderSound();
+  showMenu();
+  CG.loadingStop();
+  requestAnimationFrame(frame);
+});
 })();
 </script>
