@@ -81,7 +81,7 @@
   .unlock { font: 800 clamp(16px, 3.6vw, 22px)/1.2 "Baloo 2", sans-serif; color: var(--ink); background: var(--gold); border: 3px solid var(--ink); border-radius: 14px; padding: 6px 14px; }
   #soundBtn { position: fixed; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); pointer-events: auto; }
   #voiceBtn { position: fixed; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 72px); pointer-events: auto; }
-  .modal { position: fixed; inset: 0; background: rgba(20, 12, 10, .55); display: flex; align-items: center; justify-content: center; padding-inline: 16px; padding-block: 16px; }
+  .modal { z-index: 5; position: fixed; inset: 0; background: rgba(20, 12, 10, .55); display: flex; align-items: center; justify-content: center; padding-inline: 16px; padding-block: 16px; }
   .sheet { width: min(760px, 100%); max-height: 100%; overflow: auto; background: var(--cream); color: var(--ink); border: 4px solid var(--ink); border-radius: 22px; box-shadow: 0 8px 0 var(--ink);
     padding: 16px; display: flex; flex-direction: column; gap: 12px; }
   .sheet h2 { font-family: "Lilita One", "Arial Black", sans-serif; font-size: clamp(28px, 6vw, 40px); margin: 0; text-align: center; }
@@ -124,6 +124,14 @@
   .lv.boss { background: #FFE3E3; }
   .lv.current { background: #FFE9A8; box-shadow: 0 0 0 4px var(--gold); }
   .lv.locked { opacity: .5; cursor: default; }
+  .menu-top { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .net-status { margin: 0; text-align: center; font: 800 18px/1.3 "Baloo 2", sans-serif; }
+  .join { display: flex; gap: 8px; align-items: center; }
+  .join input { width: 7.5ch; font: 800 22px "Baloo 2", sans-serif; text-transform: uppercase; letter-spacing: .12em; text-align: center; padding: 6px 8px;
+    border: 4px solid var(--ink); border-radius: 14px; background: #fff; color: var(--ink); user-select: text; -webkit-user-select: text; }
+  .invite { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px; border: 3px dashed var(--ink); border-radius: 16px; }
+  .invite b { font-family: "Lilita One", "Arial Black", sans-serif; font-size: 44px; letter-spacing: .14em; line-height: 1; }
+  .invite .link { font: 600 13px "Baloo 2", sans-serif; color: #6B5049; word-break: break-all; user-select: text; -webkit-user-select: text; text-align: center; margin: 0; }
   .soon { text-align: center; padding: 18px; border: 3px dashed var(--ink); border-radius: 16px; font: 800 18px/1.4 "Baloo 2", sans-serif; }
 </style>
 
@@ -140,7 +148,10 @@
 <div class="layer top" id="menu">
   <h1 class="logo">SUMO<span>NOODLES</span></h1>
   <p class="tag">One button. Wobbly arms. Push them out!</p>
-  <button class="btn big" id="bAdv" type="button">ADVENTURE<small id="advSub">Level 1: First Push</small></button>
+  <div class="menu-top">
+    <button class="btn big" id="bAdv" type="button">ADVENTURE<small id="advSub">Level 1: First Push</small></button>
+    <button class="btn big green" id="bOnline" type="button">ONLINE<small id="onlineSub">fight real players</small></button>
+  </div>
   <div class="row">
     <button class="btn teal" id="bSurv" type="button">SURVIVAL<small id="survSub">how many in a row?</small></button>
     <button class="btn purple" id="bCup" type="button">DAILY CUP<small id="cupSub">3 bouts, big prize</small></button>
@@ -209,6 +220,36 @@
     </div>
     <div class="grid" id="shopGrid"></div>
     <p class="muted" id="shopNote">Finish Adventure levels to unlock fighters. Each one has a special power.</p>
+  </div>
+</div>
+
+<div class="modal" id="online" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="onlineTitle">
+    <div class="sheet-head">
+      <span style="width:84px"></span>
+      <h2 id="onlineTitle">ONLINE</h2>
+      <button class="btn ghost" id="onlineClose" type="button">CLOSE</button>
+    </div>
+    <p class="net-status" id="netStatus" aria-live="polite">Connecting to the arena…</p>
+    <div class="row">
+      <button class="btn green big" id="bQuick" type="button">QUICK MATCH<small>fight a random player</small></button>
+      <button class="btn ghost" id="netRetry" type="button" hidden>TRY AGAIN</button>
+    </div>
+    <div class="invite" id="netInvite" hidden>
+      <span class="muted">Your room code</span>
+      <b id="roomCode">-----</b>
+      <p class="link" id="inviteLink"></p>
+      <button class="btn blue" id="bCopy" type="button">COPY INVITE LINK</button>
+    </div>
+    <div class="row">
+      <button class="btn blue" id="bInvite" type="button">INVITE A FRIEND<small>private room</small></button>
+      <div class="join">
+        <input id="joinCode" maxlength="5" placeholder="CODE" autocomplete="off" spellcheck="false" aria-label="Room code">
+        <button class="btn purple" id="bJoin" type="button">JOIN</button>
+      </div>
+    </div>
+    <div class="row"><button class="btn teal" id="bCpu" type="button" hidden>PLAY VS CPU<small>nobody around right now</small></button></div>
+    <p class="muted">You are <b id="netName">…</b> · first to 3 wins</p>
   </div>
 </div>
 
@@ -1355,9 +1396,10 @@ function startRound() {
   if (game.mode === "attract") {
     const mid = { react: 0.45, noise: 0.6, counter: 0.2, range: 4.8, sup: 0.3 };
     game.brains = [new Brain(ws[0], mid), new Brain(ws[1], mid)];
-  } else if (game.mode !== "2p") {
+  } else if (game.mode !== "2p" && game.mode !== "online") {
     def.enemies.forEach((spec, i) => game.brains.push(new Brain(ws[i + 1], brainCfg(spec))));
   }
+  if (game.mode === "online") NET.round++;
   if (def.bananas) for (const lx of def.bananas) world.items.push({ type: "banana", lx, y: 0.45, vy: 0, landed: true, t: 0 });
   if (def.goal.type === "collect") { spawnPickup(); spawnPickup(); }
   game.state = game.mode === "attract" ? "fight" : "countdown";
@@ -1476,6 +1518,7 @@ function finish(won, why) {
   if (game.mode === "adv") levelResult(won, why);
   else if (game.mode === "surv") survivalResult(won);
   else if (game.mode === "cup") cupResult(won);
+  else if (game.mode === "online") { if (NET.role === "host") netRelay({ k: "end", sc: game.score, hw: won }); onlineResult(won); }
   else twoPlayerResult(won);
 }
 function starsFor(def, L) {
@@ -1524,6 +1567,7 @@ function canControl(i) { return game.mode === "2p" || (i === 0 && game.mode !== 
 function down(i, dir) {
   if (!canControl(i) || input.held[i]) return;
   input.held[i] = true; input.dirs[i] = dir;
+  if (game.mode === "online" && NET.role === "guest") { netRelay({ k: "in", a: "d", dir }); return; }
   if (game.state === "fight") pressFor(i, dir);
 }
 function pressFor(i, dir) {
@@ -1535,6 +1579,7 @@ function pressFor(i, dir) {
 function up(i) {
   if (!input.held[i]) return;
   input.held[i] = false;
+  if (game.mode === "online" && NET.role === "guest") { netRelay({ k: "in", a: "u" }); return; }
   if (world.w[i]) world.w[i].release();
 }
 const KEYMAP_1P = { KeyA: -1, ArrowLeft: -1, KeyD: 1, ArrowRight: 1, KeyW: 0, ArrowUp: 0, Space: 0, KeyS: 0, ArrowDown: 0, Enter: 0 };
@@ -1543,7 +1588,7 @@ function keyInfo(code) {
   if (game.mode === "2p") return KEYMAP_2P[code] || null;
   return code in KEYMAP_1P ? [0, KEYMAP_1P[code]] : null;
 }
-function modalOpen() { return !$("shop").hidden || !$("gift").hidden || !$("map").hidden || !$("intro").hidden; }
+function modalOpen() { return !$("online").hidden || !$("shop").hidden || !$("gift").hidden || !$("map").hidden || !$("intro").hidden; }
 window.addEventListener("keydown", e => {
   Sfx.init();
   if (e.repeat || modalOpen()) return;
@@ -1571,7 +1616,11 @@ function pointerEnd(e) {
 cv.addEventListener("pointerup", pointerEnd);
 cv.addEventListener("pointercancel", pointerEnd);
 cv.addEventListener("contextmenu", e => e.preventDefault());
-document.addEventListener("visibilitychange", () => { game.paused = document.hidden; Sfx.pause(document.hidden); if (document.hidden) { up(0); up(1); } });
+document.addEventListener("visibilitychange", () => {
+  game.paused = document.hidden && game.mode !== "online";   // an online match can't wait for one player
+  Sfx.pause(document.hidden);
+  if (document.hidden) { up(0); if (game.mode !== "online") up(1); }
+});
 
 // ============================================================ UI
 const ui = { menu: $("menu"), end: $("end"), hud: $("hud"), coins: $("coinPill"), intro: $("intro") };
@@ -1590,6 +1639,13 @@ function updateHud() {
   const def = game.def;
   if (!def || game.mode === "attract") return;
   const me = world.w[0];
+  if (game.mode === "online") {
+    $("n1").textContent = NET.me === 0 ? "YOU" : NET.oppName; $("n2").textContent = NET.me === 1 ? "YOU" : NET.oppName;
+    const c = world.w[1] ? BELT_BASE[world.w[1].look.belt] || "#2F6FDE" : "#2F6FDE";
+    $("n2").style.background = c; $("n2").style.color = c === "#F4F4F4" || c === "#FFC83D" ? INK : "#fff";
+    for (let i = 0; i < 2; i++) $("pips" + (i + 1)).innerHTML = Array.from({ length: game.target }, (_, k) => `<span class="pip ${k < game.score[i] ? "on" : ""}"></span>`).join("");
+    hudNote(); return;
+  }
   $("n1").textContent = game.mode === "2p" ? "PLAYER 1" : "YOU";
   const foes = def.enemies || [];
   $("n2").textContent = game.mode === "2p" ? "PLAYER 2" : foes.length > 1 ? foes.length + " RIVALS" : (foes[0] ? enemyLook(foes[0]).name : "");
@@ -1606,6 +1662,7 @@ function hudNote() {
   if (game.mode === "adv") note = "Level " + (game.level + 1) + " · " + def.name;
   else if (game.mode === "surv") note = "Survival · streak " + game.surv + " · best " + save.survBest;
   else if (game.mode === "cup") note = "Daily Cup · Bout " + (game.cup.stage + 1) + "/3";
+  else if (game.mode === "online") note = "Online · " + ARENAS[def.arena].name + " · first to " + game.target;
   else note = ARENAS[def.arena].name + " · first to " + game.target;
   if (def.goal.type === "survive") note += " · " + Math.max(0, Math.ceil(def.goal.time - L.time)) + "s left";
   if (def.goal.type === "collect") note += " · " + L.collected + "/" + def.goal.count + " · " + Math.max(0, Math.ceil(def.goal.time - L.time)) + "s";
@@ -1628,11 +1685,11 @@ function showMenu() {
   hideLayers();
   ui.menu.hidden = false; ui.hud.hidden = true;
   ui.coins.hidden = false; ui.coins.classList.remove("low"); soundBtn.hidden = false; voiceBtn.hidden = false;
-  renderMenu();
+  renderMenu(); netFetchStats();
   if (save.giftDay !== today()) openGift();
 }
 function enterPlay() {
-  hideLayers();
+  hideLayers(); $("endStars").hidden = false;
   ui.hud.hidden = false; ui.coins.hidden = true; soundBtn.hidden = true; voiceBtn.hidden = true;
   CG.gameplayStart();
 }
@@ -1833,6 +1890,335 @@ function twoPlayerResult(won) {
   awardCoins(Math.round(8 + game.score[0] * 3));
 }
 
+// ============================================================ online multiplayer
+// A small relay server (sumo-noodles/server, runs on fly.io) pairs two players. The host's browser runs the
+// physics and streams ~30 snapshots a second; the guest sends its button presses and draws what it receives.
+const NET_URL = window.SUMO_SERVER || "wss://sumo-noodles.fly.dev";
+const NET_PROTOCOL = 1;
+const NET_ARENAS = ["classic", "snow", "seesaw", "boat", "bouncy", "windy", "conveyor", "tiny", "ice"];
+const NET_TWISTS = TWISTS.filter(t => !t.balls);
+const NAME_A = ["SALTY", "CHUBBY", "WOBBLY", "MIGHTY", "SNEAKY", "JOLLY", "SPICY", "BOUNCY", "SLEEPY", "FUZZY"];
+const NAME_B = ["DUMPLING", "BAO", "TOFU", "MOCHI", "UDON", "RAMEN", "NOODLE", "GYOZA", "SUSHI", "WASABI"];
+const NET = {
+  ws: null, status: "off", role: null, me: 0, code: null, oppName: "PLAYER", oppLook: null, online: 0,
+  round: 0, snaps: [], gT: 0, lastSnapAt: 0, sendAcc: 0, outEv: [], rematch: [false, false],
+  waitStart: 0, autoQuick: false, autoInvite: false, pendingJoin: null, startTimer: null
+};
+function netName() {
+  if (!save.netName) { save.netName = pick(NAME_A) + " " + pick(NAME_B); persist(); }
+  return save.netName;
+}
+const r2 = v => Math.round(v * 100) / 100;
+function netSend(m) { if (NET.ws && NET.ws.readyState === 1) NET.ws.send(JSON.stringify(m)); }
+function netRelay(d) { netSend({ t: "r", d }); }   // the server forwards {"t":"r",...} untouched
+function netLookFrom(o, name) {
+  const f = Number.isInteger(o.f) && o.f >= 0 && o.f < RIVALS.length ? RIVALS[o.f] : ROOKIE;
+  const belt = BELTS.some(b => b.id === o.belt) ? o.belt : "blue", hat = HATS.some(h => h.id === o.hat) ? o.hat : "topknot";
+  return { name, skin: f.skin, hair: f.hair, t: f.t, belt, hat };
+}
+const myLookMsg = () => ({ k: "look", f: save.fighter, belt: save.belt, hat: save.hat });
+
+// the host records what it plays and shows, so the guest sees and hears the same match
+function netRec(kind, args) {
+  if (NET.role === "host" && game.mode === "online") NET.outEv.push([kind].concat(args.map(a => typeof a === "number" ? r2(a) : a)));
+}
+for (const name of ["boing", "slap", "superSlap", "whoosh", "ding", "thud", "drum", "cheer", "slip", "grow", "salt", "stomp", "warn", "wind", "power"]) {
+  const f = Sfx[name]; Sfx[name] = (...a) => { netRec("s", [name].concat(a)); return f(...a); };
+}
+{ const f = Voice.say; Voice.say = (...a) => { netRec("v", a); return f(...a); }; }
+{ const f = pop; pop = (...a) => { netRec("p", a); return f(...a); }; }
+{ const f = burst; burst = (...a) => { netRec("b", a); return f(...a); }; }
+
+// ---- connection + lobby
+function netConnect() {
+  if (NET.ws && NET.ws.readyState <= 1) return;
+  netSetStatus("connecting");
+  let ws;
+  try { ws = new WebSocket(NET_URL); } catch (e) { netSetStatus("error"); return; }
+  NET.ws = ws;
+  const timer = setTimeout(() => { if (ws.readyState !== 1) { try { ws.close(); } catch (e) {} } }, 8000);
+  ws.onopen = () => { clearTimeout(timer); netSend({ t: "hello", v: NET_PROTOCOL, name: netName() }); };
+  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch (er) { return; } netOnMessage(m); };
+  ws.onerror = () => {};
+  ws.onclose = () => {
+    clearTimeout(timer);
+    if (NET.ws !== ws) return;
+    NET.ws = null;
+    if (NET.role) netOpponentGone("Connection lost.");
+    else if (!$("online").hidden) netSetStatus("error");
+    else NET.status = "off";
+  };
+}
+function netOnMessage(m) {
+  switch (m.t) {
+    case "hi":
+      NET.online = m.online || 0; netSetStatus("lobby");
+      if (NET.pendingJoin) { const c = NET.pendingJoin; NET.pendingJoin = null; netJoin(c); }
+      else if (NET.autoInvite) { NET.autoInvite = false; netInvite(); }
+      else if (NET.autoQuick) { NET.autoQuick = false; netQuick(); }
+      break;
+    case "waiting": NET.waitStart = performance.now(); netSetStatus("waiting"); break;
+    case "room": NET.code = m.code; netShowInvite(m.code); netSetStatus("room"); break;
+    case "matched":
+      NET.role = m.role; NET.me = m.role === "host" ? 0 : 1; NET.code = m.code; NET.oppName = m.name || "PLAYER"; NET.oppLook = null;
+      NET.rematch = [false, false];
+      CG.call(s => s.game.hideInviteButton());
+      netSetStatus("matched"); Sfx.ding();
+      netRelay(myLookMsg());
+      if (m.role === "host") NET.startTimer = setTimeout(netHostStart, 2500);   // start anyway if their look never arrives
+      break;
+    case "error":
+      if (m.code === "noroom") netSetStatus("lobby", m.msg); else netSetStatus("error", m.msg);
+      break;
+    case "left": netOpponentGone("Your opponent left."); break;
+    case "r": netOnRelay(m.d); break;
+  }
+}
+function netOnRelay(d) {
+  if (!d || !NET.role) return;
+  if (d.k === "look") {
+    NET.oppLook = netLookFrom(d, NET.oppName);
+    if (NET.role === "host" && NET.startTimer) netHostStart();
+  } else if (d.k === "start" && NET.role === "guest") netGuestStart(d);
+  else if (d.k === "s" && NET.role === "guest") { NET.lastSnapAt = performance.now(); NET.snaps.push(d); if (NET.snaps.length > 60) NET.snaps.shift(); }
+  else if (d.k === "in" && NET.role === "host" && game.mode === "online") {
+    if (d.a === "d") {
+      if (input.held[1]) return;
+      input.held[1] = true; input.dirs[1] = d.dir > 0 ? 1 : d.dir < 0 ? -1 : 0;
+      if (game.state === "fight") pressFor(1, input.dirs[1]);
+    } else if (input.held[1]) { input.held[1] = false; if (world.w[1]) world.w[1].release(); }
+  } else if (d.k === "end" && NET.role === "guest" && game.mode === "online" && game.state !== "end") {
+    game.score = d.sc; updateHud(); game.state = "end";
+    for (const w of world.w) w.charging = false;
+    onlineResult(!d.hw);
+  } else if (d.k === "rematch") {
+    NET.rematch[1 - NET.me] = true;
+    if (game.state === "end" && !NET.rematch[NET.me]) $("endSub").textContent = titleCase(NET.oppName) + " wants a rematch!";
+    netMaybeRematch();
+  }
+}
+function netSetStatus(st, msg) {
+  NET.status = st;
+  const busy = st === "connecting" || st === "matched" || st === "error";
+  $("bQuick").disabled = busy || st === "room";
+  $("bQuick").firstChild.textContent = st === "waiting" ? "CANCEL SEARCH" : "QUICK MATCH";
+  $("bInvite").disabled = busy || st === "waiting" || st === "room";
+  $("bJoin").disabled = busy || st === "waiting";
+  $("netRetry").hidden = st !== "error";
+  if (st !== "room") $("netInvite").hidden = true;
+  if (st !== "waiting") $("bCpu").hidden = true;
+  $("netStatus").textContent = msg || {
+    off: "", connecting: "Connecting to the arena…",
+    lobby: NET.online > 1 ? NET.online + " players online right now" : "Fight a real player!",
+    waiting: "Looking for an opponent…", room: "Waiting for your friend to join…",
+    matched: "Opponent found: " + titleCase(NET.oppName) + "!", error: "Can't reach the online arena right now."
+  }[st];
+}
+function openOnline(autoQuick) {
+  Sfx.init(); Sfx.click();
+  $("online").hidden = false; $("netName").textContent = titleCase(netName());
+  NET.autoQuick = !!autoQuick;
+  if (NET.ws && NET.ws.readyState === 1) { netSetStatus("lobby"); if (autoQuick) { NET.autoQuick = false; netQuick(); } }
+  else netConnect();
+}
+function closeOnline() {
+  Sfx.click();
+  if (NET.status === "waiting" || NET.status === "room") { netSend({ t: "leave" }); CG.call(s => s.game.hideInviteButton()); }
+  if (!NET.role) NET.status = "off";
+  $("online").hidden = true;
+}
+function netQuick() {
+  if (NET.status === "waiting") { netSend({ t: "leave" }); netSetStatus("lobby"); return; }
+  netSend({ t: "quick", name: netName() }); NET.waitStart = performance.now(); netSetStatus("waiting");
+}
+function netInvite() { netSend({ t: "create", name: netName() }); }
+function netJoin(code) {
+  code = String(code || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (code.length !== 5) { netSetStatus("lobby", "Room codes have 5 letters."); return; }
+  netSend({ t: "join", code, name: netName() }); $("netStatus").textContent = "Joining room " + code + "…";
+}
+function netInviteLink(code) {
+  let link = null;
+  try { if (CG.sdk) link = CG.sdk.game.inviteLink({ roomId: code }); } catch (e) {}
+  if (!link) { const u = new URL(location.href); u.search = "?room=" + code; u.hash = ""; link = u.toString(); }
+  return link;
+}
+function netShowInvite(code) {
+  $("netInvite").hidden = false; $("roomCode").textContent = code;
+  $("inviteLink").textContent = netInviteLink(code);
+  CG.call(s => s.game.showInviteButton({ roomId: code }));
+}
+function netLeaveRoom() {
+  netSend({ t: "leave" });
+  NET.role = null; NET.snaps = []; input.held = [false, false];
+}
+function netOpponentGone(msg) {
+  const inMatch = game.mode === "online" && NET.role;
+  const wasPlaying = inMatch && game.state !== "end";
+  if (NET.startTimer) { clearTimeout(NET.startTimer); NET.startTimer = null; }
+  if (wasPlaying) {
+    game.state = "end";
+    for (const w of world.w) w.charging = false;
+    onlineResult(true, msg + " You win!");
+  }
+  NET.role = null;
+  if (inMatch && !wasPlaying) { $("bAgain").disabled = true; $("bAgain").textContent = "THEY LEFT"; $("endSub").textContent = msg; }
+  if (!$("online").hidden) netSetStatus(NET.ws ? "lobby" : "error", msg);
+}
+setInterval(() => {
+  if ($("online").hidden || NET.status !== "waiting") return;
+  const s = Math.floor((performance.now() - NET.waitStart) / 1000);
+  $("netStatus").textContent = "Looking for an opponent… " + Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  if (s >= 12) $("bCpu").hidden = false;
+}, 500);
+function netFetchStats() {
+  fetch(NET_URL.replace(/^ws/, "http") + "/stats").then(r => r.json()).then(j => {
+    NET.online = j.online || 0;
+    $("onlineSub").textContent = j.online > 0 ? j.online + " online now" : "fight real players";
+  }).catch(() => {});
+}
+
+// ---- matches
+function netHostStart() {
+  if (NET.startTimer) { clearTimeout(NET.startTimer); NET.startTimer = null; }
+  if (NET.role !== "host") return;
+  const tw = Math.random() < 0.55 ? pick(NET_TWISTS) : {};
+  const def = Object.assign({
+    arena: pick(NET_ARENAS), goal: { type: "ko", points: 3 }, par: 99, star: { type: "time", value: 0 },
+    player: netLookFrom({ f: save.fighter, belt: save.belt, hat: save.hat }, netName()),
+    enemies: [{ r: 0, lookFull: NET.oppLook || netLookFrom({}, NET.oppName) }]
+  }, tw);
+  if (def.gaps) { def.px = -3.4; def.enemies[0].x = 3.4; }
+  if (def.enemies[0].lookFull.belt === def.player.belt) def.enemies[0].lookFull = Object.assign({}, def.enemies[0].lookFull, { belt: def.player.belt === "blue" ? "gold" : "blue" });   // tell them apart
+  NET.round = 0; NET.outEv = []; NET.rematch = [false, false]; NET.sendAcc = 1;
+  $("online").hidden = true;
+  runDef(def, "online"); enterPlay();
+  netRelay({ k: "start", def });
+}
+function netGuestStart(d) {
+  NET.snaps = []; NET.gT = 0; NET.round = 0; NET.lastSnapAt = performance.now(); NET.rematch = [false, false];
+  $("online").hidden = true;
+  runDef(d.def, "online"); enterPlay();
+}
+function netSnapshot() {
+  const P = world.plat, wd = world.wind;
+  return {
+    k: "s", t: r2(world.time), rd: NET.round, st: game.state, gt: r2(game.t), sc: game.score,
+    pl: [r2(P.ang * 100) / 100, r2(P.ox), r2(P.oy), r2(P.hw), r2(P.belt), r2(P.t)],
+    w: world.w.map(w => [w.ps.flatMap(p => [r2(p.x), r2(p.y)]), w.face, w.charging ? 1 : 0, r2(w.charge), r2(w.fullT), r2(w.superT), w.chili,
+      r2(w.fishT), r2(w.sc), r2(w.dazed), w.out ? 1 : 0, w.cheer ? 1 : 0, r2(w.flyT), r2(w.jig)]),
+    it: world.items.map(i => [i.type, r2(i.x), r2(i.y), r2(i.lx), i.landed ? 1 : 0]),
+    cam: [r2(world.shake), r2(world.flash), r2(world.punch), r2(world.slow)],
+    wd: [r2(wd.acc), r2(wd.warn), wd.dir],
+    ev: NET.outEv.splice(0)
+  };
+}
+function netHostTick(dt) {
+  if (!NET.ws || NET.role !== "host") return;
+  NET.sendAcc += dt;
+  if (NET.sendAcc < 1 / 30) return;
+  NET.sendAcc = 0;
+  netRelay(netSnapshot());
+}
+function netApplyEvents(s) {
+  for (const e of s.ev) {
+    const kind = e[0], a = e.slice(1);
+    try {
+      if (kind === "s") { if (Sfx[a[0]]) Sfx[a[0]](...a.slice(1)); }
+      else if (kind === "v") Voice.say(...a);
+      else if (kind === "p") pop(...a);
+      else if (kind === "b") burst(...a);
+    } catch (er) {}
+  }
+}
+function netGuestFrame(dt) {
+  const S = NET.snaps;
+  if (game.state !== "end" && performance.now() - NET.lastSnapAt > 8000) { netOpponentGone("Connection lost."); return; }
+  if (!S.length) return;
+  // play back ~100 ms behind the newest snapshot so there is always one ahead to blend toward
+  const target = S[S.length - 1].t - 0.1;
+  if (!NET.gT || Math.abs(NET.gT - target) > 0.6) NET.gT = target;
+  else NET.gT += dt + (target - NET.gT) * 0.08;
+  for (const s of S) {
+    if (s.done || s.t > NET.gT) continue;
+    s.done = true;
+    if (s.rd !== NET.round) { startRound(); NET.round = s.rd; }
+    netApplyEvents(s);
+  }
+  let b = S.findIndex(s => s.t > NET.gT); if (b < 0) b = S.length - 1;
+  const a = Math.max(0, b - 1), A = S[a], B = S[b];
+  let k = B.t > A.t ? clamp((NET.gT - A.t) / (B.t - A.t), 0, 1) : 1;
+  const cur = A.rd === NET.round ? A : B;
+  if (A.rd !== B.rd || cur.rd !== NET.round) k = 0;
+  const N = k > 0 ? B : cur;
+  if (cur.rd !== NET.round) return;
+  if (game.state !== "end") { game.state = cur.st; game.t = cur.gt; }
+  if (cur.sc[0] !== game.score[0] || cur.sc[1] !== game.score[1]) { game.score = cur.sc.slice(); updateHud(); }
+  const P = world.plat;
+  P.ang = lerp(cur.pl[0], N.pl[0], k); P.ox = lerp(cur.pl[1], N.pl[1], k); P.oy = lerp(cur.pl[2], N.pl[2], k);
+  P.hw = N.pl[3]; P.belt = N.pl[4]; P.t = N.pl[5];
+  world.w.forEach((w, i) => {
+    const wa = cur.w[i], wb = N.w[i];
+    if (!wa || !wb || wa[0].length !== w.ps.length * 2) return;
+    w.ps.forEach((p, j) => { p.x = lerp(wa[0][2 * j], wb[0][2 * j], k); p.y = lerp(wa[0][2 * j + 1], wb[0][2 * j + 1], k); p.px = p.x; p.py = p.y; });
+    w.face = wb[1]; w.charging = !!wb[2]; w.charge = wb[3]; w.fullT = wb[4]; w.superT = wb[5]; w.chili = wb[6]; w.fishT = wb[7];
+    w.sc = wb[8]; w.dazed = wb[9]; w.out = !!wb[10]; w.cheer = !!wb[11]; w.flyT = wb[12]; w.jig = wb[13];
+  });
+  world.items = N.it.map(i => ({ type: i[0], x: i[1], y: i[2], lx: i[3], landed: !!i[4], t: 0 }));
+  [world.shake, world.flash, world.punch, world.slow] = N.cam;
+  world.wind.acc = N.wd[0]; world.wind.warn = N.wd[1]; world.wind.dir = N.wd[2];
+  while (S.length > 2 && S[1].done && S[1].t < NET.gT) S.shift();
+}
+function netAskRematch() {
+  if (!NET.role) return;
+  NET.rematch[NET.me] = true;
+  netRelay({ k: "rematch" });
+  $("bAgain").disabled = true; $("bAgain").textContent = "WAITING…";
+  netMaybeRematch();
+}
+function netMaybeRematch() {
+  if (NET.role === "host" && NET.rematch[0] && NET.rematch[1]) netHostStart();
+}
+function onlineResult(won, note) {
+  CG.gameplayStop();
+  ui.end.hidden = false; $("endUnlock").hidden = true;
+  $("endStars").hidden = true;
+  const me = NET.me;
+  $("endTitle").textContent = won ? "YOU WIN!" : "YOU LOSE";
+  $("endSub").textContent = note || game.score[me] + " - " + game.score[1 - me] + " vs " + titleCase(NET.oppName);
+  $("bNext").hidden = false; $("bNext").textContent = "NEW OPPONENT";
+  $("bAgain").textContent = "REMATCH"; $("bAgain").disabled = false;
+  if (won) { Sfx.win(); CG.happy(); } else Sfx.lose();
+  awardCoins(won ? 30 + game.score[me] * 5 : 8 + game.score[me] * 3);
+}
+function drawYouMarker() {
+  if (!NET.role && game.state === "end") return;
+  const w = world.w[NET.me];
+  if (!w || w.out || !(game.state === "countdown" || (game.state === "fight" && game.t < 2.2))) return;
+  const [x, y] = w2s(w.head.x, w.head.y + 1.5 * w.sc);
+  const bob = Math.sin(world.time * 8) * 4;
+  ctx.save(); ctx.translate(x, y + bob);
+  ctx.fillStyle = "#FFE36B"; ctx.strokeStyle = INK; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.moveTo(-12, 8); ctx.lineTo(12, 8); ctx.lineTo(0, 22); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.font = "26px 'Lilita One', 'Arial Black', sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "bottom";
+  ctx.lineWidth = 6; ctx.strokeText("YOU", 0, 6); ctx.fillText("YOU", 0, 6);
+  ctx.restore();
+}
+$("bOnline").addEventListener("click", () => openOnline(false));
+$("onlineClose").addEventListener("click", closeOnline);
+$("bQuick").addEventListener("click", () => { Sfx.click(); netQuick(); });
+$("bInvite").addEventListener("click", () => { Sfx.click(); netInvite(); });
+$("bJoin").addEventListener("click", () => { Sfx.click(); netJoin($("joinCode").value); });
+$("joinCode").addEventListener("keydown", e => { if (e.key === "Enter") netJoin($("joinCode").value); });
+$("netRetry").addEventListener("click", () => { Sfx.click(); netConnect(); });
+$("bCpu").addEventListener("click", () => { closeOnline(); playSurvival(); });
+$("bCopy").addEventListener("click", () => {
+  const link = $("inviteLink").textContent;
+  const done = () => { $("bCopy").textContent = "COPIED!"; setTimeout(() => { $("bCopy").textContent = "COPY INVITE LINK"; }, 1500); };
+  try { navigator.clipboard.writeText(link).then(done, () => { getSelection().selectAllChildren($("inviteLink")); }); }
+  catch (e) { getSelection().selectAllChildren($("inviteLink")); }
+});
+
 $("bAdv").addEventListener("click", () => { if (save.levelMax < LEVELS.length) showIntro(Math.min(save.levelMax, LEVELS.length - 1)); else openMap(); });
 $("bGo").addEventListener("click", startLevel);
 $("bIntroMap").addEventListener("click", () => { ui.intro.hidden = true; showMenu(); openMap(); });
@@ -1844,6 +2230,7 @@ $("bNext").addEventListener("click", () => {
   Sfx.click();
   withBreak(() => {
     if (game.mode === "adv") showIntro(game.level + 1);
+    else if (game.mode === "online") { netLeaveRoom(); openOnline(true); }
     else if (game.mode === "cup") { game.cup.stage++; runDef(game.cup.defs[game.cup.stage], "cup"); enterPlay(); }
     else play2P();
   });
@@ -1852,12 +2239,13 @@ $("bAgain").addEventListener("click", () => {
   Sfx.click();
   withBreak(() => {
     if (game.mode === "adv") startLevel();
+    else if (game.mode === "online") netAskRematch();
     else if (game.mode === "cup") playCup();
     else if (game.mode === "surv") playSurvival();
     else play2P(game.def.arena);
   });
 });
-$("bMenu").addEventListener("click", () => { Sfx.click(); showMenu(); });
+$("bMenu").addEventListener("click", () => { Sfx.click(); if (game.mode === "online") netLeaveRoom(); showMenu(); });
 $("bDouble").addEventListener("click", () => {
   $("bDouble").disabled = true;
   CG.ad("rewarded", () => { game.paused = true; Sfx.pause(true); }, () => {
@@ -2004,8 +2392,9 @@ function updateCamera(dt) {
   cx = clamp(cx, -world.plat.hw0 + 2, world.plat.hw0 - 2);
   cam.zoom = lerp(cam.zoom, game.state === "point" ? 1.2 : 1, 1 - Math.exp(-dt * 3));
   const portraitMode = H > W;
-  const visW = (portraitMode ? clamp(span + 5 + big * 2, 10, 19) : clamp(span + 9 + big * 1.5, 15, 26)) / (cam.zoom * (1 + world.punch));
-  cam.scale = lerp(cam.scale, Math.min(W / visW, H / (11 + big * 1.5)), 1 - Math.exp(-dt * 4));
+  const zk = window.__camZoom || 1;   // trailer capture can frame tighter
+  const visW = (portraitMode ? clamp(span + 5 + big * 2, 10, 19) : clamp(span + 9 + big * 1.5, 15, 26)) / (cam.zoom * (1 + world.punch) * zk);
+  cam.scale = lerp(cam.scale, Math.min(W / visW, H * zk / (11 + big * 1.5)), 1 - Math.exp(-dt * 4));
   cam.x = lerp(cam.x, cx, 1 - Math.exp(-dt * 4));
   const wantGround = game.mode === "attract" || game.state === "intro" ? (portraitMode ? 0.74 : 0.8) : (portraitMode ? 0.62 : 0.6);
   cam.ground = lerp(cam.ground, wantGround, 1 - Math.exp(-dt * 3));
@@ -2696,6 +3085,9 @@ function frame(now) {
   world.time += dt; game.t += dt;
   const A = world.plat;
 
+  const netGuest = game.mode === "online" && NET.role === "guest";
+  if (netGuest) netGuestFrame(dt);
+  else {
   if (game.state === "countdown") {
     if (game.t < 0.05) { Sfx.drum(); Voice.say("start", 4); }
     if (game.t > 0.25 && game.t - dt <= 0.25) {
@@ -2708,9 +3100,11 @@ function frame(now) {
     }
   }
   world.slow = lerp(world.slow, game.state === "point" && game.t < 0.9 ? 0.3 : 1, 1 - Math.exp(-dt * 6));
+  }
   for (const w of world.w) { w.blink -= dt; if (w.blink < 0) w.blink = rand(2, 5); }
 
-  if (game.state !== "end") {
+  if (netGuest) { /* the host simulates */ }
+  else if (game.state !== "end") {
     if (world.hitstop > 0) world.hitstop -= dt;
     else {
       acc += dt * world.slow;
@@ -2732,6 +3126,7 @@ function frame(now) {
     acc += dt; let steps = 0;
     while (acc >= DT && steps < 12) { physicsStep(false); acc -= DT; steps++; }
   }
+  if (game.mode === "online" && NET.role === "host") netHostTick(dt);
   for (const w of world.w) {
     if (w.out && w.belly.y < -3.3 && !w.splashed) {
       w.splashed = true; Sfx.splash();
@@ -2757,6 +3152,7 @@ function frame(now) {
   drawItems(world.time);
   drawPickups(world.time);
   for (const w of world.w) drawWrestler(w);
+  if (game.mode === "online") drawYouMarker();
   drawBalls();
   drawFx();
   drawAmbient(A);
@@ -2808,6 +3204,12 @@ window.__sumoDebug = { Voice, physicsStep, Brain, nearestEnemy, showIntro, start
 // ============================================================ boot
 CG.init().then(() => {
   loadSave(); Sfx.setMuted(save.muted); renderSound(); showMenu(); CG.loadingStop(); requestAnimationFrame(frame);
+  // opened from an invite link (CrazyGames invite or ?room=CODE), or CrazyGames "instant multiplayer"
+  let room = null;
+  try { if (CG.sdk) room = CG.sdk.game.getInviteParam("roomId"); } catch (e) {}
+  if (!room) room = new URLSearchParams(location.search).get("room");
+  if (room) { NET.pendingJoin = room; $("gift").hidden = true; openOnline(false); }
+  else if (CG.sdk && CG.sdk.game.isInstantMultiplayer) { NET.autoInvite = true; $("gift").hidden = true; openOnline(false); }
 });
 })();
 </script>
