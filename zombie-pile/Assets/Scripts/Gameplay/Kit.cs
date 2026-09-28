@@ -13,7 +13,9 @@ namespace ZombiePile
         [Serializable] public class Prop { public string m; public float[] p; public float r; public float s = 1f; }
         [Serializable] public class LayoutData { public float wallHeight, wallFront, halfWidth; public Prop[] props; public ModelMeta[] models; }
 
-        struct Fit { public float yaw, scale; public Vector3 offset; }
+        /// rot = the full local rotation of the model (yaw on top of the FBX's own axis conversion, e.g. -90 on X
+        /// for Blender files). Overwriting that axis rotation laid every model on its back.
+        struct Fit { public float yaw, scale; public Vector3 offset; public Quaternion rot; }
 
         static LayoutData layout;
         static bool loaded;
@@ -61,15 +63,33 @@ namespace ZombiePile
             return go;
         }
 
+        /// World bounds of everything visible. Skinned meshes are baked first: their renderer bounds are not
+        /// valid right after Instantiate, which made characters come out giant or invisible.
         static Bounds Measure(GameObject go)
         {
-            var rs = go.GetComponentsInChildren<Renderer>(true);
             var b = new Bounds(go.transform.position, Vector3.zero);
             bool first = true;
-            foreach (var r in rs)
+            foreach (var r in go.GetComponentsInChildren<Renderer>(true))
             {
                 if (!r.enabled || !r.gameObject.activeInHierarchy) continue;
-                if (first) { b = r.bounds; first = false; } else b.Encapsulate(r.bounds);
+                var smr = r as SkinnedMeshRenderer;
+                if (smr != null)
+                {
+                    if (smr.sharedMesh == null) continue;
+                    var baked = new Mesh();
+                    smr.BakeMesh(baked);   // vertices come out scaled but unrotated/untranslated
+                    var m = Matrix4x4.TRS(smr.transform.position, smr.transform.rotation, Vector3.one);
+                    foreach (var v in baked.vertices)
+                    {
+                        var p = m.MultiplyPoint3x4(v);
+                        if (first) { b = new Bounds(p, Vector3.zero); first = false; } else b.Encapsulate(p);
+                    }
+                    UnityEngine.Object.DestroyImmediate(baked);
+                }
+                else
+                {
+                    if (first) { b = r.bounds; first = false; } else b.Encapsulate(r.bounds);
+                }
             }
             return b;
         }
@@ -79,13 +99,15 @@ namespace ZombiePile
         {
             Fit f;
             if (fits.TryGetValue(name, out f)) return f;
-            f = new Fit { yaw = 0f, scale = 1f, offset = Vector3.zero };
+            var baseRot = prefab.transform.localRotation;
+            f = new Fit { yaw = 0f, scale = 1f, offset = Vector3.zero, rot = baseRot };
             ModelMeta m;
             if (!meta.TryGetValue(name, out m)) { fits[name] = f; return f; }
             var E = new Vector3(m.size[0], m.size[1], m.size[2]);
             var C = new Vector3(m.center[0], m.center[1], m.center[2]);
             var tmp = UnityEngine.Object.Instantiate(prefab);
             tmp.transform.position = Vector3.zero;
+            tmp.transform.rotation = baseRot;
             Prepare(tmp);
             if (name.StartsWith("Zombie") || name.StartsWith("Characters"))
             {
@@ -110,14 +132,16 @@ namespace ZombiePile
                     var fwd = (la.position + ra.position) * 0.5f - hips.position;
                     if (fwd.z < 0f) f.yaw = 180f;
                 }
+                f.rot = Quaternion.Euler(0f, f.yaw, 0f) * baseRot;
                 UnityEngine.Object.DestroyImmediate(tmp);
+                Debug.Log("ZombieKit fit " + name + ": scale " + f.scale.ToString("0.###") + ", yaw " + f.yaw + ", measured " + bb.size.ToString("0.00") + " -> height " + E.y.ToString("0.00") + "m");
                 fits[name] = f;
                 return f;
             }
             float best = float.MaxValue;
             for (int i = 0; i < 4; i++)
             {
-                tmp.transform.rotation = Quaternion.Euler(0f, i * 90f, 0f);
+                tmp.transform.rotation = Quaternion.Euler(0f, i * 90f, 0f) * baseRot;
                 var b = Measure(tmp);
                 float k = E.y > 0.3f ? E.y / Mathf.Max(0.0001f, b.size.y)
                                      : Mathf.Max(E.x, E.z) / Mathf.Max(0.0001f, Mathf.Max(b.size.x, b.size.z));
@@ -126,12 +150,13 @@ namespace ZombiePile
                 if (score < best - 0.001f)
                 {
                     best = score;
-                    f.yaw = i * 90f; f.scale = k;
+                    f.yaw = i * 90f; f.scale = k; f.rot = tmp.transform.rotation;
                     f.offset = new Vector3(C.x - c.x, m.min[1] - b.min.y * k, C.z - c.z);
                 }
             }
             UnityEngine.Object.DestroyImmediate(tmp);
             fits[name] = f;
+            if (best > 1f) Debug.LogWarning("ZombieKit fit " + name + " is off by " + best.ToString("0.##") + "m");
             return f;
         }
 
@@ -157,7 +182,7 @@ namespace ZombiePile
             var go = UnityEngine.Object.Instantiate(prefab, holder.transform);
             go.name = "Model";
             Prepare(go);
-            go.transform.localRotation = Quaternion.Euler(0f, fit.yaw, 0f);
+            go.transform.localRotation = fit.rot;
             go.transform.localScale = go.transform.localScale * fit.scale * scale;
             go.transform.localPosition = fit.offset * scale;
             foreach (var r in go.GetComponentsInChildren<Renderer>(true))
@@ -165,7 +190,8 @@ namespace ZombiePile
                 r.shadowCastingMode = shadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
                 r.receiveShadows = true;
                 var smr = r as SkinnedMeshRenderer;
-                if (smr != null) smr.updateWhenOffscreen = false;
+                // bounds from the animated bones: the imported ones can be off (100x armature scale) and get the zombie culled
+                if (smr != null) smr.updateWhenOffscreen = true;
             }
             return holder;
         }
@@ -202,7 +228,7 @@ namespace ZombiePile
                     else if (n.EndsWith("idle_gun") || (a.idle == null && n.EndsWith("idle"))) a.idle = st.name;
                     else if (n.EndsWith("hitreact")) a.hit = st.name;
                 }
-                a.anim.cullingType = AnimationCullingType.BasedOnRenderers;
+                a.anim.cullingType = AnimationCullingType.AlwaysAnimate;
                 return a;
             }
 

@@ -16,6 +16,7 @@
 **الموديلات:** الزومبي والعسكري والشارع والكونتينرات والعربيات من **Zombie Apocalypse Kit** بتاع [Quaternius](https://quaternius.com)، رخصتها CC0 (مجانية وتنفع للاستخدام التجاري). مكانها `Assets/Resources/ZombieKit/`، وترتيب الشارع في `layout.json`.
 - الـ importer بيظبط الأنيميشن لوحده (Legacy)، والكود بيظبط حجم كل موديل واتجاهه.
 - الأصوات والـ UI بيتولدوا بالكود.
+- **الخطوط:** Lilita One و Bangers من Google Fonts، رخصتهم SIL OFL (مجانية)، ونص الرخصة في `Licenses/`.
 
 ## التحكم
 
