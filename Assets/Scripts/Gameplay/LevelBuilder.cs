@@ -359,7 +359,7 @@ namespace SkyDrop
                 // V formation
                 Vector3 off = -axis * (Mathf.Abs(i - count / 2) * 2.2f) + side * ((i - count / 2) * 2.4f) + Vector3.up * R(-1f, 1f);
                 var go = Shapes.Group("Bird", root, c + off);
-                Shapes.Make("Body", MeshGen.Sphere(0), body, go.transform, Vector3.zero, new Vector3(0.6f, 0.5f, 1.3f));
+                Shapes.Make("Body", MeshGen.Smooth(), body, go.transform, Vector3.zero, new Vector3(0.6f, 0.5f, 1.3f));
                 Shapes.Make("Beak", MeshGen.Cone(4), beak, go.transform, new Vector3(0f, 0f, 0.7f), new Vector3(0.2f, 0.4f, 0.2f), Quaternion.Euler(90f, 0f, 0f));
                 var wl = Shapes.Group("WingL", go.transform, new Vector3(-0.2f, 0.1f, 0f));
                 Shapes.Make("W", MeshGen.Box(), wing, wl.transform, new Vector3(-0.9f, 0f, 0f), new Vector3(1.8f, 0.08f, 0.8f));
@@ -379,7 +379,7 @@ namespace SkyDrop
             var go = Shapes.Group("Balloon", root, pos);
             Color[] cols = { new Color(0.95f, 0.3f, 0.3f), new Color(0.3f, 0.6f, 0.95f), new Color(0.95f, 0.75f, 0.2f), new Color(0.6f, 0.35f, 0.9f) };
             Color col = cols[RI(0, cols.Length)];
-            Shapes.Make("Envelope", MeshGen.Sphere(1), Mat.Lit(col), go.transform, Vector3.zero, new Vector3(7f, 8f, 7f));
+            Shapes.Make("Envelope", MeshGen.Smooth(), Mat.Lit(col), go.transform, Vector3.zero, new Vector3(7f, 8f, 7f));
             Shapes.Make("Band", MeshGen.Cylinder(12), Mat.Lit(Color.white), go.transform, new Vector3(0f, 0.3f, 0f), new Vector3(7.1f, 1.4f, 7.1f));
             Shapes.Make("Basket", MeshGen.Box(), Mat.Lit(new Color(0.55f, 0.38f, 0.2f)), go.transform, new Vector3(0f, -5.8f, 0f), new Vector3(1.6f, 1.2f, 1.6f));
             for (int i = 0; i < 4; i++)
@@ -416,8 +416,8 @@ namespace SkyDrop
         {
             var go = Shapes.Group("Heli", root, c + RandDir() * R(5f, 9f));
             var hull = Mat.Lit(new Color(0.9f, 0.25f, 0.2f));
-            Shapes.Make("Cabin", MeshGen.Sphere(1), hull, go.transform, Vector3.zero, new Vector3(3f, 2.6f, 4.4f));
-            Shapes.Make("Glass", MeshGen.Sphere(1), Mat.Lit(new Color(0.55f, 0.85f, 1f), 0.3f), go.transform, new Vector3(0f, 0.3f, 1.3f), new Vector3(2.4f, 1.8f, 2.2f));
+            Shapes.Make("Cabin", MeshGen.Smooth(), hull, go.transform, Vector3.zero, new Vector3(3f, 2.6f, 4.4f));
+            Shapes.Make("Glass", MeshGen.Smooth(), Mat.Lit(new Color(0.55f, 0.85f, 1f), 0.3f), go.transform, new Vector3(0f, 0.3f, 1.3f), new Vector3(2.4f, 1.8f, 2.2f));
             Shapes.Make("Tail", MeshGen.Box(), hull, go.transform, new Vector3(0f, 0.3f, -4f), new Vector3(0.5f, 0.5f, 5f));
             Shapes.Make("Fin", MeshGen.Box(), hull, go.transform, new Vector3(0f, 1f, -6.3f), new Vector3(0.2f, 1.6f, 0.9f));
             Shapes.Make("SkidL", MeshGen.Box(), Mat.Lit(new Color(0.2f, 0.2f, 0.2f)), go.transform, new Vector3(-1.1f, -1.6f, 0f), new Vector3(0.15f, 0.15f, 4f));
@@ -442,7 +442,7 @@ namespace SkyDrop
             {
                 Vector3 o = RandDir() * R(0f, 5f) + Vector3.up * R(-2f, 2f);
                 float s = R(7f, 11f);
-                Shapes.Make("Puff", MeshGen.Sphere(1), i % 2 == 0 ? dark : dark2, go.transform, o, new Vector3(s, s * 0.7f, s));
+                Shapes.Make("Puff", MeshGen.Smooth(), i % 2 == 0 ? dark : dark2, go.transform, o, new Vector3(s, s * 0.7f, s));
             }
             var bolt = Shapes.Group("Bolt", go.transform, Vector3.zero);
             var boltMat = Mat.Lit(new Color(1f, 0.95f, 0.4f), 1f);
@@ -510,11 +510,11 @@ namespace SkyDrop
                     Vector3 c = PathAt(y);
                     Vector3 p = new Vector3(c.x, y + R(-20f, 20f), c.z) + RandDir() * R(18f, 220f);
                     var g = Shapes.Group("Cloud", root, p);
-                    int puffs = RI(3, 6);
+                    int puffs = RI(5, 9);
                     for (int k = 0; k < puffs; k++)
                     {
-                        float s = R(10f, 22f);
-                        Shapes.Make("Puff", MeshGen.Sphere(1), k % 2 == 0 ? m1 : m2, g.transform,
+                        float s = R(8f, 20f) * (k == 0 ? 1.4f : 1f);
+                        Shapes.Make("Puff", MeshGen.Smooth(), k % 2 == 0 ? m1 : m2, g.transform,
                             new Vector3(R(-12f, 12f), R(-2f, 3f), R(-12f, 12f)), new Vector3(s, s * 0.55f, s));
                     }
                 }
@@ -592,7 +592,7 @@ namespace SkyDrop
             }
             else
             {
-                Shapes.Make("Leaf", MeshGen.Sphere(1), leaf, g.transform, new Vector3(0f, 4.5f * s, 0f), new Vector3(4.5f * s, 4.5f * s, 4.5f * s));
+                Shapes.Make("Leaf", MeshGen.Smooth(), leaf, g.transform, new Vector3(0f, 4.5f * s, 0f), new Vector3(4.5f * s, 4.5f * s, 4.5f * s));
             }
             GroundHazard(lv, new Vector3(p.x, 3.5f * s, p.z), new Vector3(1.8f * s, 3.5f * s, 1.8f * s), "Tree!");
         }

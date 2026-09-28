@@ -64,6 +64,31 @@
 
 ---
 
+## شخصية حقيقية بأنيميشن (Mixamo، ببلاش)
+
+الشخصية المعمولة بالكود بتشتغل من غير أي حاجة. لكن عشان جودة أعلى بكتير، اعمل كده:
+
+1. ادخل **mixamo.com** (محتاج حساب Adobe مجاني).
+2. من **Characters** اختار شخصية (مثلًا *Y Bot*، أو أي شخصية كارتون)،
+   ونزّلها: **FBX for Unity**، **T-Pose**، **With Skin**. سمّي الملف `Jumper.fbx`.
+3. من **Animations** نزّل كل واحدة: **FBX for Unity**، **Without Skin**، وسمّيها بالظبط كده:
+
+| اسم الملف | ابحث في Mixamo عن |
+|---|---|
+| `Idle.fbx` | Idle / Breathing Idle |
+| `Freefall.fbx` | Falling Idle / Skydiving |
+| `Canopy.fbx` | Hanging Idle |
+| `Land.fbx` | Falling To Landing / Landing |
+| `Celebrate.fbx` | Victory / Cheering |
+| `Tumble.fbx` (اختياري) | Falling / Flailing |
+
+4. حط الملفات كلها في `Assets/Resources/SkyDrop/Character/`.
+   Unity هيظبطها Humanoid ويسمّي الأنيميشنز لوحده، والشخصية الجديدة هتظهر أول ما تدوس Play.
+   لو ناقص أي أنيميشن، اللعبة بتستخدم أقرب واحدة بداله.
+
+> ماينفعش كل حاجة تبقى معمولة بالكود وفي نفس الوقت شكلها قريب من ألعاب CrazyGames الناجحة.
+> الشخصية والباراشوت هما أكتر حاجتين بتفرق فيهم الـ assets الحقيقية، سواء Mixamo المجاني أو باكات low-poly زي Synty وQuaternius.
+
 ## CrazyGames SDK
 
 الكود شغال من غير الـ SDK (الحفظ في PlayerPrefs، والإعلانات بتعدّي على طول).

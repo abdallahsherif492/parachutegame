@@ -46,12 +46,17 @@ Shader "SkyDrop/Lit"
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
                 float3 n = UnityObjectToWorldNormal(v.normal);
-                float ndl = saturate(dot(n, normalize(_SD_LightDir.xyz)));
+                o.wpos = mul(unity_ObjectToWorld, v.vertex).xyz;
+                float3 V = normalize(_WorldSpaceCameraPos - o.wpos);
+                // soft "wrapped" diffuse: no harsh black sides, reads well on small screens
+                float w = dot(n, normalize(_SD_LightDir.xyz)) * 0.5 + 0.5;
+                float diff = w * w;
                 fixed3 amb = lerp(_SD_AmbientGround.rgb, _SD_AmbientSky.rgb, n.y * 0.5 + 0.5);
-                fixed3 c = _Color.rgb * (amb + _SD_LightColor.rgb * ndl);
+                // rim light makes shapes pop from the background
+                float rim = pow(1.0 - saturate(dot(n, V)), 3.0) * 0.45;
+                fixed3 c = _Color.rgb * (amb * 0.9 + _SD_LightColor.rgb * diff * 0.85) + _SD_AmbientSky.rgb * rim;
                 c = lerp(c, _Color.rgb * 1.2, _Emission);
                 o.col = fixed4(c, 1);
-                o.wpos = mul(unity_ObjectToWorld, v.vertex).xyz;
                 return o;
             }
 

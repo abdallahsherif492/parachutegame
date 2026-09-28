@@ -383,6 +383,7 @@ namespace SkyDrop
             cam.SetMode(CamMode.Landed);
             jumper.hVel = Vector3.zero;
             jumper.vFall = 0f;
+            jumper.Land();
             if (onTarget) jumper.transform.SetParent(level.target.tr, true);   // ride moving targets
             ui.SetHint(null);
 

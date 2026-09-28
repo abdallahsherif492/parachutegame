@@ -143,7 +143,42 @@ namespace SkyDrop
             Shader.SetGlobalColor("_SD_AmbientGround", ambientGround);
             Shader.SetGlobalColor("_SD_FogColor", sky);
             SetFog(120f, 900f);
+
+            // Gradient sky (horizon matches the fog so distant things melt into it).
+            if (skyMat == null)
+            {
+                var sh = Shader.Find("SkyDrop/Sky");
+                if (sh != null) skyMat = new Material(sh);
+            }
+            if (skyMat != null)
+            {
+                float h, s, v;
+                Color.RGBToHSV(sky, out h, out s, out v);
+                skyMat.SetColor("_Top", Color.HSVToRGB(h, Mathf.Clamp01(s + 0.25f), v * 0.8f));
+                skyMat.SetColor("_Horizon", sky);
+                skyMat.SetColor("_Bottom", Color.Lerp(sky, ambientGround, 0.4f));
+                RenderSettings.skybox = skyMat;
+                if (Camera.main != null) Camera.main.clearFlags = CameraClearFlags.Skybox;
+            }
+
+            // Imported models (e.g. a Mixamo character) use Unity's Standard shader:
+            // give them a matching sun + ambient so they sit in the same world.
+            RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Flat;
+            RenderSettings.ambientLight = Color.Lerp(ambientSky, ambientGround, 0.3f) * 1.1f;
+            if (sun == null)
+            {
+                var go = new GameObject("Sun");
+                sun = go.AddComponent<Light>();
+                sun.type = LightType.Directional;
+                sun.shadows = LightShadows.None;
+            }
+            sun.color = lightColor;
+            sun.intensity = 1.05f;
+            sun.transform.rotation = Quaternion.LookRotation(-new Vector3(0.35f, 0.85f, -0.4f));
         }
+
+        static Material skyMat;
+        static Light sun;
 
         public static void SetFog(float start, float end)
         {

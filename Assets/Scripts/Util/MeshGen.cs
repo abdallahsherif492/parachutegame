@@ -196,6 +196,65 @@ namespace SkyDrop
             });
         }
 
+        /// Smooth-shaded capsule: height 1 (y -0.5..0.5), radius r (so x/z extent is 2r).
+        /// r = 0.5 gives a smooth sphere. Use for anything organic (body, clouds, balloons).
+        public static Mesh Capsule(float r, int segs = 14, int hemi = 6)
+        {
+            r = Mathf.Clamp(Mathf.Round(r * 100f) / 100f, 0.02f, 0.5f);
+            return Cached("cap" + r + "_" + segs + "_" + hemi, () =>
+            {
+                var ringY = new List<float>();
+                var ringR = new List<float>();
+                var ringNy = new List<float>();
+                for (int i = 0; i <= hemi; i++)
+                {
+                    float a = Mathf.PI * 0.5f * i / hemi;
+                    ringY.Add(0.5f - r + Mathf.Cos(a) * r);
+                    ringR.Add(Mathf.Sin(a) * r);
+                    ringNy.Add(Mathf.Cos(a));
+                }
+                int start = r >= 0.5f ? hemi - 1 : hemi;   // a sphere shares its equator ring
+                for (int i = start; i >= 0; i--)
+                {
+                    float a = Mathf.PI * 0.5f * i / hemi;
+                    ringY.Add(-0.5f + r - Mathf.Cos(a) * r);
+                    ringR.Add(Mathf.Sin(a) * r);
+                    ringNy.Add(-Mathf.Cos(a));
+                }
+                var verts = new List<Vector3>();
+                var norms = new List<Vector3>();
+                var tris = new List<int>();
+                for (int i = 0; i < ringY.Count; i++)
+                {
+                    float ny = ringNy[i];
+                    float nr = Mathf.Sqrt(Mathf.Max(0f, 1f - ny * ny));
+                    for (int j = 0; j <= segs; j++)
+                    {
+                        float phi = j * Mathf.PI * 2f / segs;
+                        float cx = Mathf.Cos(phi), cz = Mathf.Sin(phi);
+                        verts.Add(new Vector3(cx * ringR[i], ringY[i], cz * ringR[i]));
+                        norms.Add(new Vector3(cx * nr, ny, cz * nr));
+                    }
+                }
+                for (int i = 0; i < ringY.Count - 1; i++)
+                    for (int j = 0; j < segs; j++)
+                    {
+                        int a = i * (segs + 1) + j, b = a + segs + 1;
+                        tris.Add(a); tris.Add(a + 1); tris.Add(b);
+                        tris.Add(a + 1); tris.Add(b + 1); tris.Add(b);
+                    }
+                var m = new Mesh { name = "Capsule" };
+                m.SetVertices(verts);
+                m.SetNormals(norms);
+                m.SetTriangles(tris, 0);
+                m.RecalculateBounds();
+                return m;
+            });
+        }
+
+        /// Smooth sphere of diameter 1.
+        public static Mesh Smooth() { return Capsule(0.5f); }
+
         /// Flat upward-facing disc of diameter 1 at y=0.
         public static Mesh Disc(int sides = 24)
         {
