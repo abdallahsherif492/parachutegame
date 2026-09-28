@@ -1,0 +1,1141 @@
+<title>Sumo Noodles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Lilita+One&display=swap">
+<style>
+  /* One committed look: a warm sunset arena. Single theme on purpose; every color is explicit. */
+  :root {
+    --ink: #2B1B17;
+    --cream: #FFF4E2;
+    --sun: #FFB86B;
+    --coral: #FF7A59;
+    --clay: #D99A5B;
+    --straw: #EBC76A;
+    --sea: #1FB5A8;
+    --p1: #E63946;
+    --p2: #2F6FDE;
+    --panel: rgba(43, 27, 23, 0.78);
+    color-scheme: light;
+  }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--sun);
+    color: var(--cream);
+    overflow: hidden;
+    font-family: "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  .layer {
+    position: fixed; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; padding-inline: 16px; padding-block: 16px;
+    pointer-events: none; text-align: center;
+  }
+  .layer > * { pointer-events: auto; }
+  .layer.top { justify-content: flex-start; padding-block: calc(env(safe-area-inset-top, 0px) + 4vh) 16px; }
+  .card { display: flex; flex-direction: column; align-items: center; gap: 10px; background: var(--panel); padding: 12px 16px; border-radius: 16px; max-width: 580px; }
+  .card .hint { color: var(--cream); }
+  .logo {
+    font-family: "Lilita One", "Arial Black", Impact, sans-serif;
+    font-size: clamp(48px, 12vw, 116px); line-height: .88; margin: 0;
+    color: var(--cream); letter-spacing: .01em;
+    text-shadow: 0 5px 0 var(--ink), 4px 5px 0 var(--ink), -4px 5px 0 var(--ink), 0 -3px 0 var(--ink), 4px 0 0 var(--ink), -4px 0 0 var(--ink);
+    transform: rotate(-3deg);
+  }
+  .logo span { color: var(--straw); display: block; }
+  .tag {
+    margin: 0; font-weight: 800; font-size: clamp(16px, 3.4vw, 22px);
+    color: var(--ink); background: var(--cream); padding: 4px 14px; border-radius: 999px;
+    border: 3px solid var(--ink);
+  }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .btn {
+    font-family: "Lilita One", "Arial Black", Impact, sans-serif;
+    font-size: clamp(20px, 4.6vw, 30px); letter-spacing: .02em;
+    padding: 12px 26px; min-width: 180px;
+    color: #fff; background: var(--p1);
+    border: 4px solid var(--ink); border-radius: 18px;
+    box-shadow: 0 6px 0 var(--ink); cursor: pointer;
+    transition: transform .08s ease, box-shadow .08s ease;
+  }
+  .btn.blue { background: var(--p2); }
+  .btn.ghost { background: var(--cream); color: var(--ink); min-width: 0; font-size: clamp(16px, 3.6vw, 22px); padding: 8px 18px; }
+  .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 var(--ink); }
+  .btn:focus-visible { outline: 4px solid var(--straw); outline-offset: 3px; }
+  .ladder { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: 560px; }
+  .chip {
+    font-weight: 800; font-size: 13px; padding: 2px 10px; border-radius: 999px;
+    background: var(--panel); color: var(--cream); border: 2px solid transparent;
+  }
+  .chip.beaten { background: var(--straw); color: var(--ink); }
+  .chip.next { border-color: var(--cream); }
+  .hint { margin: 0; font-weight: 600; font-size: 15px; color: var(--ink); max-width: 38ch; }
+  #hud {
+    position: fixed; left: 0; right: 0; top: 0;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 10px); padding-inline: 16px;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+    pointer-events: none;
+  }
+  .side { display: flex; flex-direction: column; gap: 4px; }
+  .side.right { align-items: flex-end; }
+  .name {
+    font-family: "Lilita One", "Arial Black", sans-serif; font-size: clamp(16px, 3.8vw, 24px);
+    color: #fff; padding: 2px 12px; border-radius: 10px; border: 3px solid var(--ink);
+  }
+  .pips { display: flex; gap: 5px; }
+  .pip { width: 16px; height: 16px; border-radius: 50%; border: 3px solid var(--ink); background: var(--cream); }
+  .pip.on { background: var(--straw); }
+  .to5 { font-weight: 800; color: var(--ink); font-size: 14px; letter-spacing: .08em; text-transform: uppercase; margin-top: 6px; }
+  #touchHint {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); padding-inline: 16px;
+    display: flex; justify-content: space-between; pointer-events: none;
+    font-weight: 800; font-size: 14px; color: var(--cream);
+  }
+  #touchHint span { background: var(--panel); padding: 4px 12px; border-radius: 999px; }
+  .big {
+    font-family: "Lilita One", "Arial Black", sans-serif; font-size: clamp(40px, 10vw, 84px); margin: 0; line-height: 1;
+    color: var(--cream); text-shadow: 0 5px 0 var(--ink), 3px 5px 0 var(--ink), -3px 5px 0 var(--ink);
+  }
+  #soundBtn { position: fixed; right: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); pointer-events: auto; }
+  @media (prefers-reduced-motion: reduce) { .btn { transition: none; } }
+</style>
+
+<canvas id="cv" aria-label="Sumo Noodles arena"></canvas>
+
+<div id="hud" hidden>
+  <div class="side"><div class="name" id="n1" style="background:var(--p1)">YOU</div><div class="pips" id="pips1"></div></div>
+  <div class="to5">First to 5</div>
+  <div class="side right"><div class="name" id="n2" style="background:var(--p2)">CPU</div><div class="pips" id="pips2"></div></div>
+</div>
+<div id="touchHint" hidden><span id="h1">P1: W or tap left</span><span id="h2">P2: ↑ or tap right</span></div>
+
+<div class="layer top" id="menu">
+  <h1 class="logo">SUMO<span>NOODLES</span></h1>
+  <p class="tag">One button. Wobbly arms. Push them out!</p>
+  <div class="row">
+    <button class="btn" id="b1p" type="button">1 PLAYER</button>
+    <button class="btn blue" id="b2p" type="button">2 PLAYERS</button>
+  </div>
+  <div class="card">
+    <div class="ladder" id="ladder"></div>
+    <p class="hint">Hold to crouch and wind up. Release to lunge. Slap with your noodle arms, bounce with your belly, and knock your rival out of the ring.</p>
+  </div>
+</div>
+
+<div class="layer" id="end" hidden>
+  <p class="big" id="endTitle">YOU WIN!</p>
+  <p class="tag" id="endSub">Tofu Tanaka is swimming home.</p>
+  <div class="row">
+    <button class="btn" id="bNext" type="button">NEXT RIVAL</button>
+    <button class="btn blue" id="bAgain" type="button">REMATCH</button>
+    <button class="btn ghost" id="bMenu" type="button">MENU</button>
+  </div>
+</div>
+
+<button class="btn ghost" id="soundBtn" type="button">SOUND ON</button>
+
+<script>
+(() => {
+"use strict";
+
+// ============================================================ setup
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = window.innerWidth; H = window.innerHeight;
+  cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+window.addEventListener("resize", resize);
+resize();
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem("sumo_" + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem("sumo_" + k, JSON.stringify(v)); } catch (e) {} }
+};
+const rand = (a, b) => a + Math.random() * (b - a);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+const INK = "#2B1B17";
+
+// ============================================================ sound (synthesized)
+const Sfx = (() => {
+  let ac = null, master = null, noiseBuf = null;
+  let muted = store.get("muted", false);
+  function init() {
+    if (ac) { if (ac.state === "suspended") ac.resume(); return; }
+    try {
+      ac = new (window.AudioContext || window.webkitAudioContext)();
+      master = ac.createGain(); master.gain.value = muted ? 0 : 0.55; master.connect(ac.destination);
+      noiseBuf = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    } catch (e) { ac = null; }
+  }
+  function tone(f0, f1, dur, type, vol, delay) {
+    if (!ac) return;
+    const t = ac.currentTime + (delay || 0);
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = type || "sine";
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + dur);
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.03);
+  }
+  function noise(dur, type, freq, vol, delay, q) {
+    if (!ac) return;
+    const t = ac.currentTime + (delay || 0);
+    const s = ac.createBufferSource(); s.buffer = noiseBuf;
+    const f = ac.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q || 1;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random()); s.stop(t + dur + 0.05);
+  }
+  return {
+    init,
+    get muted() { return muted; },
+    toggle() { muted = !muted; store.set("muted", muted); if (master) master.gain.value = muted ? 0 : 0.55; },
+    boing() { tone(460, 90, 0.4, "sine", 0.5); tone(700, 160, 0.3, "triangle", 0.12); },
+    slap() { noise(0.12, "highpass", 1800, 0.8); tone(260, 110, 0.07, "square", 0.1); },
+    whoosh() { noise(0.28, "bandpass", 900, 0.3, 0, 0.8); },
+    thud() { tone(130, 40, 0.28, "sine", 0.6); noise(0.12, "lowpass", 500, 0.35); },
+    splash() { noise(1.0, "lowpass", 1100, 0.7); noise(0.5, "highpass", 3200, 0.2, 0.05); },
+    drum() { tone(95, 48, 0.35, "sine", 0.85); noise(0.07, "lowpass", 300, 0.3); },
+    cheer() { noise(1.6, "bandpass", 1300, 0.22, 0, 0.5); noise(1.3, "bandpass", 2500, 0.1, 0.15, 0.7); },
+    click() { tone(900, 620, 0.05, "square", 0.07); },
+    win() { [523, 659, 784, 1046].forEach((f, i) => tone(f, f, 0.2, "triangle", 0.25, i * 0.11)); },
+    lose() { [392, 330, 262].forEach((f, i) => tone(f, f * 0.97, 0.25, "triangle", 0.2, i * 0.16)); }
+  };
+})();
+
+// ============================================================ physics (Verlet particles + distance links)
+const DT = 1 / 120, ITER = 6, GRAV = -34;
+
+class P {
+  constructor(x, y, r, m, kind) {
+    this.x = x; this.y = y; this.px = x; this.py = y;
+    this.r = r; this.m = m; this.im = 1 / m; this.kind = kind;
+    this.ax = 0; this.ay = 0; this.gt = 0; this.w = null;
+  }
+  get vx() { return (this.x - this.px) / DT; }
+  get vy() { return (this.y - this.py) / DT; }
+  addVel(vx, vy) { this.px -= vx * DT; this.py -= vy * DT; }
+  setVel(vx, vy) { this.px = this.x - vx * DT; this.py = this.y - vy * DT; }
+}
+
+function link(a, b, stiff) { return { a, b, len: Math.hypot(b.x - a.x, b.y - a.y), stiff }; }
+
+function solveLink(c) {
+  const a = c.a, b = c.b;
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const d = Math.hypot(dx, dy) || 1e-6;
+  const diff = (d - c.len) / d * c.stiff;
+  const wa = a.im / (a.im + b.im), wb = 1 - wa;
+  a.x += dx * diff * wa; a.y += dy * diff * wa;
+  b.x -= dx * diff * wb; b.y -= dy * diff * wb;
+}
+
+// ============================================================ arenas
+const ARENAS = {
+  classic:  { name: "Classic Dohyo", hw: 5.8, friction: 0.85, rest: 0.05, top: "#E3AE6E", side: "#B97A3F", line: "#FFF4E2" },
+  ice:      { name: "Melting Ice Floe", hw: 6.4, friction: 0.06, rest: 0.05, top: "#DDF3FF", side: "#8CC8E8", line: "#FFFFFF" },
+  seesaw:   { name: "Seesaw of Doom", hw: 6.8, friction: 0.8, rest: 0.05, top: "#C98D55", side: "#8A5A30", line: "#FFE7B8", tilt: true },
+  shrink:   { name: "Shrinking Ring", hw: 7.2, friction: 0.85, rest: 0.05, top: "#E7A06A", side: "#A8683A", line: "#FFF4E2", shrink: true },
+  bouncy:   { name: "Bouncy Castle", hw: 5.6, friction: 0.7, rest: 0.75, top: "#FF6FA8", side: "#D8407E", line: "#FFE36B" }
+};
+
+class Platform {
+  constructor(kind) {
+    this.kind = kind;
+    Object.assign(this, ARENAS[kind]);
+    this.hw0 = this.hw;
+    this.thick = 1.1;
+    this.ang = 0; this.angVel = 0; this.torque = 0;
+  }
+  reset() { this.hw = this.hw0; this.ang = 0; this.angVel = 0; }
+  // pivot is 1m below the surface center
+  center() { const s = Math.sin(this.ang), c = Math.cos(this.ang); return [-s, -1 + c]; }
+  toLocal(x, y) {
+    const [cx, cy] = this.center(); const c = Math.cos(this.ang), s = Math.sin(this.ang);
+    const dx = x - cx, dy = y - cy;
+    return [dx * c + dy * s, -dx * s + dy * c];
+  }
+  toWorld(lx, ly) {
+    const [cx, cy] = this.center(); const c = Math.cos(this.ang), s = Math.sin(this.ang);
+    return [cx + lx * c - ly * s, cy + lx * s + ly * c];
+  }
+  step(dt, active) {
+    if (this.shrink && active) this.hw = Math.max(3.4, this.hw - dt * 0.18);
+    // sudden death: a bout that drags on shrinks every ring
+    if (active && world.roundT > 10) this.hw = Math.max(2.6, this.hw - dt * 0.35);
+    if (this.tilt) {
+      const acc = -this.torque * 0.0045 - this.ang * 2.2 - this.angVel * 1.4;
+      this.angVel += acc * dt;
+      this.ang = clamp(this.ang + this.angVel * dt, -0.38, 0.38);
+      if (Math.abs(this.ang) >= 0.38) this.angVel *= 0.5;
+    }
+    this.torque = 0;
+  }
+  collide(p) {
+    const [lx, ly] = this.toLocal(p.x, p.y);
+    if (ly < -this.thick - p.r || ly > p.r + 0.01 || lx < -this.hw - p.r || lx > this.hw + p.r) return;
+    const qx = clamp(lx, -this.hw, this.hw), qy = clamp(ly, -this.thick, 0);
+    let nx = lx - qx, ny = ly - qy, d = Math.hypot(nx, ny), pen;
+    if (d > 1e-6) {
+      if (d >= p.r) return;
+      nx /= d; ny /= d; pen = p.r - d;
+    } else {
+      // center inside the block: push out through the nearest face
+      const top = -ly, left = lx + this.hw, right = this.hw - lx;
+      if (top <= left && top <= right) { nx = 0; ny = 1; pen = top + p.r; }
+      else if (left < right) { nx = -1; ny = 0; pen = left + p.r; }
+      else { nx = 1; ny = 0; pen = right + p.r; }
+    }
+    // local velocity
+    const c = Math.cos(this.ang), s = Math.sin(this.ang);
+    const vx = p.vx, vy = p.vy;
+    let vlx = vx * c + vy * s, vly = -vx * s + vy * c;
+    const nlx = lx + nx * pen, nly = ly + ny * pen;
+    const [wx, wy] = this.toWorld(nlx, nly);
+    p.x = wx; p.y = wy;
+    const vn = vlx * nx + vly * ny;
+    let tx = vlx - vn * nx, ty = vly - vn * ny;
+    const fr = p.kind === "foot" ? this.friction : this.friction * 0.35;
+    tx *= 1 - fr; ty *= 1 - fr;
+    const vn2 = vn < 0 ? -vn * (this.rest * (p.kind === "belly" || p.kind === "hip" ? 1 : 0.6)) : vn;
+    vlx = tx + nx * vn2; vly = ty + ny * vn2;
+    p.setVel(vlx * c - vly * s, vlx * s + vly * c);
+    if (ny > 0.5) {
+      p.gt = 0.1;
+      if (this.tilt) this.torque += p.m * lx;
+    }
+  }
+}
+
+// ============================================================ wrestlers
+const RIVALS = [
+  { name: "TOFU TANAKA", skin: "#FFD6B0", belt: "#7BC47F", hair: "#2B1B17", arena: "classic", react: 0.75, noise: 1.0, counter: 0.05, range: 4.2 },
+  { name: "CHONKY CHAD", skin: "#F5C29A", belt: "#5AB0E6", hair: "#E0A030", arena: "ice", react: 0.6, noise: 0.8, counter: 0.12, range: 4.6 },
+  { name: "NOODLE NANA", skin: "#FFE0C4", belt: "#B07AE0", hair: "#DDDDDD", arena: "seesaw", react: 0.5, noise: 0.65, counter: 0.2, range: 4.8 },
+  { name: "BIG MAMA MEATBALL", skin: "#E8A97F", belt: "#FF8A3D", hair: "#5A2D1A", arena: "shrink", react: 0.4, noise: 0.5, counter: 0.3, range: 5.0 },
+  { name: "BOUNCY BAO", skin: "#FFF0DE", belt: "#FF5C8A", hair: "#2B1B17", arena: "bouncy", react: 0.33, noise: 0.4, counter: 0.35, range: 5.2 },
+  { name: "YOKOZUNA YUKI", skin: "#F2C6A0", belt: "#F4F4F4", hair: "#111111", arena: "classic", react: 0.22, noise: 0.25, counter: 0.5, range: 5.5, boss: true }
+];
+
+class Wrestler {
+  constructor(idx, x, look) {
+    this.idx = idx; this.look = look;
+    this.face = idx === 0 ? 1 : -1;
+    this.ps = []; this.links = []; this.arms = [[], []];
+    this.charging = false; this.charge = 0; this.cool = 0; this.balance = 1;
+    this.flyT = 0; this.slapCool = 0; this.boingCool = 0; this.headT = 0; this.out = false; this.dazed = 0;
+    const mk = (dx, y, r, m, kind) => { const p = new P(x + dx, y, r, m, kind); p.w = this; this.ps.push(p); return p; };
+    this.hip = mk(0, 1.35, 0.5, 3, "hip");
+    this.belly = mk(0.05 * this.face, 2.15, 0.95, 5, "belly");
+    this.head = mk(0.1 * this.face, 3.3, 0.5, 1.3, "head");
+    this.sh = [mk(-0.25, 2.8, 0.2, 0.6, "sh"), mk(0.25, 2.8, 0.2, 0.6, "sh")];
+    this.knee = [mk(-0.35, 0.75, 0.22, 0.8, "knee"), mk(0.35, 0.75, 0.22, 0.8, "knee")];
+    this.foot = [mk(-0.5, 0.25, 0.25, 1.1, "foot"), mk(0.5, 0.25, 0.25, 1.1, "foot")];
+    const L = this.links;
+    const S = (a, b, k) => L.push(link(a, b, k == null ? 1 : k));
+    S(this.hip, this.belly); S(this.belly, this.head); S(this.hip, this.head, 0.4);
+    for (const s of this.sh) { S(s, this.belly); S(s, this.head); }
+    S(this.sh[0], this.sh[1]);
+    for (let i = 0; i < 2; i++) { S(this.hip, this.knee[i]); S(this.knee[i], this.foot[i]); }
+    S(this.foot[0], this.foot[1], 0.12);
+    // noodle arms: 5 soft segments hanging from each shoulder
+    for (let a = 0; a < 2; a++) {
+      let prev = this.sh[a];
+      for (let i = 1; i <= 5; i++) {
+        const hand = i === 5;
+        const p = mk(this.sh[a].x - x, this.sh[a].y - i * 0.34, hand ? 0.26 : 0.17, hand ? 0.45 : 0.22, hand ? "hand" : "arm");
+        S(prev, p, 0.85);
+        this.arms[a].push(p);
+        prev = p;
+      }
+      const arm = this.arms[a];
+      S(this.sh[a], arm[1], 0.03);
+      for (let i = 0; i < arm.length - 2; i++) S(arm[i], arm[i + 2], 0.04);
+    }
+    this.body = [this.hip, this.belly, this.head, this.sh[0], this.sh[1], this.knee[0], this.knee[1], this.foot[0], this.foot[1]];
+  }
+  grounded() { return this.foot[0].gt > 0 || this.foot[1].gt > 0 || this.hip.gt > 0; }
+  press() {
+    if (this.out || this.cool > 0 || this.charging) return;
+    this.charging = true; this.charge = 0;
+  }
+  release() {
+    if (!this.charging) return;
+    this.charging = false;
+    const p = 0.32 + 0.68 * Math.min(1, this.charge / 0.85);
+    const dir = this.face;
+    if (this.grounded()) {
+      for (const q of this.body) q.addVel(dir * 15 * p, 10 * p);
+      this.balance = 0.2; this.flyT = 0.45;
+      Sfx.whoosh();
+    }
+    // the noodle arms always fling forward: faster toward the hands
+    for (const arm of this.arms) arm.forEach((q, i) => q.addVel(dir * (8 + i * 5.5) * p, (3 + i) * p));
+    this.cool = 0.28;
+    this.charge = 0;
+  }
+  // internal "muscles": keep upright, legs under the body, wind up while charging
+  muscles(dt, opp) {
+    const dir = this.face;
+    const bal = this.out ? 0.05 : this.balance * (this.dazed > 0 ? 0.3 : 1);
+    const ch = this.charging ? Math.min(1, this.charge / 0.85) : 0;
+    const lean = -dir * 0.55 * ch + (this.flyT > 0 ? dir * 0.5 : 0);
+    const pull = (p, q, tx, ty, k, d) => {
+      const fx = (tx - p.x) * k - (p.vx - q.vx) * d;
+      const fy = (ty - p.y) * k - (p.vy - q.vy) * d;
+      p.ax += fx * p.im; p.ay += fy * p.im;
+      q.ax -= fx * q.im; q.ay -= fy * q.im;
+    };
+    const h = this.hip;
+    pull(this.head, h, h.x + lean, h.y + 1.95 - ch * 0.25, 190 * bal, 9 * bal);
+    pull(this.belly, h, h.x + lean * 0.5, h.y + 0.8, 150 * bal, 8 * bal);
+    const legLen = 1.15 - ch * 0.45;
+    for (let i = 0; i < 2; i++) {
+      const side = i === 0 ? -1 : 1;
+      pull(this.foot[i], h, h.x + side * 0.5, h.y - legLen, 70 * bal, 4 * bal);
+      pull(this.knee[i], h, h.x + side * 0.3 + dir * 0.25, h.y - legLen * 0.5, 25 * bal, 2 * bal);
+    }
+    // arms: wind back and up while charging, otherwise dangle loosely toward the opponent
+    for (let a = 0; a < 2; a++) {
+      const hand = this.arms[a][4];
+      const s = this.sh[a];
+      if (ch > 0) pull(hand, s, s.x - dir * (0.9 + a * 0.3), s.y + 0.9, 30 * ch, 2);
+      else if (!this.out) pull(hand, s, s.x + dir * 0.9, s.y - 0.9, 2.5, 0.3);
+    }
+    // shaky belly while winding up (sumo tension!)
+    if (ch > 0.2) this.belly.ax += rand(-1, 1) * 60 * ch;
+  }
+  step(dt, opp) {
+    this.face = opp.belly.x >= this.belly.x ? 1 : -1;
+    if (this.charging) this.charge = Math.min(0.85, this.charge + dt);
+    this.cool = Math.max(0, this.cool - dt);
+    this.flyT = Math.max(0, this.flyT - dt);
+    this.slapCool = Math.max(0, this.slapCool - dt);
+    this.boingCool = Math.max(0, this.boingCool - dt);
+    this.dazed = Math.max(0, this.dazed - dt);
+    this.balance = Math.min(1, this.balance + dt * (this.grounded() ? 1.2 : 0.3));
+    this.muscles(dt, opp);
+  }
+}
+
+// ============================================================ world
+const world = {
+  plat: new Platform("classic"),
+  w: [],
+  fx: [], pops: [],
+  time: 0, slow: 1, shake: 0, roundT: 0,
+  onEvent: null
+};
+
+function spawnWrestlers(looks) {
+  world.roundT = 0;
+  world.w = [new Wrestler(0, -3.1, looks[0]), new Wrestler(1, 3.1, looks[1])];
+}
+
+function collideWrestlers(A, B) {
+  for (const a of A.ps) for (const b of B.ps) {
+    const dx = b.x - a.x, dy = b.y - a.y, r = a.r + b.r;
+    const d2 = dx * dx + dy * dy;
+    if (d2 >= r * r || d2 < 1e-9) continue;
+    const d = Math.sqrt(d2), nx = dx / d, ny = dy / d;
+    const pen = r - d, wa = a.im / (a.im + b.im), wb = 1 - wa;
+    // relative speed along the normal (before separation)
+    const rv = (a.vx - b.vx) * nx + (a.vy - b.vy) * ny;
+    a.x -= nx * pen * wa; a.y -= ny * pen * wa;
+    b.x += nx * pen * wb; b.y += ny * pen * wb;
+    if (rv > 0) impact(a, b, nx, ny, rv);
+  }
+}
+
+function impact(a, b, nx, ny, rv) {
+  // noodle slap: a fast hand hitting any part of the rival knocks them back
+  const slapper = a.kind === "hand" && rv > 7 ? a : b.kind === "hand" && rv > 7 ? b : null;
+  if (slapper) {
+    const me = slapper.w, them = slapper === a ? b.w : a.w;
+    if (me.slapCool <= 0) {
+      me.slapCool = 0.3;
+      const dir = slapper === a ? 1 : -1;
+      const k = clamp(rv * 0.6, 4, 14);
+      for (const q of them.body) q.addVel(nx * dir * k, Math.abs(ny) * k * 0.3 + 2.5);
+      them.balance = Math.min(them.balance, 0.25);
+      them.dazed = 0.25;
+      world.shake = Math.max(world.shake, 0.35);
+      emit("slap", (a.x + b.x) / 2, (a.y + b.y) / 2, rv);
+    }
+    return;
+  }
+  // belly bump: big round bellies bounce each other apart
+  if (a.kind === "belly" && b.kind === "belly" && rv > 4.5 && a.w.boingCool <= 0) {
+    a.w.boingCool = b.w.boingCool = 0.35;
+    const k = clamp(rv * 0.75, 3.5, 12);
+    for (const q of a.w.body) q.addVel(-nx * k, 1.5);
+    for (const q of b.w.body) q.addVel(nx * k, 1.5);
+    a.w.balance = Math.min(a.w.balance, 0.5); b.w.balance = Math.min(b.w.balance, 0.5);
+    world.shake = Math.max(world.shake, 0.3);
+    emit("boing", (a.x + b.x) / 2, (a.y + b.y) / 2, rv);
+  }
+}
+
+function physicsStep(active) {
+  const plat = world.plat;
+  if (active) world.roundT += DT;
+  plat.step(DT, active);
+  const ws = world.w;
+  if (ws.length === 2) { ws[0].step(DT, ws[1]); ws[1].step(DT, ws[0]); }
+  for (const w of ws) for (const p of w.ps) {
+    const vx = (p.x - p.px) * 0.996, vy = (p.y - p.py) * 0.996;
+    p.px = p.x; p.py = p.y;
+    p.x += vx + p.ax * DT * DT;
+    p.y += vy + (GRAV + p.ay) * DT * DT;
+    p.ax = 0; p.ay = 0;
+    p.gt = Math.max(0, p.gt - DT);
+  }
+  for (let it = 0; it < ITER; it++) {
+    for (const w of ws) for (const c of w.links) solveLink(c);
+    if (ws.length === 2) collideWrestlers(ws[0], ws[1]);
+    for (const w of ws) for (const p of w.ps) plat.collide(p);
+  }
+}
+
+function emit(type, x, y, strength) { if (world.onEvent) world.onEvent(type, x, y, strength); }
+
+// ============================================================ AI
+class Brain {
+  constructor(w, rival) { this.w = w; this.r = rival; this.wait = rand(0.3, 0.8); this.target = 0.3; }
+  update(dt) {
+    const me = this.w, op = world.w[1 - me.idx], R = this.r;
+    if (me.out) return;
+    if (me.charging) { if (me.charge >= this.target) me.release(); return; }
+    this.wait -= dt;
+    if (this.wait > 0 || !me.grounded() || me.cool > 0) return;
+    const d = Math.abs(op.belly.x - me.belly.x);
+    // counter: the rival is winding up close by -> quick jab
+    if (op.charging && d < 3.2 && Math.random() < R.counter) {
+      this.target = rand(0.08, 0.22); me.press(); this.wait = R.react * 0.6; return;
+    }
+    // near my own edge -> lunge back toward the middle (toward the rival)
+    const [lx] = world.plat.toLocal(me.belly.x, me.belly.y);
+    const nearEdge = Math.abs(lx) > world.plat.hw - 1.6;
+    if (d < R.range || nearEdge) {
+      this.target = clamp(0.1 + (d - 1.5) * 0.15 + rand(-0.15, 0.15) * R.noise, 0.06, 0.85);
+    } else {
+      this.target = rand(0.05, 0.2);   // shuffle closer with a small hop
+    }
+    me.press();
+    this.wait = R.react + rand(0, 0.4) * R.noise;
+  }
+}
+
+// ============================================================ effects
+function burst(x, y, n, colors, speed, grav, size) {
+  for (let i = 0; i < n; i++) {
+    const a = rand(0, Math.PI * 2), s = rand(0.3, 1) * speed;
+    world.fx.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s + speed * 0.3, life: rand(0.5, 1), max: 1,
+      c: colors[i % colors.length], r: rand(0.6, 1.2) * size, g: grav });
+  }
+}
+function pop(text, x, y, color, size) {
+  if (world.pops.some(p => p.text === text && p.t < 0.25)) return;
+  world.pops.push({ text, x, y, t: 0, color, size: size || 1 });
+}
+function stepFx(dt) {
+  for (const f of world.fx) { f.vy += f.g * dt; f.x += f.vx * dt; f.y += f.vy * dt; f.life -= dt; }
+  world.fx = world.fx.filter(f => f.life > 0);
+  for (const p of world.pops) { p.t += dt; p.y += dt * 1.2; }
+  world.pops = world.pops.filter(p => p.t < 1.1);
+}
+
+// ============================================================ game flow
+const game = {
+  mode: "attract",      // attract | 1p | 2p
+  state: "fight",       // countdown | fight | point | end
+  t: 0, score: [0, 0], target: 5,
+  rival: 0, brains: [null, null],
+  looks: null, arenaKind: "classic",
+  loser: -1, msg: "", msgT: 0
+};
+const P1LOOK = { name: "YOU", skin: "#FFD2A8", belt: "#E63946", hair: "#2B1B17" };
+const P2LOOK = { name: "PLAYER 2", skin: "#F0BE94", belt: "#2F6FDE", hair: "#3A2A20" };
+
+function setupMatch(mode, rivalIdx) {
+  game.mode = mode;
+  game.score = [0, 0];
+  if (mode === "1p") {
+    game.rival = rivalIdx;
+    const R = RIVALS[rivalIdx];
+    game.looks = [P1LOOK, R];
+    game.arenaKind = R.arena;
+  } else if (mode === "2p") {
+    game.looks = [{ ...P1LOOK, name: "PLAYER 1" }, P2LOOK];
+    const kinds = Object.keys(ARENAS);
+    game.arenaKind = kinds[Math.floor(Math.random() * kinds.length)];
+  } else {
+    const a = RIVALS[Math.floor(Math.random() * RIVALS.length)];
+    let b = RIVALS[Math.floor(Math.random() * RIVALS.length)];
+    if (b === a) b = RIVALS[(RIVALS.indexOf(a) + 2) % RIVALS.length];
+    game.looks = [a, b];
+    const kinds = Object.keys(ARENAS);
+    game.arenaKind = kinds[Math.floor(Math.random() * kinds.length)];
+  }
+  world.plat = new Platform(game.arenaKind);
+  startRound();
+  updateHud();
+}
+
+function startRound() {
+  world.plat.reset();
+  spawnWrestlers(game.looks);
+  world.fx = []; world.pops = [];
+  game.loser = -1;
+  if (game.mode === "1p") game.brains = [null, new Brain(world.w[1], RIVALS[game.rival])];
+  else if (game.mode === "2p") game.brains = [null, null];
+  else game.brains = [new Brain(world.w[0], { react: 0.45, noise: 0.6, counter: 0.2, range: 4.8 }), new Brain(world.w[1], { react: 0.45, noise: 0.6, counter: 0.2, range: 4.8 })];
+  game.state = game.mode === "attract" ? "fight" : "countdown";
+  game.t = 0;
+  input.held = [false, false];
+}
+
+function checkPoint() {
+  for (let i = 0; i < 2; i++) {
+    const w = world.w[i];
+    const [lx, ly] = world.plat.toLocal(w.belly.x, w.belly.y);
+    let why = null;
+    if (ly < -1.4 || w.belly.y < -4) why = "RING OUT!";
+    // sumo rule: anything but the feet touching the floor for too long = you lose the bout
+    if (w.head.gt > 0 && ly < 1.3) { w.headT += DT; if (w.headT > 0.8) why = "FLOPPED!"; } else w.headT = Math.max(0, w.headT - DT * 2);
+    if (why) return { loser: i, why };
+  }
+  return null;
+}
+
+function scorePoint(res) {
+  game.state = "point"; game.t = 0; game.loser = res.loser;
+  const loser = world.w[res.loser];
+  loser.out = true; loser.charging = false;
+  const winner = 1 - res.loser;
+  game.score[winner]++;
+  world.slow = 0.3;
+  pop(res.why, loser.belly.x, loser.belly.y + 2.5, "#FFF4E2", 1.6);
+  Sfx.cheer();
+  if (res.why === "FLOPPED!") Sfx.thud();
+  updateHud();
+}
+
+function onPointOver() {
+  if (game.mode === "attract") { if (game.score[0] + game.score[1] >= 6) setupMatch("attract"); else startRound(); return; }
+  const w = game.score[0] >= game.target ? 0 : game.score[1] >= game.target ? 1 : -1;
+  if (w < 0) { startRound(); return; }
+  game.state = "end";
+  showEnd(w);
+}
+
+// ============================================================ input
+const input = { held: [false, false], pointers: new Map() };
+
+function playerFor(clientX) {
+  if (game.mode === "2p") return clientX < W / 2 ? 0 : 1;
+  return 0;
+}
+function canControl(i) {
+  return (game.mode === "1p" && i === 0) || game.mode === "2p";
+}
+function down(i) {
+  if (!canControl(i) || input.held[i]) return;
+  input.held[i] = true;
+  if (game.state === "fight") world.w[i].press();
+}
+function up(i) {
+  if (!input.held[i]) return;
+  input.held[i] = false;
+  if (world.w[i]) world.w[i].release();
+}
+const P1KEYS = ["KeyW", "KeyA", "KeyS", "KeyD", "Space", "ShiftLeft"];
+const P2KEYS = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Enter", "KeyL", "ShiftRight"];
+function keyPlayer(code) {
+  if (game.mode === "1p") return P1KEYS.includes(code) || P2KEYS.includes(code) ? 0 : -1;
+  if (P1KEYS.includes(code)) return 0;
+  if (P2KEYS.includes(code)) return 1;
+  return -1;
+}
+window.addEventListener("keydown", e => {
+  Sfx.init();
+  if (e.repeat) return;
+  const i = keyPlayer(e.code);
+  if (i >= 0 && game.mode !== "attract" && game.state !== "end") { down(i); e.preventDefault(); }
+});
+window.addEventListener("keyup", e => {
+  const i = keyPlayer(e.code);
+  if (i >= 0) { up(i); e.preventDefault(); }
+});
+cv.addEventListener("pointerdown", e => {
+  Sfx.init();
+  if (game.mode === "attract" || game.state === "end") return;
+  const i = playerFor(e.clientX);
+  input.pointers.set(e.pointerId, i);
+  down(i);
+  e.preventDefault();
+});
+function pointerEnd(e) {
+  const i = input.pointers.get(e.pointerId);
+  if (i == null) return;
+  input.pointers.delete(e.pointerId);
+  for (const v of input.pointers.values()) if (v === i) return;
+  up(i);
+}
+cv.addEventListener("pointerup", pointerEnd);
+cv.addEventListener("pointercancel", pointerEnd);
+cv.addEventListener("contextmenu", e => e.preventDefault());
+
+// ============================================================ UI
+const $ = id => document.getElementById(id);
+const ui = { menu: $("menu"), end: $("end"), hud: $("hud"), hint: $("touchHint") };
+
+function beaten() { return store.get("beaten", 0); }
+function renderLadder() {
+  const b = beaten();
+  $("ladder").innerHTML = RIVALS.map((r, i) =>
+    `<span class="chip ${i < b ? "beaten" : ""} ${i === Math.min(b, RIVALS.length - 1) ? "next" : ""}">${i + 1}. ${r.name}</span>`).join("");
+}
+function updateHud() {
+  const L = game.looks || [P1LOOK, RIVALS[0]];
+  $("n1").textContent = L[0].name;
+  $("n2").textContent = L[1].name;
+  $("n2").style.background = game.mode === "2p" ? "var(--p2)" : L[1].belt;
+  $("n2").style.color = game.mode === "1p" && (L[1].belt === "#F4F4F4") ? "#2B1B17" : "#fff";
+  for (let i = 0; i < 2; i++) {
+    $("pips" + (i + 1)).innerHTML = Array.from({ length: game.target }, (_, k) =>
+      `<span class="pip ${k < game.score[i] ? "on" : ""}"></span>`).join("");
+  }
+}
+function showMenu() {
+  setupMatch("attract");
+  ui.menu.hidden = false; ui.end.hidden = true; ui.hud.hidden = true; ui.hint.hidden = true;
+  soundBtn.hidden = false;
+  renderLadder();
+}
+function startPlay(mode) {
+  Sfx.init(); Sfx.click();
+  ui.menu.hidden = true; ui.end.hidden = true; ui.hud.hidden = false;
+  ui.hint.hidden = false; soundBtn.hidden = true;
+  const touch = matchMedia("(pointer: coarse)").matches;
+  if (mode === "1p") {
+    $("h1").textContent = touch ? "HOLD anywhere, release to lunge" : "HOLD W / SPACE, release to lunge";
+    $("h2").textContent = "";
+    $("h2").hidden = true;
+  } else {
+    $("h1").textContent = touch ? "P1: hold left side" : "P1: hold W";
+    $("h2").textContent = touch ? "P2: hold right side" : "P2: hold ↑";
+    $("h2").hidden = false;
+  }
+  setupMatch(mode, Math.min(beaten(), RIVALS.length - 1));
+}
+function showEnd(winner) {
+  ui.hud.hidden = false; ui.hint.hidden = true; ui.end.hidden = false;
+  const L = game.looks;
+  if (game.mode === "1p") {
+    const won = winner === 0;
+    const R = RIVALS[game.rival];
+    if (won) {
+      if (beaten() <= game.rival) store.set("beaten", game.rival + 1);
+      $("endTitle").textContent = R.boss ? "YOKOZUNA!" : "YOU WIN!";
+      $("endSub").textContent = R.boss ? "You beat the grand champion. Legend." : R.name + " is swimming home.";
+      Sfx.win();
+    } else {
+      $("endTitle").textContent = "SPLASH...";
+      $("endSub").textContent = R.name + " wins " + game.score[1] + " to " + game.score[0] + ". Try shorter jabs!";
+      Sfx.lose();
+    }
+    $("bNext").hidden = !won || game.rival >= RIVALS.length - 1;
+    $("bAgain").textContent = won ? "PLAY AGAIN" : "REMATCH";
+  } else {
+    $("endTitle").textContent = L[winner].name + " WINS!";
+    $("endSub").textContent = game.score[0] + " - " + game.score[1] + " on the " + ARENAS[game.arenaKind].name;
+    $("bNext").hidden = false;
+    $("bNext").textContent = "NEW ARENA";
+    $("bAgain").textContent = "REMATCH";
+    Sfx.win();
+  }
+}
+$("b1p").addEventListener("click", () => startPlay("1p"));
+$("b2p").addEventListener("click", () => startPlay("2p"));
+$("bAgain").addEventListener("click", () => {
+  Sfx.click(); ui.end.hidden = true; ui.hint.hidden = false;
+  setupMatch(game.mode, game.rival);
+});
+$("bNext").addEventListener("click", () => {
+  Sfx.click(); ui.end.hidden = true; ui.hint.hidden = false;
+  if (game.mode === "1p") setupMatch("1p", Math.min(game.rival + 1, RIVALS.length - 1));
+  else setupMatch("2p");
+});
+$("bMenu").addEventListener("click", () => { Sfx.click(); showMenu(); });
+const soundBtn = $("soundBtn");
+function renderSound() { soundBtn.textContent = Sfx.muted ? "SOUND OFF" : "SOUND ON"; }
+soundBtn.addEventListener("click", () => { Sfx.init(); Sfx.toggle(); renderSound(); });
+renderSound();
+
+world.onEvent = (type, x, y, s) => {
+  if (type === "slap") {
+    Sfx.slap();
+    pop("SLAP!", x, y + 0.6, "#FFE36B", 1 + clamp(s / 20, 0, 0.6));
+    burst(x, y, 10, ["#FFFFFF", "#FFE36B"], 7, -10, 0.14);
+  } else if (type === "boing") {
+    Sfx.boing();
+    pop("BOING!", x, y + 1.2, "#FF9ECF", 1 + clamp(s / 16, 0, 0.6));
+    burst(x, y, 8, ["#FFFFFF", "#FF9ECF"], 5, -6, 0.16);
+  }
+};
+
+// ============================================================ rendering
+const cam = { x: 0, y: 1.6, scale: 40, zoom: 1, ground: 0.58 };
+
+function w2s(x, y) { return [W / 2 + (x - cam.x) * cam.scale, H * cam.ground - (y - cam.y) * cam.scale]; }
+
+function updateCamera(dt) {
+  const ws = world.w;
+  let cx = 0, span = 10;
+  if (ws.length === 2) {
+    cx = (ws[0].belly.x + ws[1].belly.x) / 2;
+    span = Math.abs(ws[0].belly.x - ws[1].belly.x);
+  }
+  if (game.state === "point" && game.loser >= 0) cx = lerp(cx, ws[game.loser].belly.x, 0.5);
+  cx = clamp(cx, -world.plat.hw0 + 2, world.plat.hw0 - 2);
+  const wantZoom = game.state === "point" ? 1.25 : 1;
+  cam.zoom = lerp(cam.zoom, wantZoom, 1 - Math.exp(-dt * 3));
+  const portrait = H > W;
+  const visW = (portrait ? clamp(span + 5, 10, 18) : clamp(span + 9, 15, 24)) / cam.zoom;
+  const target = Math.min(W / visW, H / 12);
+  cam.scale = lerp(cam.scale, target, 1 - Math.exp(-dt * 4));
+  cam.x = lerp(cam.x, cx, 1 - Math.exp(-dt * 4));
+  // on the menu the arena sits low so the title and buttons have the top of the screen
+  const wantGround = game.mode === "attract" ? (H > W ? 0.72 : 0.8) : (H > W ? 0.62 : 0.58);
+  cam.ground = lerp(cam.ground, wantGround, 1 - Math.exp(-dt * 3));
+}
+
+function drawBackground(t) {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  const night = game.arenaKind === "ice";
+  g.addColorStop(0, night ? "#9FD8F5" : "#FF9A6B");
+  g.addColorStop(0.55, night ? "#DDF3FF" : "#FFC98A");
+  g.addColorStop(1, night ? "#EAF8FF" : "#FFE0A8");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // sun
+  const [sx, sy] = [W * 0.5 - cam.x * cam.scale * 0.05, H * 0.3];
+  ctx.fillStyle = night ? "rgba(255,255,255,0.8)" : "#FFE9A6";
+  ctx.beginPath(); ctx.arc(sx, sy, Math.min(W, H) * 0.16, 0, Math.PI * 2); ctx.fill();
+  // far hills (parallax)
+  ctx.fillStyle = night ? "#BFE3F5" : "#F6A56E";
+  ctx.beginPath(); ctx.moveTo(0, H);
+  for (let x = 0; x <= W + 40; x += 40) {
+    const wx = x / W * 30 + cam.x * 0.2;
+    ctx.lineTo(x, H * 0.5 - Math.sin(wx * 0.5) * H * 0.04 - Math.sin(wx * 1.3) * H * 0.02);
+  }
+  ctx.lineTo(W, H); ctx.fill();
+  // crowd: rows of bobbing heads, cheering harder after a point
+  const hype = game.state === "point" ? 1 : 0.25;
+  const rows = [{ y: 0.47, s: 0.5, c: ["#C0674A", "#8E4A3A", "#D98B5F", "#6B3A2E"] }, { y: 0.51, s: 0.62, c: ["#A5533E", "#7A3F31", "#C9784F", "#5C3228"] }];
+  for (const row of rows) {
+    const r = cam.scale * row.s * 0.55;
+    const step = r * 2.1;
+    const off = ((cam.x * cam.scale * 0.4) % step + step) % step;
+    for (let x = -step + off, i = 0; x < W + step; x += step, i++) {
+      const bob = Math.abs(Math.sin(t * (4 + (i % 3)) + i)) * r * 0.5 * hype;
+      ctx.fillStyle = row.c[i % row.c.length];
+      ctx.beginPath(); ctx.arc(x, H * row.y - bob, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillRect(x - r * 1.1, H * row.y - bob + r * 0.6, r * 2.2, H * 0.05);
+    }
+  }
+  // sea
+  const [, seaY] = w2s(0, -3.2);
+  const sg = ctx.createLinearGradient(0, seaY, 0, H);
+  sg.addColorStop(0, night ? "#6CC3E8" : "#29C3B4"); sg.addColorStop(1, night ? "#2F8FC0" : "#138C8A");
+  ctx.fillStyle = sg;
+  ctx.beginPath(); ctx.moveTo(0, H);
+  for (let x = 0; x <= W + 20; x += 20) ctx.lineTo(x, seaY + Math.sin(x * 0.03 + t * 2) * 5);
+  ctx.lineTo(W, H); ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 3;
+  ctx.beginPath();
+  for (let x = 0; x <= W + 20; x += 20) ctx.lineTo(x, seaY + 14 + Math.sin(x * 0.04 - t * 2.4) * 4);
+  ctx.stroke();
+}
+
+function drawPlatform() {
+  const p = world.plat, s = cam.scale;
+  // stilts into the sea
+  ctx.fillStyle = "#7A4B2A"; ctx.strokeStyle = INK; ctx.lineWidth = 3;
+  for (const x of [-p.hw0 * 0.6, 0, p.hw0 * 0.6]) {
+    const [a, b] = w2s(x - 0.3, -1); const [, bb] = w2s(0, -6);
+    ctx.fillRect(a, b, 0.6 * s, bb - b); ctx.strokeRect(a, b, 0.6 * s, bb - b);
+  }
+  const c = [p.toWorld(-p.hw, 0), p.toWorld(p.hw, 0), p.toWorld(p.hw, -p.thick), p.toWorld(-p.hw, -p.thick)].map(q => w2s(q[0], q[1]));
+  ctx.lineJoin = "round";
+  ctx.fillStyle = p.side; ctx.lineWidth = 4; ctx.strokeStyle = INK;
+  ctx.beginPath(); c.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1])); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // top surface strip
+  const t0 = w2s(...p.toWorld(-p.hw, 0)), t1 = w2s(...p.toWorld(p.hw, 0));
+  const t2 = w2s(...p.toWorld(p.hw, -0.28)), t3 = w2s(...p.toWorld(-p.hw, -0.28));
+  ctx.fillStyle = p.top;
+  ctx.beginPath(); ctx.moveTo(...t0); ctx.lineTo(...t1); ctx.lineTo(...t2); ctx.lineTo(...t3); ctx.closePath(); ctx.fill(); ctx.stroke();
+  // straw rope bales at the ring edge + center lines
+  for (const e of [-1, 1]) {
+    const [bx, by] = w2s(...p.toWorld(e * (p.hw - 0.35), 0.12));
+    ctx.fillStyle = "#EBC76A"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(bx, by, 0.36 * s, 0.16 * s, p.ang, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  }
+  ctx.strokeStyle = p.line; ctx.lineWidth = Math.max(2, 0.08 * s);
+  for (const x of [-0.7, 0.7]) {
+    const a = w2s(...p.toWorld(x, 0.02)), b = w2s(...p.toWorld(x, -0.26));
+    ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke();
+  }
+  if (p.kind === "bouncy") {
+    ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = 3;
+    for (let x = -p.hw + 1; x < p.hw; x += 1.2) {
+      const a = w2s(...p.toWorld(x, -0.4)), b = w2s(...p.toWorld(x + 0.6, -0.9));
+      ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke();
+    }
+  }
+  if (p.kind === "ice") {
+    ctx.strokeStyle = "rgba(255,255,255,0.9)"; ctx.lineWidth = 2;
+    for (let x = -p.hw + 1.5; x < p.hw; x += 2.6) {
+      const a = w2s(...p.toWorld(x, -0.05)), b = w2s(...p.toWorld(x + 0.4, -0.5)), d = w2s(...p.toWorld(x + 0.1, -0.9));
+      ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.lineTo(...d); ctx.stroke();
+    }
+  }
+}
+
+function strokeLimb(pts, width, color) {
+  const s = cam.scale;
+  const sp = pts.map(p => w2s(p.x, p.y));
+  const path = () => {
+    ctx.beginPath(); ctx.moveTo(sp[0][0], sp[0][1]);
+    for (let i = 1; i < sp.length - 1; i++) {
+      const mx = (sp[i][0] + sp[i + 1][0]) / 2, my = (sp[i][1] + sp[i + 1][1]) / 2;
+      ctx.quadraticCurveTo(sp[i][0], sp[i][1], mx, my);
+    }
+    const l = sp[sp.length - 1]; ctx.lineTo(l[0], l[1]);
+  };
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.strokeStyle = INK; ctx.lineWidth = width * s + 5; path(); ctx.stroke();
+  ctx.strokeStyle = color; ctx.lineWidth = width * s; path(); ctx.stroke();
+}
+
+function circle(x, y, r, fill, stroke) {
+  const [sx, sy] = w2s(x, y);
+  ctx.beginPath(); ctx.arc(sx, sy, r * cam.scale, 0, Math.PI * 2);
+  if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+  if (stroke) { ctx.lineWidth = 3.5; ctx.strokeStyle = INK; ctx.stroke(); }
+}
+
+function drawWrestler(w) {
+  const L = w.look, s = cam.scale, dir = w.face;
+  const back = dir > 0 ? 0 : 1, front = 1 - back;
+  // back arm + back leg
+  strokeLimb([w.sh[back], ...w.arms[back]], 0.34, L.skin);
+  circle(w.arms[back][4].x, w.arms[back][4].y, 0.26, L.skin, true);
+  strokeLimb([w.hip, w.knee[back], w.foot[back]], 0.52, L.skin);
+  circle(w.foot[back].x, w.foot[back].y, 0.26, L.skin, true);
+  // belly: big ellipse along the spine
+  const ang = Math.atan2(w.head.x - w.hip.x, w.head.y - w.hip.y);
+  const [bx, by] = w2s(w.belly.x, w.belly.y);
+  ctx.save(); ctx.translate(bx, by); ctx.rotate(ang);
+  ctx.fillStyle = L.skin; ctx.strokeStyle = INK; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.ellipse(dir * 0.12 * s, 0, 1.12 * s, 1.18 * s, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,0.28)";
+  ctx.beginPath(); ctx.ellipse(dir * 0.35 * s, -0.25 * s, 0.5 * s, 0.6 * s, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(dir * 0.75 * s, 0.25 * s, 0.06 * s, 0, Math.PI * 2); ctx.fill();
+  // mawashi belt
+  ctx.fillStyle = L.belt; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.roundRect(-1.1 * s + dir * 0.12 * s, 0.55 * s, 2.24 * s, 0.5 * s, 0.14 * s); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.roundRect(dir * 0.55 * s - 0.2 * s, 0.9 * s, 0.4 * s, 0.55 * s, 0.1 * s); ctx.fill(); ctx.stroke();
+  ctx.restore();
+  // front leg
+  strokeLimb([w.hip, w.knee[front], w.foot[front]], 0.52, L.skin);
+  circle(w.foot[front].x, w.foot[front].y, 0.26, L.skin, true);
+  // head
+  const h = w.head;
+  const [hx, hy] = w2s(h.x, h.y);
+  ctx.save(); ctx.translate(hx, hy); ctx.rotate(ang * 0.7);
+  ctx.fillStyle = L.hair; ctx.strokeStyle = INK; ctx.lineWidth = 3.5;
+  ctx.beginPath(); ctx.ellipse(-dir * 0.15 * s, -0.52 * s, 0.2 * s, 0.14 * s, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = L.skin;
+  ctx.beginPath(); ctx.arc(0, 0, 0.56 * s, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = L.hair;
+  ctx.beginPath(); ctx.arc(0, 0, 0.56 * s, Math.PI * 1.05, Math.PI * 1.95); ctx.closePath(); ctx.fill();
+  // face
+  const out = w.out, charging = w.charging, flying = w.flyT > 0 || w.dazed > 0;
+  const ex = dir * 0.28 * s, ey = -0.02 * s;
+  ctx.fillStyle = "#FFFFFF"; ctx.strokeStyle = INK; ctx.lineWidth = 2.5;
+  if (out) {
+    ctx.lineWidth = 3;
+    for (const o of [-0.13, 0.13]) {
+      ctx.beginPath(); ctx.moveTo(ex + o * s - 0.08 * s, ey - 0.08 * s); ctx.lineTo(ex + o * s + 0.08 * s, ey + 0.08 * s);
+      ctx.moveTo(ex + o * s + 0.08 * s, ey - 0.08 * s); ctx.lineTo(ex + o * s - 0.08 * s, ey + 0.08 * s); ctx.stroke();
+    }
+  } else {
+    for (const o of [-0.12, 0.14]) {
+      ctx.beginPath(); ctx.arc(ex + o * s, ey, 0.1 * s, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(ex + o * s + dir * 0.04 * s, ey, 0.045 * s, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#FFFFFF";
+    }
+    if (charging) { // angry brows
+      ctx.lineWidth = 3.5; ctx.beginPath();
+      ctx.moveTo(ex - 0.26 * s, ey - 0.2 * s); ctx.lineTo(ex - 0.02 * s, ey - 0.13 * s);
+      ctx.moveTo(ex + 0.3 * s, ey - 0.2 * s); ctx.lineTo(ex + 0.06 * s, ey - 0.13 * s); ctx.stroke();
+    }
+  }
+  ctx.lineWidth = 3;
+  const mx = dir * 0.26 * s, my = 0.26 * s;
+  ctx.beginPath();
+  if (out || flying) { ctx.fillStyle = "#7A2020"; ctx.ellipse(mx, my, 0.09 * s, 0.12 * s, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+  else if (charging) { ctx.moveTo(mx - 0.13 * s, my); ctx.lineTo(mx + 0.13 * s, my); ctx.stroke(); }
+  else { ctx.arc(mx, my - 0.08 * s, 0.12 * s, 0.2, Math.PI - 0.2); ctx.stroke(); }
+  ctx.restore();
+  // charge meter over the head
+  if (charging) {
+    const k = Math.min(1, w.charge / 0.85);
+    const [cx, cy] = w2s(h.x, h.y + 1.1);
+    ctx.lineWidth = 6; ctx.strokeStyle = "rgba(43,27,23,0.35)";
+    ctx.beginPath(); ctx.arc(cx, cy, 0.32 * s, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = k >= 1 ? "#FF3B3B" : "#FFE36B";
+    ctx.beginPath(); ctx.arc(cx, cy, 0.32 * s, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); ctx.stroke();
+  }
+  // front arm on top
+  strokeLimb([w.sh[front], ...w.arms[front]], 0.34, L.skin);
+  circle(w.arms[front][4].x, w.arms[front][4].y, 0.26, L.skin, true);
+}
+
+function drawFx() {
+  for (const f of world.fx) {
+    const [x, y] = w2s(f.x, f.y);
+    ctx.globalAlpha = clamp(f.life * 2, 0, 1);
+    ctx.fillStyle = f.c; ctx.beginPath(); ctx.arc(x, y, f.r * cam.scale, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  for (const p of world.pops) {
+    const [x, y] = w2s(p.x, p.y);
+    const k = p.t < 0.15 ? p.t / 0.15 : 1;
+    const size = Math.round(cam.scale * 0.9 * p.size * (0.6 + 0.4 * k) + 8);
+    ctx.globalAlpha = clamp((1.1 - p.t) * 3, 0, 1);
+    ctx.font = size + "px 'Lilita One', 'Arial Black', sans-serif";
+    ctx.lineWidth = 7; ctx.strokeStyle = INK; ctx.strokeText(p.text, x, y);
+    ctx.fillStyle = p.color; ctx.fillText(p.text, x, y);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawBanner(text, color) {
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const size = Math.round(Math.min(W * 0.14, 110));
+  ctx.font = size + "px 'Lilita One', 'Arial Black', sans-serif";
+  ctx.lineWidth = 10; ctx.strokeStyle = INK; ctx.strokeText(text, W / 2, H * 0.3);
+  ctx.fillStyle = color; ctx.fillText(text, W / 2, H * 0.3);
+}
+
+// ============================================================ main loop
+let last = performance.now(), acc = 0;
+function frame(now) {
+  let dt = Math.min(0.05, (now - last) / 1000); last = now;
+  world.time += dt;
+  game.t += dt;
+
+  // flow
+  if (game.state === "countdown") {
+    if (game.t < 0.05) Sfx.drum();
+    if (game.t > 1.1 && game.t - dt <= 1.1) Sfx.drum();
+    if (game.t > 1.5) {
+      game.state = "fight"; game.t = 0; Sfx.drum();
+      // a player already holding the button starts winding up right away
+      for (let i = 0; i < 2; i++) if (input.held[i]) world.w[i].press();
+    }
+  }
+  const active = game.state === "fight";
+  world.slow = lerp(world.slow, game.state === "point" && game.t < 1 ? 0.3 : 1, 1 - Math.exp(-dt * 6));
+
+  if (game.state !== "end") {
+    acc += dt * world.slow;
+    let steps = 0;
+    while (acc >= DT && steps < 12) {
+      if (active) for (const b of game.brains) if (b) b.update(DT);
+      physicsStep(active);
+      if (active) { const res = checkPoint(); if (res) scorePoint(res); }
+      acc -= DT; steps++;
+    }
+    if (game.state === "point") {
+      const loser = world.w[game.loser];
+      if (loser.belly.y < -3.3 && !loser.splashed) {
+        loser.splashed = true; Sfx.splash();
+        burst(loser.belly.x, -3.2, 26, ["#FFFFFF", "#BFF3EE", "#29C3B4"], 11, -22, 0.2);
+      }
+      if (game.t > 2.1) onPointOver();
+    }
+  }
+  stepFx(dt * world.slow);
+  updateCamera(dt);
+  world.shake = Math.max(0, world.shake - dt * 1.5);
+
+  // draw
+  ctx.save();
+  if (world.shake > 0) ctx.translate(rand(-1, 1) * world.shake * 14, rand(-1, 1) * world.shake * 14);
+  drawBackground(world.time);
+  drawPlatform();
+  for (const w of world.w) drawWrestler(w);
+  drawFx();
+  ctx.restore();
+  if (game.state === "countdown") drawBanner(game.t < 1.1 ? "READY..." : "HAKKEYOI!", game.t < 1.1 ? "#FFF4E2" : "#FFE36B");
+  if (game.state === "fight" && game.t < 0.6 && game.mode !== "attract") drawBanner("HAKKEYOI!", "#FFE36B");
+  if (game.state === "fight" && world.roundT > 10 && world.roundT < 12.5 && game.mode !== "attract" && Math.floor(world.roundT * 4) % 2 === 0)
+    drawBanner("RING SHRINKING!", "#FF7A59");
+
+  requestAnimationFrame(frame);
+}
+
+// ============================================================ test hook (headless tuning: bot vs bot)
+window.__sumoSim = function (seconds, levels) {
+  const results = [];
+  const saved = { mode: game.mode };
+  game.mode = "sim";
+  let t = 0, pointT = 0, nan = false;
+  world.plat = new Platform(levels.arena || "classic");
+  world.plat.reset();
+  spawnWrestlers([RIVALS[0], RIVALS[1]]);
+  const brains = [new Brain(world.w[0], levels.a), new Brain(world.w[1], levels.b)];
+  while (t < seconds) {
+    for (const b of brains) b.update(DT);
+    physicsStep(true);
+    t += DT; pointT += DT;
+    for (const w of world.w) for (const p of w.ps) if (!isFinite(p.x) || !isFinite(p.y)) nan = true;
+    if (nan) break;
+    const res = checkPoint();
+    if (res) {
+      results.push({ loser: res.loser, why: res.why, t: +pointT.toFixed(2) });
+      pointT = 0;
+      world.plat.reset();
+      spawnWrestlers([RIVALS[0], RIVALS[1]]);
+      brains[0] = new Brain(world.w[0], levels.a); brains[1] = new Brain(world.w[1], levels.b);
+    }
+    if (pointT > 40) { results.push({ loser: -1, why: "TIMEOUT", t: 40 }); pointT = 0; world.plat.reset(); spawnWrestlers([RIVALS[0], RIVALS[1]]); brains[0] = new Brain(world.w[0], levels.a); brains[1] = new Brain(world.w[1], levels.b); }
+  }
+  game.mode = saved.mode;
+  showMenu();
+  return { nan, results };
+};
+
+showMenu();
+requestAnimationFrame(frame);
+})();
+</script>
