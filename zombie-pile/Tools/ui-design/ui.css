@@ -6,6 +6,7 @@
   --red1: #ff7a5c; --red2: #ea3322; --redLip: #8c120c;
   --gold1: #fff08a; --gold2: #ffc21f; --goldLip: #a25f04;
   --dark1: #5b4a74; --dark2: #34284a; --darkLip: #1d1429;
+  --blue1: #8fd9ff; --blue2: #2f86e8; --blueLip: #123f86;
 }
 * { box-sizing: border-box; }
 body { margin: 0; font-family: Lilita, sans-serif; }
@@ -29,6 +30,7 @@ body { margin: 0; font-family: Lilita, sans-serif; }
 .btn.red { background: var(--redLip); --c1: var(--red1); --c2: var(--red2); }
 .btn.gold { background: var(--goldLip); --c1: var(--gold1); --c2: var(--gold2); }
 .btn.dark { background: var(--darkLip); --c1: var(--dark1); --c2: var(--dark2); }
+.btn.blue { background: var(--blueLip); --c1: var(--blue1); --c2: var(--blue2); }
 .btn.white { background: #7d7d7d; --c1: #ffffff; --c2: #cdcdcd; }
 .btn.round, .btn.round::before { border-radius: 50%; }
 .btn.round::after { border-radius: 50% 50% 40% 40%; left: 16%; right: 16%; top: 5%; height: 36%; }

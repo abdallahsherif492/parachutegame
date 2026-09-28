@@ -3,340 +3,464 @@ using UnityEngine;
 
 namespace ZombiePile
 {
-    /// A physics zombie. Alive: an upright box that shuffles toward the wall and climbs over
-    /// whatever is in front of it (other zombies, dead bodies), so a pile builds up against the wall.
-    /// Dead: the rotation is freed and it tumbles like a sack; the body stays in the pile for a while.
+    public enum ZState { Run, Climb, Pile, Leap, Knock, Breach }
+
+    /// A zombie, driven by script while alive (runs up the street, climbs the pile, clings to it, goes over
+    /// the wall) and by physics once dead (ragdoll). Living zombies are kinematic: no physics pile-ups,
+    /// nothing gets launched into the sky, and the heap always builds against the wall.
     public class Zombie : MonoBehaviour
     {
+        public const int Layer = 8;
+        public const float BaseSpeed = 3.8f;
         public static readonly List<Zombie> Alive = new List<Zombie>();
-        static readonly Color[] Skins = { new Color(0.56f, 0.74f, 0.42f), new Color(0.47f, 0.66f, 0.47f), new Color(0.62f, 0.7f, 0.38f), new Color(0.5f, 0.6f, 0.55f) };
-        static readonly Color[] Shirts = { new Color(0.75f, 0.3f, 0.28f), new Color(0.3f, 0.45f, 0.7f), new Color(0.85f, 0.75f, 0.5f), new Color(0.45f, 0.55f, 0.35f), new Color(0.6f, 0.4f, 0.65f), new Color(0.9f, 0.9f, 0.88f) };
-        static readonly Color[] Pants = { new Color(0.2f, 0.25f, 0.4f), new Color(0.35f, 0.28f, 0.22f), new Color(0.25f, 0.25f, 0.27f) };
 
-        public bool IsAlive { get; private set; }
-        public bool IsBrute { get; private set; }
+        public ZType Type { get; private set; }
         public float Hp { get; private set; }
         public float MaxHp { get; private set; }
+        public float Armor { get; private set; }
+        public bool IsAlive { get; private set; }
+        public bool IsBoss { get { return Type.ability == Ability.Boss; } }
+        public bool IsBrute { get { return Type.ability == Ability.Smash || IsBoss; } }
+        public ZState State { get; private set; }
+        public Collider HeadCollider { get { return headCol; } }
         public Transform Head { get { return head; } }
-        public Collider HeadCollider { get; private set; }
+        public float Step { get; private set; }
+        public Vector3 Velocity { get; private set; }
+        public Vector3 Center { get { return transform.position + Vector3.up * bodyH * 0.55f; } }
+        public bool Airborne { get { return State == ZState.Leap || State == ZState.Knock; } }
 
-        Transform model, headBone;
+        GameObject holder;
+        Transform model, head, headBone, cone;
         Kit.Anim kit;
         Renderer[] skins;
         MaterialPropertyBlock mpb;
-        float flash, modelScale = 1f;
-        Rigidbody rb;
-        BoxCollider body;
-        Transform vis, head, legL, legR, armL, armR;
-        float baseScale = 1f;
-        float speed, climb, animT, deadT, punch, groanT, steerX, stuckT;
-        bool touching, breaching;
-        Vector3 breachFrom;
-        float breachT;
+        CapsuleCollider bodyCol;
+        SphereCollider headCol;
+        float s, bodyH, speed, laneX, flash, punch, groanT, smashT, stateT, pileY, pileYShown;
+        int col = -1;
+        Vector3 from, spot, knockV;
+        float dur;
+        bool leapt, pileBottom;
 
-        public static Zombie Spawn(Vector3 pos, float hp, float speed, bool brute)
+        public static Zombie Spawn(ZType type, Vector3 pos, float hpScale, float speedScale)
         {
-            var go = new GameObject(brute ? "Brute" : "Zombie");
+            var go = new GameObject(type.name);
+            go.layer = Layer;
             go.transform.position = pos;
             var z = go.AddComponent<Zombie>();
-            z.Init(hp, speed, brute);
+            z.Init(type, hpScale, speedScale);
             return z;
         }
 
-        void Init(float hp, float spd, bool brute)
+        void Init(ZType t, float hpScale, float speedScale)
         {
-            IsBrute = brute;
-            float s = brute ? 1.55f : Random.Range(0.95f, 1.1f);
-            Hp = MaxHp = hp * (brute ? 10f : 1f);
-            speed = spd * (brute ? 0.55f : Random.Range(0.8f, 1.25f));
-            climb = brute ? 4f : Random.Range(4.6f, 5.6f);
-            steerX = Random.Range(-1f, 1f);
-            groanT = Random.Range(1f, 6f);
-            animT = Random.value * 10f;
+            Type = t;
+            s = t.scale * (IsBrute ? 1f : Random.Range(0.94f, 1.08f));
+            MaxHp = Hp = t.hp * hpScale;
+            if (t.ability == Ability.Cone) Armor = t.hp * 1.6f * hpScale;
+            speed = BaseSpeed * t.speed * speedScale * (IsBrute ? 1f : Random.Range(0.86f, 1.14f));
+            laneX = Random.Range(-Arena.HalfWidth + 0.6f, Arena.HalfWidth - 0.6f);
+            Step = t.step * s / t.scale;
+            groanT = Random.Range(1f, 8f);
+            bodyH = t.neck * s;
 
-            rb = gameObject.AddComponent<Rigidbody>();
-            rb.mass = brute ? 6f : 1f;
-            rb.constraints = RigidbodyConstraints.FreezeRotation;
-            rb.interpolation = RigidbodyInterpolation.Interpolate;
-            rb.collisionDetectionMode = CollisionDetectionMode.Discrete;
+            // kinematic body: bullets and ragdolls hit it, nothing pushes it around
+            var rb = gameObject.AddComponent<Rigidbody>();
+            rb.isKinematic = true;
+            rb.useGravity = false;
+            bodyCol = gameObject.AddComponent<CapsuleCollider>();
+            bodyCol.radius = (IsBrute ? 0.42f : 0.3f) * s;
+            bodyCol.height = Mathf.Max(bodyH + 0.15f * s, bodyCol.radius * 2.1f);
+            bodyCol.center = new Vector3(0f, bodyCol.height * 0.5f, 0f);
 
-            body = gameObject.AddComponent<BoxCollider>();
-            if (Kit.Available) KitLook(s, brute); else PrimitiveLook(s, brute);
+            holder = Kit.Place(t.model, transform.position, 180f, s, transform, true);
+            if (holder == null) holder = Kit.Place("Zombie_Basic", transform.position, 180f, s, transform, true);   // model missing: stand-in
+            model = holder.transform;
+            kit = Kit.Anim.From(holder);
+            // clinging to the pile loops these (the importer marks them play-once)
+            if (kit.anim != null && kit.punch != null) kit.anim[kit.punch].wrapMode = WrapMode.Loop;
+            if (kit.anim != null && kit.hit != null) kit.anim[kit.hit].wrapMode = WrapMode.Once;
+            kit.Start(kit.run);
+            foreach (var tr in holder.GetComponentsInChildren<Transform>()) if (tr.name == "Head") { headBone = tr; break; }
+            skins = holder.GetComponentsInChildren<Renderer>();
+            mpb = new MaterialPropertyBlock();
+            ApplyTint(0f);
+
+            // head sphere (the model faces -Z here, so "forward" in model space is -z); a bit generous
+            var hgo = new GameObject("HeadHit");
+            hgo.layer = Layer;
+            hgo.transform.SetParent(transform, false);
+            hgo.transform.localPosition = new Vector3(0f, t.headY * s, -t.headZ * s);
+            head = hgo.transform;
+            if (t.hasHead)
+            {
+                headCol = hgo.AddComponent<SphereCollider>();
+                headCol.radius = t.headR * s * 1.15f;
+            }
+            if (t.ability == Ability.Cone && headBone != null) AttachCone();
 
             IsAlive = true;
+            State = ZState.Run;
             Alive.Add(this);
         }
 
-        /// Measured on the kit's run cycle (model space, metres, facing +Z): neck height, head centre and radius.
-        /// These are big-headed chibi zombies, so the head is a large, fair target.
-        struct Shape { public string model; public float neck, headY, headZ, headR; }
-        static readonly Shape Basic = new Shape { model = "Zombie_Basic", neck = 0.82f, headY = 1.13f, headZ = 0.16f, headR = 0.3f };
-        static readonly Shape ArmZ = new Shape { model = "Zombie_Arm", neck = 1.0f, headY = 1.38f, headZ = 0.01f, headR = 0.28f };
-        static readonly Shape Chubby = new Shape { model = "Zombie_Chubby", neck = 1.3f, headY = 1.56f, headZ = 0.08f, headR = 0.25f };
-
-        /// A Quaternius zombie model at its real size (1.4-1.6 m), animated with its own clips.
-        /// The physics box runs from the feet to the neck; the head is a separate sphere for headshots.
-        void KitLook(float s, bool brute)
+        void AttachCone()
         {
-            var sh = brute ? Chubby : (Random.value < 0.55f ? Basic : ArmZ);
-            float boxH = sh.neck * s;
-            body.size = new Vector3((brute ? 0.8f : 0.5f) * s, boxH, 0.45f * s);
-            body.center = Vector3.zero;
-            baseScale = 1f;
-            var holder = Kit.Place(sh.model, transform.position + Vector3.down * boxH * 0.5f, 180f, s, transform, true);
-            modelScale = holder.transform.localScale.x;
-            model = holder.transform;
-            vis = model;
-            kit = Kit.Anim.From(holder);
-            if (kit.anim != null && kit.punch != null) kit.anim[kit.punch].wrapMode = WrapMode.Loop;   // pounding on the pile keeps going
-            kit.Start(kit.run);
-            foreach (var t in holder.GetComponentsInChildren<Transform>()) if (t.name == "Head") { headBone = t; break; }
-            skins = holder.GetComponentsInChildren<Renderer>();
-            mpb = new MaterialPropertyBlock();
-
-            // the model faces -Z (toward the wall), so "forward" in model space is -z here
-            var headGo = new GameObject("Head");
-            headGo.transform.SetParent(transform, false);
-            headGo.transform.localPosition = new Vector3(0f, -boxH * 0.5f + sh.headY * s, -sh.headZ * s);
-            head = headGo.transform;
-            var hc = headGo.AddComponent<SphereCollider>();
-            hc.radius = sh.headR * s;
-            HeadCollider = hc;
+            var c = Kit.Place("TrafficCone_1", headBone.position, 0f, 0.9f * s, null, true);
+            if (c == null) return;
+            cone = c.transform;
+            cone.SetParent(headBone, true);
+            cone.position = headBone.position + Vector3.up * 0.42f * s;
         }
 
-        void PrimitiveLook(float s, bool brute)
+        void ApplyTint(float f)
         {
-            body.size = new Vector3(0.72f, 1.62f, 0.56f) * s;
-            body.center = Vector3.zero;
-            var skin = Skins[Random.Range(0, Skins.Length)] * (brute ? 0.85f : 1f);
-            var shirt = Shirts[Random.Range(0, Shirts.Length)];
-            var pants = Pants[Random.Range(0, Pants.Length)];
-            vis = Shapes.Group("Vis", transform, Vector3.zero).transform;
-            vis.localScale = Vector3.one * s;
-            baseScale = s;
-            Shapes.Make("Torso", MeshGen.Capsule(0.42f), Mat.Lit(shirt), vis, new Vector3(0, 0.12f, 0), new Vector3(0.74f, 1f, 0.56f));
-            Shapes.Box(vis, new Vector3(0, -0.36f, 0), new Vector3(0.66f, 0.34f, 0.5f), pants);
-            legL = Limb(vis, new Vector3(-0.17f, -0.45f, 0), new Vector3(0.26f, 0.42f, 0.26f), pants, skin);
-            legR = Limb(vis, new Vector3(0.17f, -0.45f, 0), new Vector3(0.26f, 0.42f, 0.26f), pants, skin);
-            armL = Limb(vis, new Vector3(-0.43f, 0.48f, 0), new Vector3(0.2f, 0.62f, 0.2f), skin, skin);
-            armR = Limb(vis, new Vector3(0.43f, 0.48f, 0), new Vector3(0.2f, 0.62f, 0.2f), skin, skin);
-            var headGo = new GameObject("Head");
-            headGo.transform.SetParent(transform, false);
-            headGo.transform.localPosition = new Vector3(0, 1.02f * s, 0);
-            head = headGo.transform;
-            var hc = headGo.AddComponent<SphereCollider>();
-            hc.radius = 0.27f * s;
-            HeadCollider = hc;
-            var hv = Shapes.Group("HeadVis", head, Vector3.zero).transform;
-            hv.localScale = Vector3.one * s;
-            Shapes.Make("Skull", MeshGen.Capsule(0.46f), Mat.Lit(skin), hv, Vector3.zero, new Vector3(0.52f, 0.58f, 0.5f));
-            var eye = brute ? new Color(1f, 0.25f, 0.2f) : new Color(1f, 0.92f, 0.35f);
-            Shapes.Sphere(hv, new Vector3(-0.11f, 0.06f, -0.22f), new Vector3(0.12f, 0.1f, 0.06f), eye, 1f);
-            Shapes.Sphere(hv, new Vector3(0.11f, 0.04f, -0.22f), new Vector3(0.1f, 0.12f, 0.06f), eye, 1f);
+            var c = Color.Lerp(Type.tint, new Color(2.6f, 2.3f, 2.3f), f);
+            if (Type.ability == Ability.Explode) c *= 1f + 0.25f * Mathf.Sin(Time.time * 9f);
+            foreach (var r in skins)
+            {
+                if (r == null || (cone != null && r.transform.IsChildOf(cone))) continue;
+                r.GetPropertyBlock(mpb);
+                mpb.SetColor("_Color", c);
+                r.SetPropertyBlock(mpb);
+            }
         }
 
-        static Transform Limb(Transform parent, Vector3 pivot, Vector3 size, Color top, Color bottom)
-        {
-            var p = Shapes.Group("Pivot", parent, pivot).transform;
-            Shapes.Make("Upper", MeshGen.Capsule(0.45f), Mat.Lit(top), p, new Vector3(0, -size.y * 0.3f, 0), new Vector3(size.x, size.y * 0.6f, size.z));
-            Shapes.Make("Lower", MeshGen.Capsule(0.45f), Mat.Lit(bottom), p, new Vector3(0, -size.y * 0.75f, 0), new Vector3(size.x * 0.9f, size.y * 0.5f, size.z * 0.9f));
-            return p;
-        }
-
-        Vector3 Velocity { get { return rb.GetPointVelocity(rb.worldCenterOfMass); } }
-
-        void FixedUpdate()
-        {
-            if (!IsAlive || breaching) { touching = false; return; }
-            var v = Velocity;
-            var pos = transform.position;
-            float half = body.size.z * 0.5f;
-
-            // shuffle toward the gate; spread across it a little so the pile has a shape
-            float targetX = Mathf.Clamp(steerX * 1.8f, -Arena.HalfWidth + 0.8f, Arena.HalfWidth - 0.8f);
-            var want = new Vector3((targetX - pos.x) * 0.6f, 0f, -speed);
-            var dv = new Vector3(want.x - v.x, 0f, want.z - v.z);
-            dv = Vector3.ClampMagnitude(dv, 30f * Time.fixedDeltaTime);
-            rb.AddForce(dv, ForceMode.VelocityChange);
-
-            // blocked by a zombie or a body in front: clamber up over it
-            bool atWall = pos.z <= Arena.WallFront + half + 0.08f;
-            RaycastHit hit;
-            var eye = pos + Vector3.up * body.size.y * 0.15f;
-            bool blocked = Physics.Raycast(eye, Vector3.back, out hit, half + 0.45f, ~(1 << Arena.IgnoreRaycast), QueryTriggerInteraction.Ignore)
-                           && hit.collider.GetComponentInParent<Zombie>() != null;
-            if (!blocked) blocked = Physics.Raycast(pos - Vector3.up * body.size.y * 0.35f, Vector3.back, out hit, half + 0.35f, ~(1 << Arena.IgnoreRaycast), QueryTriggerInteraction.Ignore)
-                                    && hit.collider.GetComponentInParent<Zombie>() != null;
-            if (blocked && touching && v.y < climb)
-                rb.AddForce(Vector3.up * Mathf.Min(climb - v.y, 60f * Time.fixedDeltaTime), ForceMode.VelocityChange);
-
-            // unstick: pinned in place for a while -> a small hop
-            if (v.sqrMagnitude < 0.05f && !atWall) { stuckT += Time.fixedDeltaTime; if (stuckT > 1.2f) { rb.AddForce(new Vector3(Random.Range(-1f, 1f), 4f, -1f), ForceMode.VelocityChange); stuckT = 0f; } }
-            else stuckT = 0f;
-
-            // the top of the pile reached the parapet: over the wall it goes
-            float feet = pos.y - body.size.y * 0.5f;
-            if (pos.z < Arena.WallFront + 1.3f && feet > Arena.WallHeight - 1.3f) StartBreach();
-            touching = false;
-        }
-
-        void OnCollisionStay(Collision c) { touching = true; }
-
+        // ------------------------------------------------------------------ per frame
         void Update()
         {
             float dt = Time.deltaTime;
-            if (IsAlive && !breaching)
+            stateT += dt;
+            var before = transform.position;
+            switch (State)
             {
-                var v = Velocity;
-                if (kit != null)
-                {
-                    float hs = new Vector2(v.x, v.z).magnitude;
-                    if (v.y > 0.8f && kit.climb != null) kit.Play(kit.climb, 0.12f, 1.1f);
-                    else if (hs < 0.9f && kit.punch != null) kit.Play(kit.punch, 0.2f, 0.9f);   // stuck against the pile: pound on it
-                    else kit.Play(kit.run, 0.2f, Mathf.Clamp(hs / 4.2f, 0.8f, 1.5f));
-                    groanT -= dt;
-                    if (groanT < 0f) { groanT = Random.Range(4f, 12f); if (Random.value < 0.35f) SoundBank.I.Groan(); }
-                    goto afterAnim;
-                }
-                animT += dt * (3f + new Vector2(v.x, v.z).magnitude * 2.6f);
-                float swing = Mathf.Sin(animT) * 45f;
-                vis.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(animT)) * 0.12f, 0f);
-                vis.localRotation = Quaternion.Euler(-14f, 0f, Mathf.Sin(animT) * 6f);   // lunging run
-                legL.localRotation = Quaternion.Euler(swing, 0, 0);
-                legR.localRotation = Quaternion.Euler(-swing, 0, 0);
-                // arms reach forward (toward the wall); up when climbing
-                float reach = Mathf.Lerp(80f, 150f, Mathf.Clamp01(v.y / 3f));
-                armL.localRotation = Quaternion.Euler(reach + Mathf.Sin(animT * 0.9f) * 10f, 0, -6f);
-                armR.localRotation = Quaternion.Euler(reach + Mathf.Sin(animT * 0.9f + 2f) * 10f, 0, 6f);
-                head.localRotation = Quaternion.Euler(Mathf.Sin(animT * 0.5f) * 8f, 0, Mathf.Sin(animT * 0.7f) * 12f);
-                groanT -= dt;
-                if (groanT < 0f) { groanT = Random.Range(4f, 12f); if (Random.value < 0.35f) SoundBank.I.Groan(); }
-                afterAnim:;
+                case ZState.Run: Run(dt); break;
+                case ZState.Climb: Climb(dt); break;
+                case ZState.Pile: Cling(dt); break;
+                case ZState.Leap: Leap(dt); break;
+                case ZState.Knock: Knocked(dt); break;
+                case ZState.Breach: Breach(dt); break;
             }
-            else if (breaching)
+            if (this == null || !gameObject.activeSelf) return;
+            if (dt > 0f) Velocity = (transform.position - before) / dt;
+
+            if (flash > 0f || Type.ability == Ability.Explode)
             {
-                breachT += dt * 2.2f;
-                var top = new Vector3(breachFrom.x, Arena.WallHeight + 1.2f, -0.2f);
-                transform.position = Vector3.Lerp(breachFrom, top, Mathf.SmoothStep(0, 1, breachT)) + Vector3.up * Mathf.Sin(breachT * Mathf.PI) * 0.8f;
-                if (kit != null) kit.Play(kit.punch ?? kit.climb, 0.1f); else armL.localRotation = armR.localRotation = Quaternion.Euler(160f, 0, 0);
-                if (breachT >= 1f)
-                {
-                    Game.I.OnBreach(this);
-                    Fx.I.Burst(transform.position, 14, new Color(0.45f, 0.7f, 0.3f), 5f);
-                    Destroy(gameObject);
-                }
-            }
-            else
-            {
-                deadT += dt;
-                if (deadT > 5.5f)
-                {
-                    float k = 1f - (deadT - 5.5f) / 0.6f;
-                    if (k <= 0f) { Destroy(gameObject); return; }
-                    transform.localScale = Vector3.one * k;
-                }
+                flash = Mathf.Max(0f, flash - dt * 9f);
+                ApplyTint(flash);
             }
             if (punch > 0f)
             {
-                punch = Mathf.Max(0f, punch - dt * 6f);
-                if (kit == null) vis.localScale = Vector3.one * baseScale * (1f + punch * 0.25f);
-                else if (IsAlive) model.localScale = Vector3.one * modelScale * (1f + punch * 0.08f);
+                punch = Mathf.Max(0f, punch - dt * 7f);
+                model.localScale = Vector3.one * s * (1f + punch * 0.07f);
             }
-            if (flash > 0f && skins != null)
+            groanT -= dt;
+            if (groanT < 0f) { groanT = Random.Range(5f, 14f); if (Random.value < 0.3f) SoundBank.I.Groan(); }
+        }
+
+        void Run(float dt)
+        {
+            var p = transform.position;
+            // spread out: keep a little room from the zombies around (mostly sideways, like a crowd)
+            float push = 0f;
+            for (int i = 0; i < Alive.Count; i++)
             {
-                // hit flash: brighten the model for a moment (per-renderer, the material stays shared)
-                flash = Mathf.Max(0f, flash - dt * 9f);
-                var c = Color.Lerp(Color.white, new Color(2.6f, 2.2f, 2.2f), flash);
-                foreach (var r in skins)
+                var o = Alive[i];
+                if (o == this || o.State != ZState.Run) continue;
+                var q = o.transform.position;
+                float dz = q.z - p.z;
+                if (dz > 0.7f || dz < -0.7f) continue;
+                float dx = p.x - q.x;
+                float r = 0.32f * (s + o.s);
+                if (dx * dx + dz * dz < r * r) push += dx >= 0f ? 1f : -1f;
+            }
+            laneX = Mathf.Clamp(laneX + push * dt * 0.8f, -Arena.HalfWidth + 0.5f, Arena.HalfWidth - 0.5f);
+            p.x = Mathf.MoveTowards(p.x, laneX, dt * 1.6f);
+            p.z -= speed * dt;
+            p.y = Mathf.MoveTowards(p.y, 0f, dt * 6f);
+            transform.position = p;
+            transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.identity, dt * 6f);
+            kit.Play(kit.run, 0.2f, Mathf.Clamp(speed / BaseSpeed, 0.8f, 1.7f));
+
+            int c = Pile.ColAt(p.x);
+            // leapers jump onto the heap from a distance once there is something to land on
+            if (Type.ability == Ability.Leap && !leapt && Pile.MaxHeight > 0.9f && p.z < Pile.FrontZ(c) + 7f) { StartLeap(); return; }
+            // the boss parks against the middle of the wall and becomes a ramp
+            if (IsBoss) { if (p.z <= Arena.WallFront + 1.6f) SettleBoss(); return; }
+            if (p.z <= Pile.FrontZ(c) + 0.6f) StartClimb(Pile.Choose(c));
+        }
+
+        Vector3 SpotFor(int c, float y)
+        {
+            float depth = Mathf.Max(0f, 1.3f - y) * 0.3f;
+            return new Vector3(Pile.X(c) + Random.Range(-0.12f, 0.12f), y, Arena.WallFront + 0.28f * s + depth + Random.Range(0f, 0.15f));
+        }
+
+        void StartClimb(int c)
+        {
+            col = c;
+            from = transform.position;
+            spot = SpotFor(c, Pile.Height(c));
+            dur = 0.3f + 0.2f * spot.y + Random.Range(0f, 0.15f);
+            stateT = 0f;
+            State = ZState.Climb;
+            kit.Play(kit.climb ?? kit.run, 0.1f, 1.3f);
+        }
+
+        void Climb(float dt)
+        {
+            float k = Mathf.Clamp01(stateT / dur);
+            // the target moves with the heap (others cling on or get shot off while this one climbs)
+            spot.y = Mathf.MoveTowards(spot.y, Pile.Height(col), dt * 4f);
+            var p = Vector3.Lerp(from, spot, Mathf.SmoothStep(0f, 1f, k)) + Vector3.up * Mathf.Sin(k * Mathf.PI) * 0.35f;
+            transform.position = p;
+            if (k >= 1f) Settle();
+        }
+
+        void Settle()
+        {
+            pileY = Pile.Add(this, col);
+            pileYShown = transform.position.y;
+            spot.y = pileY;
+            State = ZState.Pile;
+            stateT = 0f;
+            smashT = Random.Range(0.5f, 1.5f);
+            transform.rotation = Quaternion.Euler(Random.Range(-12f, 4f), Random.Range(-25f, 25f), Random.Range(-10f, 10f));
+            // at the top of the wall: over it goes
+            if (pileY >= Arena.WallHeight - 1.1f) { StartBreach(); return; }
+            PileAnim(pileY < 0.3f);
+        }
+
+        void PileAnim(bool bottom)
+        {
+            pileBottom = bottom;
+            // the ones at the bottom pound on the wall, the rest scramble on top of each other
+            if (bottom && kit.punch != null) kit.Play(kit.punch, 0.2f, Random.Range(0.8f, 1.1f));
+            else kit.Play(kit.climb ?? kit.run, 0.2f, Random.Range(0.5f, 0.8f));
+        }
+
+        /// Called by the pile when zombies below this one were shot away.
+        public void SetPileY(float y, bool bottom)
+        {
+            pileY = y;
+            if (State != ZState.Pile) return;
+            if (bottom != pileBottom) PileAnim(bottom);
+        }
+
+        void Cling(float dt)
+        {
+            pileYShown = Mathf.MoveTowards(pileYShown, pileY, dt * (pileYShown > pileY ? 7f : 3f));
+            transform.position = new Vector3(spot.x, pileYShown, spot.z);
+            if (IsBrute && pileY < 0.5f)
+            {
+                smashT -= dt;
+                if (smashT <= 0f)
                 {
-                    if (r == null) continue;
-                    r.GetPropertyBlock(mpb);
-                    mpb.SetColor("_Color", c);
-                    r.SetPropertyBlock(mpb);
+                    smashT = IsBoss ? 2.5f : 1.6f;
+                    if (Game.I != null) Game.I.WallHit(IsBoss ? 12f : 4f, transform.position + Vector3.up * bodyH, IsBoss);
                 }
             }
+        }
+
+        void SettleBoss()
+        {
+            col = -1;
+            spot = new Vector3(transform.position.x, 0f, Arena.WallFront + 1.1f);
+            pileY = 0f; pileYShown = 0f;
+            State = ZState.Pile;
+            smashT = 1f;
+            kit.Play(kit.punch ?? kit.run, 0.2f, 0.7f);
+            // the horde climbs up its back: a ramp under the middle columns
+            int c = Pile.ColAt(transform.position.x);
+            Pile.SetBase(c - 2, c + 2, Step);
+        }
+
+        void StartLeap()
+        {
+            leapt = true;
+            var top = Pile.Highest();
+            col = top != null ? Pile.ColAt(top.transform.position.x) : Pile.ColAt(transform.position.x);
+            from = transform.position;
+            spot = SpotFor(col, Pile.Height(col));
+            dur = 0.9f;
+            stateT = 0f;
+            State = ZState.Leap;
+            kit.Play(kit.jump ?? kit.climb, 0.08f, 1f);
+        }
+
+        void Leap(float dt)
+        {
+            float k = Mathf.Clamp01(stateT / dur);
+            spot.y = Pile.Height(col);
+            float y0 = Mathf.Lerp(from.y, spot.y, k);
+            float apex = Mathf.Max(from.y, spot.y) + 2.4f;
+            var p = Vector3.Lerp(from, spot, k);
+            p.y = y0 + (apex - y0) * 4f * k * (1f - k);
+            transform.position = p;
+            if (k >= 1f) Settle();
+        }
+
+        void Knocked(float dt)
+        {
+            knockV.y -= 22f * dt;
+            var p = transform.position + knockV * dt;
+            p.z = Mathf.Max(p.z, Arena.WallFront + 0.4f);
+            p.x = Mathf.Clamp(p.x, -Arena.HalfWidth + 0.4f, Arena.HalfWidth - 0.4f);
+            if (p.y <= 0f && knockV.y < 0f)
+            {
+                p.y = 0f;
+                knockV = Vector3.zero;
+                if (stateT > 0.3f)
+                {
+                    State = ZState.Run;
+                    stateT = 0f;
+                    kit.Play(kit.hit ?? kit.run, 0.05f);
+                }
+            }
+            transform.position = p;
+        }
+
+        void Dislodge(Vector3 v)
+        {
+            if (State == ZState.Pile && col >= 0) Pile.Remove(this, col);
+            col = -1;
+            knockV = v;
+            stateT = 0f;
+            State = ZState.Knock;
+            kit.Play(kit.climb ?? kit.run, 0.05f, 1.5f);
         }
 
         void StartBreach()
         {
-            breaching = true;
+            if (col >= 0) Pile.Remove(this, col);
+            col = -1;
             IsAlive = false;
             Alive.Remove(this);
-            rb.isKinematic = true;
-            foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;
-            breachFrom = transform.position;
+            if (bodyCol != null) bodyCol.enabled = false;
+            if (headCol != null) headCol.enabled = false;
+            from = transform.position;
+            stateT = 0f;
+            State = ZState.Breach;
+            kit.Play(kit.climb ?? kit.run, 0.05f, 1.6f);
         }
 
-        /// Returns true if this hit killed the zombie.
-        public bool Hit(float dmg, Vector3 dir, Vector3 point, bool headshot)
+        void Breach(float dt)
         {
-            if (!IsAlive) { rb.AddForceAtPosition(dir.normalized * 1.5f, point, ForceMode.Impulse); return false; }
-            Hp -= dmg;
-            punch = 1f;
+            // pull up onto the parapet, vault over it and vanish behind it
+            var top = new Vector3(from.x, Arena.WallHeight + 0.3f, Arena.WallFront + 0.05f);
+            var over = new Vector3(from.x, Arena.WallHeight + 0.6f, Arena.WallFront - 0.7f);
+            if (stateT < 0.45f) transform.position = Vector3.Lerp(from, top, Mathf.SmoothStep(0f, 1f, stateT / 0.45f));
+            else
+            {
+                float k = Mathf.Clamp01((stateT - 0.45f) / 0.25f);
+                transform.position = Vector3.Lerp(top, over, k);
+                transform.localScale = Vector3.one * Mathf.Max(0.01f, 1f - k);
+                if (k >= 1f)
+                {
+                    if (Game.I != null) Game.I.OnBreach(this);
+                    Fx.I.Dust(over, 1f);
+                    Destroy(gameObject);
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------ damage
+        /// A bullet hit. 'dmg' already includes any headshot bonus. Returns true if it killed.
+        public bool Hit(float dmg, Vector3 dir, Vector3 point, bool headshot, float kick)
+        {
+            if (!IsAlive) return false;
             flash = 1f;
-            Fx.I.Burst(point, headshot ? 10 : 5, new Color(0.35f, 0.75f, 0.25f), headshot ? 5f : 3f);
-            rb.AddForce(dir.normalized * (IsBrute ? 0.4f : 0.8f), ForceMode.VelocityChange);
+            punch = 1f;
+            if (Armor > 0f)
+            {
+                Armor -= dmg;
+                Fx.I.Sparks(point);
+                if (Armor <= 0f) PopCone(dir);
+                return false;
+            }
+            Hp -= dmg;
+            Fx.I.Blood(point, -dir, headshot ? 10 : 5);
+            if (State == ZState.Run && kick > 0f) transform.position += new Vector3(dir.x, 0f, Mathf.Max(0f, dir.z)) * kick;
             if (Hp > 0f) return false;
-            Die(dir * (IsBrute ? 4f : 7f) + Vector3.up * 3f, point, headshot);
+            Die(dir * (headshot ? 3f : 2f) * (1f + kick * 4f), point, headshot, Vector3.zero, 0f);
             return true;
         }
 
-        public void Die(Vector3 impulse, Vector3 point, bool popHead) { Die(impulse, point, popHead, kit == null); }
+        /// Explosions: damage with falloff; survivors are thrown off the pile or knocked back.
+        public bool Blast(Vector3 center, float radius, float dmg, float force)
+        {
+            if (!IsAlive) return false;
+            var d = Center - center;
+            float k = 1f - Mathf.Clamp01(d.magnitude / radius);
+            if (Armor > 0f) { Armor = 0f; PopCone(d.normalized + Vector3.up); }
+            Hp -= dmg * (0.35f + 0.65f * k);
+            flash = 1f;
+            if (Hp <= 0f)
+            {
+                Die(Vector3.zero, center, false, center, force * (0.6f + 0.6f * k));
+                return true;
+            }
+            if (IsBoss || k < 0.2f) return false;
+            var away = new Vector3(d.x, 0f, Mathf.Abs(d.z) + 0.5f).normalized;
+            float m = IsBrute ? 0.3f : 1f;
+            Dislodge(away * (3f + 5f * k) * m + Vector3.up * (4f + 4f * k) * m);
+            return false;
+        }
 
-        public void Die(Vector3 impulse, Vector3 point, bool popHead, bool tumble)
+        void PopCone(Vector3 dir)
+        {
+            if (cone == null) return;
+            cone.SetParent(null, true);
+            var rb = cone.gameObject.AddComponent<Rigidbody>();
+            rb.mass = 0.3f;
+            float sc = Mathf.Max(0.001f, cone.lossyScale.x);
+            var bc = cone.gameObject.AddComponent<BoxCollider>();
+            bc.size = new Vector3(0.5f, 0.6f, 0.5f) / sc;
+            bc.center = new Vector3(0f, 0.3f, 0f) / sc;
+            cone.gameObject.layer = Ragdoll.Layer;
+            rb.AddForce((dir.normalized + Vector3.up * 1.4f) * 5f, ForceMode.VelocityChange);
+            rb.AddTorque(Random.insideUnitSphere * 8f, ForceMode.VelocityChange);
+            Destroy(cone.gameObject, 4f);
+            cone = null;
+            SoundBank.I.Play(SoundBank.I.clang, 0.6f, Random.Range(0.9f, 1.1f));
+        }
+
+        void Die(Vector3 impulse, Vector3 point, bool headshot, Vector3 blastAt, float blastForce)
         {
             if (!IsAlive) return;
             IsAlive = false;
             Alive.Remove(this);
-            if (kit != null)
+            if (col >= 0) Pile.Remove(this, col);
+            col = -1;
+            if (IsBoss) Pile.SetBase(0, Pile.Cols - 1, 0f);
+            if (Game.I != null) Game.I.OnKill(this, point, headshot);
+            if (cone != null) PopCone(impulse + Vector3.up);
+            if (headshot && headBone != null)
             {
-                kit.Play(kit.death, 0.08f, Random.Range(1f, 1.3f));
-                if (popHead && headBone != null) { headBone.localScale = Vector3.one * 0.01f; Fx.I.Burst(head.position, 18, new Color(0.35f, 0.75f, 0.25f), 6f, 0.14f); }
-                HeadCollider.enabled = false;
-                if (!tumble)
-                {
-                    // a shot zombie drops where it stands: a low box that stays in the pile
-                    float h = body.size.y;
-                    body.size = new Vector3(body.size.x * 1.2f, h * 0.38f, h * 0.7f);
-                    body.center = new Vector3(0f, -h * 0.31f, 0.1f * h);
-                    rb.AddForceAtPosition(impulse * 0.5f * rb.mass, point, ForceMode.Impulse);
-                    return;
-                }
+                headBone.localScale = Vector3.one * 0.01f;
+                Fx.I.Blood(head.position, Vector3.up, 22);
             }
-            rb.constraints = RigidbodyConstraints.None;
-            rb.AddForceAtPosition(impulse * rb.mass, point, ForceMode.Impulse);
-            rb.AddTorque(Random.insideUnitSphere * 6f * rb.mass, ForceMode.Impulse);
-            if (armL != null) { armL.localRotation = Quaternion.Euler(170f, 0, -30f); armR.localRotation = Quaternion.Euler(170f, 0, 30f); }
-            if (popHead && !IsBrute && kit == null)
+            if (Type.ability == Ability.Explode && Game.I != null)
             {
-                // off it goes
-                head.SetParent(null, true);
-                var hb = head.gameObject.AddComponent<Rigidbody>();
-                hb.mass = 0.2f;
-                hb.AddForce(impulse * 0.12f + Vector3.up * 2.2f, ForceMode.Impulse);
-                hb.AddTorque(Random.insideUnitSphere * 0.4f, ForceMode.Impulse);
-                Destroy(head.gameObject, 6f);
+                var at = Center;
+                Game.I.Delay(0.08f, () => Boom.Explode(at, 3.4f, 80f, 11f, false));
             }
+            // the model becomes a ragdoll on its own; this object (colliders, script) goes away
+            flash = 0f;
+            ApplyTint(0f);
+            model.localScale = Vector3.one * s;
+            model.SetParent(null, true);
+            Ragdoll.Make(holder, kit, s, Type.headR, headshot || !Type.hasHead, Velocity * 0.6f, impulse, point, blastAt, blastForce);
+            Destroy(gameObject);
         }
 
-        /// Explosions: kill or fling everything in range.
-        public void Blast(Vector3 center, float force, float radius, float dmg)
+        /// Clears everything (new level).
+        public static void KillAll()
         {
-            float d = Vector3.Distance(center, transform.position);
-            float k = 1f - Mathf.Clamp01(d / radius);
-            if (IsAlive)
-            {
-                Hp -= dmg * (0.4f + 0.6f * k);
-                punch = 1f;
-                flash = 1f;
-                if (Hp <= 0f)
-                {
-                    var dir = (transform.position - center).normalized;
-                    Die((dir + Vector3.up * 0.8f) * force * (0.5f + k) / (IsBrute ? 3f : 1f), transform.position, false, true);
-                    return;
-                }
-            }
-            rb.AddExplosionForce(force * rb.mass * (IsAlive ? 0.4f : 1f), center, radius, 1.2f, ForceMode.Impulse);
+            foreach (var z in FindObjectsByType<Zombie>(FindObjectsSortMode.None)) Destroy(z.gameObject);
+            Alive.Clear();
+            Pile.Clear();
+            Ragdoll.ClearAll();
         }
 
         void OnDestroy() { Alive.Remove(this); }

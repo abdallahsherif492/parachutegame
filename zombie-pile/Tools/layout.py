@@ -22,7 +22,7 @@ for side in (-1, 1):
         add((R, G)[(k + (side > 0)) % 2], x, 0, z, 90)
         if k not in (2, 6, 9): add((G, R)[(k + (side > 0)) % 2], x, CH, z, 90)
     for k in range(5):
-        add("StreetLights", side * (HW - 0.25), 0, 7 + k * 13, 90 if side < 0 else -90)
+        add("StreetLights", side * (HW - 0.25), 0, 12 + k * 12, 90 if side < 0 else -90)
 # explosive barrels along the lane edges (shootable, not solid)
 for (x, z) in [(-3.3, 7.5), (3.35, 12.5), (-3.4, 19), (3.3, 26)]: add("Barrel", x, 0, z, 0)
 for (x, z, m, r) in [(-1.3, 3.0, "Blood_1", 20), (1.8, 10.5, "Blood_2", 140), (-0.9, 18, "Blood_3", 75), (1.2, 27, "Blood_2", 300)]: add(m, x, 0.02, z, r)
@@ -37,6 +37,12 @@ for side in (-1, 1):
         add((G, R)[k % 2], side * (HW + CW + 5.0), 0, 26 + k * (CL + 0.2), 90)
         add((R, G)[k % 2], side * (HW + CW + 5.0), CH, 26 + k * (CL + 0.2), 90)
 add("WaterTower", -13.5, 0, 12, 0); add("WaterTower", 14, 0, 22, 0)
+# ---- the flank tower (second shooter): three containers stacked beside the canyon, in front of the wall
+TZ = 14
+for row in range(3):
+    add((G, R, G)[row], HW + CW + 0.35 + CL / 2, row * CH, TZ, 0)
+add("TrafficBarrier_2", HW + CW + 0.75, 3 * CH, TZ + 0.6, 90); add("TrafficBarrier_2", HW + CW + 0.75, 3 * CH, TZ - 0.9, 90)
+add("Barrel", HW + CW + 4.2, 3 * CH, TZ + 0.5, 0); add("Wheels_Stack", HW + CW + 4.8, 3 * CH, TZ - 0.6, 0)
 # ---- our side of the wall
 add("TrashBag_2", -4.6, H, -1.9, 30); add("Barrel", 5.0, H, -2.0, 0); add("Wheels_Stack", 4.1, H, -2.1, 0); add("Barrel", -5.4, H, -1.7, 0)
 RESULT = {"wallHeight": H, "wallFront": 0.0, "halfWidth": HW, "props": L}

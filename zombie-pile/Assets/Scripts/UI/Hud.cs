@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -6,33 +5,39 @@ using UnityEngine.UI;
 
 namespace ZombiePile
 {
-    /// All UI, built from code with the rendered sprites in Resources/UI. Every position comes from the
-    /// 1280x720 design mock-up (Tools/ui-design/mock.html) through UIKit.At, so the game matches the design.
+    /// The in-game HUD (Tools/ui-design/mock2.html, "hudA"/"hudB"/"boss"): wall health, level progress, boss bar,
+    /// coins (with coins flying in from every kill), the shooter switch, the barrel and airstrike buttons,
+    /// crosshair, damage numbers, popups and banners, and health bars over wounded zombies.
     public class Hud : MonoBehaviour
     {
         public static Hud I;
+        public RectTransform Root { get; private set; }
 
         static readonly Vector2 TL = new Vector2(0f, 1f), TC = new Vector2(0.5f, 1f), TR = new Vector2(1f, 1f);
         static readonly Vector2 BL = new Vector2(0f, 0f), BC = new Vector2(0.5f, 0f), BR = new Vector2(1f, 0f), C = new Vector2(0.5f, 0.5f);
 
-        RectTransform root, cardRow, crosshair, barBox;
-        Text waveText, leftText, killText, wallPct, bannerText, bannerSub, bestText, overWave, overKills, overBest, overBestLabel;
-        Image wallFill, waveFill, barrelFill, barrelGlow, barrelFace, damage, muteIcon;
-        Button barrelBtn;
-        GameObject hud, menu, upgrades, over, bestPill, banner;
-        float bannerT, damageT, killPunch, wallShown = 1f, wallTarget = 1f, waveShown, waveTarget, spread;
+        GameObject hud, banner, bossBox, warn, boostBox, airBox;
+        RectTransform crosshair, barBox, coinIcon;
+        Text levelText, progText, wallPct, coinText, bannerText, bannerSub, boostText, switchName;
+        Image wallFill, progFill, bossFill, boostFill, barrelFill, barrelFace, barrelGlow, airFill, airFace, damage, hitmark, portrait;
+        float bannerT, damageT, hitT, wallShown = 1f, wallTarget = 1f, progShown, progTarget, spread, coinPunch;
+        int coinsInFlight, coinsShown = -1;
         Color bannerColor = Color.white;
 
-        class Pop { public Text t; public Vector3 world; public float life; public float size; }
+        class Pop { public Text t; public Vector3 world; public float life, max, size, rise; }
         readonly List<Pop> pops = new List<Pop>();
-        int nextPop;
+        readonly List<Pop> numbers = new List<Pop>();
+        int nextPop, nextNum;
+
+        class Flyer { public RectTransform r; public Vector2 from, ctrl; public float t, dur; public int value; }
+        readonly List<Flyer> flyers = new List<Flyer>();
 
         class Bar { public RectTransform r; public Image fill; }
         readonly List<Bar> bars = new List<Bar>();
 
         public static void Build()
         {
-            var go = new GameObject("UI");
+            var go = new GameObject("HUD");
             go.AddComponent<Hud>().Make();
             if (FindFirstObjectByType<EventSystem>() == null)
             {
@@ -42,15 +47,15 @@ namespace ZombiePile
             }
         }
 
-        // ------------------------------------------------------------------ small builders
-        static Text Label(Transform p, string s, bool bangers, int size, Color c, Vector2 anchor, float x, float y, float w, TextAnchor align = TextAnchor.MiddleCenter, bool stroke = true)
+        // ------------------------------------------------------------------ builders (mock-up coordinates)
+        internal static Text Label(Transform p, string s, bool bangers, int size, Color c, Vector2 anchor, float x, float y, float w, TextAnchor align = TextAnchor.MiddleCenter, bool stroke = true)
         {
             var t = bangers ? UIKit.Title(p, s, size, c, align) : UIKit.Text(p, s, size, c, align, stroke);
             UIKit.At(t.rectTransform, anchor, x, y, w, size);
             return t;
         }
 
-        static Image Pic(Transform p, string sprite, Color c, Vector2 anchor, float x, float y, float w, float h)
+        internal static Image Pic(Transform p, string sprite, Color c, Vector2 anchor, float x, float y, float w, float h)
         {
             var img = UIKit.Pic(p, sprite, c);
             UIKit.At(img.rectTransform, anchor, x, y, w, h);
@@ -58,7 +63,7 @@ namespace ZombiePile
         }
 
         /// A bar fill inside a track: stretches from the left, its width set through anchorMax.x.
-        static Image FillIn(Image track, Color c, float pad)
+        internal static Image FillIn(Image track, Color c, float pad)
         {
             var f = UIKit.Pic(track.transform, "fill", c);
             UIKit.Inset(f.rectTransform, pad, pad, pad, pad);
@@ -66,7 +71,7 @@ namespace ZombiePile
         }
 
         /// A child placed with mock-up coordinates relative to its parent's top-left corner.
-        static RectTransform In(RectTransform r, Vector2 parentSize, float x, float y, float w, float h)
+        internal static RectTransform In(RectTransform r, Vector2 parentSize, float x, float y, float w, float h)
         {
             r.anchorMin = r.anchorMax = r.pivot = new Vector2(0.5f, 0.5f);
             r.sizeDelta = new Vector2(w, h);
@@ -74,21 +79,21 @@ namespace ZombiePile
             return r;
         }
 
-        GameObject Overlay(string name, Color tint)
-        {
-            var img = UIKit.Image(root, name, tint, null, true);
-            UIKit.Stretch(img.rectTransform);
-            return img.gameObject;
-        }
-
-        static void Vignette(Transform p, float alpha)
+        internal static void Vignette(Transform p, float alpha)
         {
             var v = UIKit.Pic(p, "vignette", new Color(1f, 1f, 1f, alpha));
             v.preserveAspect = false;
             UIKit.Stretch(v.rectTransform);
         }
 
-        // ------------------------------------------------------------------ build
+        /// The coin counter panel (also used by the menu and armory screens).
+        internal static Text CoinPanel(Transform p, float x, float y, out RectTransform panel, out RectTransform icon)
+        {
+            panel = Pic(p, "panel", Color.white, TR, x, y, 220, 76).rectTransform;
+            icon = Pic(p, "coin", Color.white, TR, x + 10, y + 6, 64, 64).rectTransform;
+            return Label(p, "0", true, 54, UIKit.Gold, TR, x + 80, y + 12, 124, TextAnchor.MiddleRight);
+        }
+
         void Make()
         {
             I = this;
@@ -100,14 +105,13 @@ namespace ZombiePile
             scaler.referenceResolution = new Vector2(1280, 720);
             scaler.matchWidthOrHeight = 0.5f;
             gameObject.AddComponent<GraphicRaycaster>();
-            root = (RectTransform)transform;
+            Root = (RectTransform)transform;
 
-            damage = UIKit.Image(root, "Damage", new Color(0.9f, 0.1f, 0.05f, 0f), UIKit.Fade);
+            damage = UIKit.Image(Root, "Damage", new Color(0.9f, 0.1f, 0.05f, 0f), UIKit.Fade);
             UIKit.Stretch(damage.rectTransform);
             damage.rectTransform.localRotation = Quaternion.Euler(0, 0, 180f);   // red creeps in from the top (the wall)
 
-            // ---------------- HUD
-            hud = UIKit.Node("HUD", root).gameObject;
+            hud = UIKit.Node("HUD", Root).gameObject;
             UIKit.Stretch((RectTransform)hud.transform);
             var ht = hud.transform;
             Vignette(ht, 0.55f);
@@ -118,145 +122,171 @@ namespace ZombiePile
             Pic(ht, "panel", Color.white, TL, 16, 14, 330, 80);
             Pic(ht, "ic_wall", Color.white, TL, 26, 20, 68, 68);
             Label(ht, "WALL", true, 30, Color.white, TL, 104, 22, 120, TextAnchor.MiddleLeft);
-            var wallTrack = Pic(ht, "track", Color.white, TL, 102, 52, 230, 32);
-            wallFill = FillIn(wallTrack, UIKit.Green, 4f);
+            wallFill = FillIn(Pic(ht, "track", Color.white, TL, 102, 52, 230, 32), UIKit.Green, 4f);
             wallPct = Label(ht, "100%", false, 22, Color.white, TL, 102, 56, 230);
 
-            // wave + progress (top centre)
+            // power-up timer under it
+            boostBox = UIKit.Node("Boost", ht).gameObject;
+            UIKit.Stretch((RectTransform)boostBox.transform);
+            Pic(boostBox.transform, "panel", Color.white, TL, 16, 100, 230, 50);
+            boostText = Label(boostBox.transform, "", true, 26, UIKit.Gold, TL, 30, 106, 200, TextAnchor.MiddleLeft);
+            boostFill = FillIn(Pic(boostBox.transform, "track", Color.white, TL, 28, 132, 206, 14), UIKit.Gold, 2f);
+            boostBox.SetActive(false);
+
+            // level + progress (top centre)
             Pic(ht, "panel", Color.white, TC, 430, 14, 420, 98);
-            waveText = Label(ht, "WAVE 1", true, 48, UIKit.Gold, TC, 430, 22, 420);
-            var waveTrack = Pic(ht, "track", Color.white, TC, 452, 70, 330, 30);
-            waveFill = FillIn(waveTrack, UIKit.Lime, 4f);
-            leftText = Label(ht, "0 LEFT", false, 21, Color.white, TC, 452, 74, 330);
+            levelText = Label(ht, "LEVEL 1", true, 48, UIKit.Gold, TC, 430, 22, 420);
+            progFill = FillIn(Pic(ht, "track", Color.white, TC, 452, 70, 330, 30), new Color(1f, 0.69f, 0.13f), 4f);
+            progText = Label(ht, "0 / 0", false, 21, Color.white, TC, 452, 74, 330);
             Pic(ht, "zhead", Color.white, TC, 770, 46, 76, 76);
 
-            // kills (top right)
-            Pic(ht, "panel", Color.white, TR, 1054, 14, 210, 80);
-            Pic(ht, "ic_skull", Color.white, TR, 1064, 20, 68, 68);
-            killText = Label(ht, "0", true, 60, Color.white, TR, 1130, 22, 120, TextAnchor.MiddleRight);
+            // boss bar
+            bossBox = UIKit.Node("Boss", ht).gameObject;
+            UIKit.Stretch((RectTransform)bossBox.transform);
+            Pic(bossBox.transform, "panel", Color.white, TC, 390, 122, 500, 66);
+            Pic(bossBox.transform, "ic_crown", Color.white, TC, 398, 124, 60, 60);
+            Label(bossBox.transform, ZType.Boss.name, true, 30, new Color(1f, 0.42f, 0.32f), TC, 462, 130, 300, TextAnchor.MiddleLeft);
+            bossFill = FillIn(Pic(bossBox.transform, "track", Color.white, TC, 462, 158, 412, 24), UIKit.Red, 3f);
+            bossBox.SetActive(false);
 
-            // barrel button (bottom right): its parts are children so they squash with the press
-            barrelBtn = UIKit.SpriteButton(ht, "round_red", "", 0, () => Gunner.I.ThrowBarrel());
-            var bt = (RectTransform)barrelBtn.transform;
+            // coins (top right)
+            RectTransform coinPanel;
+            coinText = CoinPanel(ht, 1044, 14, out coinPanel, out coinIcon);
+
+            // barrel button (bottom right)
+            var barrel = UIKit.SpriteButton(ht, "round_red", "", 0, () => Shooter.Wall.ThrowBarrel());
+            var bt = (RectTransform)barrel.transform;
             UIKit.At(bt, BR, 1082, 522, 176, 176);
+            barrelFace = (Image)barrel.targetGraphic;
             var bsz = new Vector2(176, 176);
-            barrelFace = (Image)barrelBtn.targetGraphic;
             In(UIKit.Pic(bt, "barrel3d", Color.white).rectTransform, bsz, 28, 4, 120, 120);
             In(UIKit.Title(bt, "BARREL", 34, Color.white).rectTransform, bsz, 0, 118, 176, 34);
-            barrelFill = UIKit.Image(bt, "Cooldown", new Color(0.05f, 0.02f, 0.08f, 0.62f), UIKit.Circle);
-            In(barrelFill.rectTransform, bsz, 6, 4, 164, 164);
-            barrelFill.type = Image.Type.Filled;
-            barrelFill.fillMethod = Image.FillMethod.Radial360;
-            barrelFill.fillOrigin = (int)Image.Origin360.Top;
-            barrelFill.fillClockwise = false;
+            barrelFill = Cooldown(bt, bsz, 164);
             barrelGlow = UIKit.Image(bt, "Glow", UIKit.Gold, UIKit.Ring);
             In(barrelGlow.rectTransform, bsz, -14, -14, 204, 204);
-            if (!Application.isMobilePlatform)
-            {
-                var key = UIKit.Pic(bt, "keycap", Color.white);
-                In(key.rectTransform, bsz, 46, -36, 84, 38);
-                var kt = UIKit.Text(key.transform, "SPACE", 18, new Color(0.17f, 0.11f, 0.23f), TextAnchor.MiddleCenter, false);
-                UIKit.Inset(kt.rectTransform, 0, 5, 0, 0);
-            }
+            Key(bt, bsz, "SPACE", 46, -36, 84);
 
-            var hint = Label(ht, Application.isMobilePlatform ? "HOLD ANYWHERE TO SHOOT" : "HOLD THE MOUSE TO SHOOT   |   SPACE / RIGHT-CLICK = BARREL", false, 22, Color.white, BC, 0, 684, 1280);
-            hint.gameObject.AddComponent<FadeAfter>().delay = 8f;
+            // airstrike button (once bought)
+            var air = UIKit.SpriteButton(ht, "round_gold", "", 0, () => Shooter.Wall.CallAirstrike());
+            var at = (RectTransform)air.transform;
+            UIKit.At(at, BR, 946, 574, 124, 124);
+            airBox = air.gameObject;
+            airFace = (Image)air.targetGraphic;
+            var asz = new Vector2(124, 124);
+            In(UIKit.Pic(at, "ic_airstrike", Color.white).rectTransform, asz, 30, 12, 64, 64);
+            In(UIKit.Title(at, "AIRSTRIKE", 22, Color.white).rectTransform, asz, 0, 80, 124, 22);
+            airFill = Cooldown(at, asz, 114);
+            Key(at, asz, "F", 37, -34, 50);
 
-            crosshair = UIKit.Pic(root, "crosshair", Color.white).rectTransform;
+            // switch shooter (bottom left): the other shooter's portrait
+            var sw = UIKit.SpriteButton(ht, "por_lis", "", 0, () => CameraRig.I.Toggle());
+            var st = (RectTransform)sw.transform;
+            UIKit.At(st, BL, 24, 548, 132, 132);
+            portrait = (Image)sw.targetGraphic;
+            var ssz = new Vector2(132, 132);
+            In(UIKit.Pic(st, "round_dark", Color.white).rectTransform, ssz, 88, -8, 58, 58);
+            In(UIKit.Pic(st, "ic_switch", Color.white).rectTransform, ssz, 96, 0, 42, 42);
+            switchName = UIKit.Title(st, "LIS", 32, Color.white);
+            In(switchName.rectTransform, ssz, 0, 122, 132, 32);
+            Key(st, ssz, "TAB", 26, -40, 80);
+
+            // "they're climbing" warning next to it
+            warn = UIKit.Node("Warn", ht).gameObject;
+            UIKit.Stretch((RectTransform)warn.transform);
+            var wp = Pic(warn.transform, "panel", new Color(1f, 0.75f, 0.75f), BL, 170, 590, 300, 64);
+            wp.gameObject.AddComponent<Pulse>().amount = 0.05f;
+            Label(warn.transform, "CLIMBERS! SWITCH TO LIS", false, 22, new Color(1f, 0.42f, 0.32f), BL, 176, 610, 288);
+            warn.SetActive(false);
+
+            var hint = Label(ht, Application.isMobilePlatform ? "HOLD TO SHOOT   |   TAP THE PORTRAIT TO SWITCH" :
+                "HOLD MOUSE: SHOOT   |   TAB: SWITCH SHOOTER   |   SPACE: BARREL", false, 21, Color.white, BC, 0, 690, 1280);
+            hint.gameObject.AddComponent<FadeAfter>().delay = 10f;
+
+            crosshair = UIKit.Pic(Root, "crosshair", Color.white).rectTransform;
             crosshair.sizeDelta = new Vector2(72, 72);
+            hitmark = UIKit.Pic(crosshair, "hitmark", new Color(1f, 1f, 1f, 0f));
+            hitmark.rectTransform.sizeDelta = new Vector2(52, 52);
 
-            // wave banner on a ribbon
-            banner = UIKit.Node("Banner", root).gameObject;
+            // banner on a ribbon
+            banner = UIKit.Node("Banner", Root).gameObject;
             UIKit.Stretch((RectTransform)banner.transform);
-            Pic(banner.transform, "ribbon", Color.white, C, 370, 170, 540, 100);
-            bannerText = Label(banner.transform, "", true, 76, Color.white, C, 370, 174, 540);
-            bannerSub = Label(banner.transform, "", true, 40, UIKit.Gold, C, 170, 286, 940);
+            Pic(banner.transform, "ribbon", Color.white, C, 340, 190, 600, 100);
+            bannerText = Label(banner.transform, "", true, 68, Color.white, C, 340, 200, 600);
+            bannerSub = Label(banner.transform, "", true, 38, UIKit.Gold, C, 140, 302, 1000);
             banner.SetActive(false);
 
-            for (int i = 0; i < 16; i++)
+            for (int i = 0; i < 16; i++) pops.Add(MakePop(44));
+            for (int i = 0; i < 40; i++) numbers.Add(MakePop(34));
+            for (int i = 0; i < 40; i++)
             {
-                var t = UIKit.Title(root, "", 44, Color.white);
-                t.rectTransform.sizeDelta = new Vector2(600, 60);
-                t.gameObject.SetActive(false);
-                pops.Add(new Pop { t = t });
+                var c = UIKit.Pic(Root, "coin", Color.white).rectTransform;
+                c.sizeDelta = new Vector2(34, 34);
+                c.gameObject.SetActive(false);
+                flyers.Add(new Flyer { r = c });
             }
-
-            // ---------------- menu
-            menu = Overlay("Menu", new Color(0.04f, 0.02f, 0.06f, 0.4f));
-            var mt = menu.transform;
-            var mf = UIKit.Image(mt, "Fade", new Color(0.04f, 0.02f, 0.06f, 0.85f), UIKit.Fade);
-            UIKit.Stretch(mf.rectTransform);
-            mf.rectTransform.anchorMax = new Vector2(1f, 0.6f);
-            Vignette(mt, 1f);
-            Pic(mt, "logo", Color.white, C, 230, 10, 820, 400).gameObject.AddComponent<Pulse>().amount = 0.015f;
-            Label(mt, "THE GAME FROM THE ADS. FOR REAL.", false, 34, Color.white, C, 0, 408, 1280);
-            var play = UIKit.SpriteButton(mt, "btn_green", "PLAY", 88, () => { SoundBank.I.Play(SoundBank.I.click); Game.I.StartRun(); });
-            UIKit.At((RectTransform)play.transform, C, 460, 462, 360, 124);
-            play.gameObject.AddComponent<Pulse>().amount = 0.035f;
-            bestPill = UIKit.Node("Best", mt).gameObject;
-            UIKit.Stretch((RectTransform)bestPill.transform);
-            Pic(bestPill.transform, "panel", Color.white, C, 500, 606, 280, 60);
-            Pic(bestPill.transform, "ic_trophy", Color.white, C, 514, 610, 52, 52);
-            bestText = Label(bestPill.transform, "", false, 30, UIKit.Gold, C, 570, 620, 200, TextAnchor.MiddleLeft);
-            var mute = UIKit.SpriteButton(mt, "round_dark", "", 0, () =>
-            {
-                Save.Data.muted = !Save.Data.muted; Save.Write(); SoundBank.ApplyMute();
-                muteIcon.sprite = UIKit.Spr(Save.Data.muted ? "ic_mute" : "ic_sound");
-            });
-            UIKit.At((RectTransform)mute.transform, BR, 1172, 612, 88, 88);
-            muteIcon = UIKit.Pic(mute.transform, Save.Data.muted ? "ic_mute" : "ic_sound", Color.white);
-            In(muteIcon.rectTransform, new Vector2(88, 88), 18, 12, 52, 52);
-            Label(mt, "Zombie Pile " + Game.Version + "   " + Kit.Status + "   |   models: Quaternius (CC0)   |   icons: game-icons.net by Lorc & Delapouite (CC BY 3.0)", false, 14,
-                new Color(1f, 1f, 1f, 0.5f), BL, 16, 698, 1100, TextAnchor.MiddleLeft, false);
-
-            // ---------------- upgrades
-            upgrades = Overlay("Upgrades", new Color(0.03f, 0.01f, 0.05f, 0.72f));
-            Pic(upgrades.transform, "ribbon", Color.white, C, 310, 34, 660, 100);
-            Label(upgrades.transform, "CHOOSE AN UPGRADE", true, 62, Color.white, C, 310, 44, 660);
-            cardRow = UIKit.Node("Cards", upgrades.transform);
-            UIKit.At(cardRow, C, 150, 170, 980, 380);
-            upgrades.SetActive(false);
-
-            // ---------------- game over
-            over = Overlay("Over", new Color(0.18f, 0f, 0f, 0.7f));
-            var ot = over.transform;
-            Vignette(ot, 1f);
-            Label(ot, "OVERRUN!", true, 150, new Color(1f, 0.29f, 0.21f), C, 0, 40, 1280).GetComponent<Stroke>().width = 12f;
-            Pic(ot, "panel", Color.white, C, 420, 228, 440, 230);
-            Pic(ot, "zhead", Color.white, C, 446, 244, 60, 60);
-            Label(ot, "WAVE", false, 34, Color.white, C, 520, 256, 150, TextAnchor.MiddleLeft);
-            overWave = Label(ot, "1", true, 52, UIKit.Gold, C, 700, 250, 136, TextAnchor.MiddleRight);
-            Pic(ot, "ic_skull", Color.white, C, 446, 314, 60, 60);
-            Label(ot, "KILLS", false, 34, Color.white, C, 520, 326, 150, TextAnchor.MiddleLeft);
-            overKills = Label(ot, "0", true, 52, Color.white, C, 700, 320, 136, TextAnchor.MiddleRight);
-            Pic(ot, "ic_trophy", Color.white, C, 446, 384, 60, 60);
-            overBestLabel = Label(ot, "BEST", false, 34, Color.white, C, 520, 396, 150, TextAnchor.MiddleLeft);
-            overBest = Label(ot, "", true, 48, UIKit.Gold, C, 520, 390, 316, TextAnchor.MiddleRight);
-            var retry = UIKit.SpriteButton(ot, "btn_green", "TRY AGAIN", 72, () => { over.SetActive(false); Game.I.Retry(); });
-            UIKit.At((RectTransform)retry.transform, C, 440, 490, 400, 124);
-            retry.gameObject.AddComponent<Pulse>().amount = 0.035f;
-            over.SetActive(false);
             hud.SetActive(false);
         }
 
-        // ------------------------------------------------------------------ API
-        public void ShowMenu(int best)
+        Pop MakePop(int size)
         {
-            menu.SetActive(true); hud.SetActive(false);
-            bestText.text = "BEST: WAVE " + best;
-            bestPill.SetActive(best > 0);
+            var t = UIKit.Title(Root, "", size, Color.white);
+            t.rectTransform.sizeDelta = new Vector2(600, size * 1.3f);
+            t.gameObject.SetActive(false);
+            return new Pop { t = t };
         }
 
-        public void HideMenu() { menu.SetActive(false); hud.SetActive(true); }
-        public void SetWave(int n) { waveText.text = "WAVE " + n; waveShown = waveTarget = 0f; }
-        public void SetLeft(int n, int total) { leftText.text = n + " LEFT"; waveTarget = total > 0 ? 1f - (float)n / total : 0f; }
-        public void SetKills(int n) { if (killText.text != n.ToString()) killPunch = 1f; killText.text = n.ToString(); }
+        static Image Cooldown(RectTransform parent, Vector2 psz, float size)
+        {
+            var f = UIKit.Image(parent, "Cooldown", new Color(0.05f, 0.02f, 0.08f, 0.62f), UIKit.Circle);
+            In(f.rectTransform, psz, (psz.x - size) * 0.5f, (psz.y - size) * 0.5f - 4f, size, size);
+            f.type = Image.Type.Filled;
+            f.fillMethod = Image.FillMethod.Radial360;
+            f.fillOrigin = (int)Image.Origin360.Top;
+            f.fillClockwise = false;
+            return f;
+        }
+
+        static void Key(RectTransform parent, Vector2 psz, string label, float x, float y, float w)
+        {
+            if (Application.isMobilePlatform) return;
+            var key = UIKit.Pic(parent, "keycap", Color.white);
+            In(key.rectTransform, psz, x, y, w, 38);
+            var kt = UIKit.Text(key.transform, label, 18, new Color(0.17f, 0.11f, 0.23f), TextAnchor.MiddleCenter, false);
+            UIKit.Inset(kt.rectTransform, 0, 5, 0, 0);
+        }
+
+        // ------------------------------------------------------------------ API
+        public void Show(bool on)
+        {
+            hud.SetActive(on);
+            if (!on) { banner.SetActive(false); foreach (var b in bars) b.r.gameObject.SetActive(false); }
+            coinsShown = -1;
+        }
+
+        public void SetLevel(string s) { levelText.text = s; progShown = progTarget = 0f; }
         public void SetWall(float k) { wallTarget = k; }
         public void FlashDamage() { damageT = 1f; }
 
-        public void Banner(string title, string sub)
+        public void SetProgress(int done, int total)
         {
-            bannerText.text = title; bannerSub.text = sub; bannerT = 2.2f;
+            progTarget = total > 0 ? Mathf.Clamp01((float)done / total) : 0f;
+            progText.text = done + " / " + total;
+        }
+
+        public void SetClimbWarning(bool on) { if (warn.activeSelf != on) warn.SetActive(on); }
+
+        public void SetBoost(string label, float k)
+        {
+            bool on = label != null && hud.activeSelf;
+            if (boostBox.activeSelf != on) boostBox.SetActive(on);
+            if (!on) return;
+            boostText.text = label;
+            boostFill.rectTransform.anchorMax = new Vector2(Mathf.Max(0.05f, k), 1f);
+        }
+
+        public void Banner(string title, string sub, float duration)
+        {
+            bannerText.text = title; bannerSub.text = sub; bannerT = duration;
             bannerColor = title.Contains("CLEARED") ? UIKit.Lime : Color.white;
             banner.SetActive(true);
             banner.transform.localScale = Vector3.one * 1.3f;
@@ -266,45 +296,56 @@ namespace ZombiePile
         {
             var p = pops[nextPop];
             nextPop = (nextPop + 1) % pops.Count;
-            p.world = world; p.life = 1f; p.size = size;
+            Start(p, world, text, c, size, 1f, 1.5f);
+        }
+
+        /// A floating damage number (gold and bigger for headshots).
+        public void Damage(Vector3 world, int amount, bool crit)
+        {
+            var p = numbers[nextNum];
+            nextNum = (nextNum + 1) % numbers.Count;
+            Start(p, world + Random.insideUnitSphere * 0.25f, crit ? "CRIT " + amount : amount.ToString(), crit ? UIKit.Gold : Color.white, crit ? 1.15f : 0.8f, 0.7f, 1.1f);
+        }
+
+        void Start(Pop p, Vector3 world, string text, Color c, float size, float life, float rise)
+        {
+            p.world = world; p.life = p.max = life; p.size = size; p.rise = rise;
             p.t.text = text; p.t.color = c;
             p.t.gameObject.SetActive(true);
+            p.t.transform.SetAsLastSibling();
         }
 
-        public void ShowUpgrades(string[] titles, string[] descs, Color[] colors, string[] icons, Action<int> pick)
+        public void HitMark(bool kill)
         {
-            for (int i = cardRow.childCount - 1; i >= 0; i--) Destroy(cardRow.GetChild(i).gameObject);
-            // the row is 980 wide: on a narrow (portrait) screen it shrinks to fit
-            cardRow.localScale = Vector3.one * Mathf.Min(1f, (root.rect.width - 32f) / 980f);
-            var rowSize = new Vector2(980, 380);
-            var cardSize = new Vector2(300, 380);
-            for (int i = 0; i < titles.Length; i++)
+            hitT = 0.12f;
+            hitmark.color = kill ? new Color(1f, 0.35f, 0.25f, 1f) : Color.white;
+        }
+
+        /// Coins pop out of a kill and fly into the counter; the counter ticks up as they land.
+        public void CoinBurst(Vector3 world, int amount)
+        {
+            var cam = Camera.main;
+            if (cam == null) return;
+            var sp = cam.WorldToScreenPoint(world);
+            Vector2 from;
+            if (sp.z < 0f || !RectTransformUtility.ScreenPointToLocalPointInRectangle(Root, sp, null, out from)) from = Vector2.zero;
+            int n = Mathf.Clamp(amount, 1, 6);
+            int each = amount / n, rest = amount - each * n;
+            for (int i = 0; i < n; i++)
             {
-                int idx = i;
-                var card = UIKit.SpriteButton(cardRow, "card", "", 0, () => { upgrades.SetActive(false); pick(idx); });
-                ((Image)card.targetGraphic).color = colors[i];
-                var r = In((RectTransform)card.transform, rowSize, 20 + i * 330 + (3 - titles.Length) * 165, 0, 300, 380);
-                In(UIKit.Image(r, "Badge", new Color(0f, 0f, 0f, 0.25f), UIKit.Circle).rectTransform, cardSize, 90, 28, 120, 120);
-                if (!string.IsNullOrEmpty(icons[i])) In(UIKit.Pic(r, icons[i], Color.white).rectTransform, cardSize, 95, 33, 110, 110);
-                In(UIKit.Title(r, titles[i], 44, Color.white).rectTransform, cardSize, 0, 162, 300, 44);
-                In(UIKit.Image(r, "Plate", new Color(0f, 0f, 0f, 0.28f), UIKit.Round).rectTransform, cardSize, 22, 222, 256, 86);
-                var d = UIKit.Text(r, descs[i], 25, Color.white);
-                d.horizontalOverflow = HorizontalWrapMode.Wrap;
-                d.GetComponent<Stroke>().width = 3f;
-                In(d.rectTransform, cardSize, 30, 226, 240, 78);
-                In(UIKit.Text(r, "TAP TO PICK", 20, new Color(1f, 1f, 1f, 0.9f)).rectTransform, cardSize, 0, 326, 300, 20);
+                Flyer f = null;
+                foreach (var x in flyers) if (!x.r.gameObject.activeSelf) { f = x; break; }
+                if (f == null) break;   // all coins busy: the counter just jumps
+                f.value = each + (i == 0 ? rest : 0);
+                f.from = from + Random.insideUnitCircle * 26f;
+                f.ctrl = f.from + new Vector2(Random.Range(-120f, 120f), Random.Range(60f, 160f));
+                f.t = -i * 0.05f;
+                f.dur = Random.Range(0.55f, 0.8f);
+                f.r.anchoredPosition = f.from;
+                f.r.localScale = Vector3.zero;
+                f.r.gameObject.SetActive(true);
+                coinsInFlight += f.value;
             }
-            upgrades.SetActive(true);
-        }
-
-        public void ShowGameOver(int wave, int kills, int best, bool newBest)
-        {
-            over.SetActive(true);
-            overWave.text = wave.ToString();
-            overKills.text = kills.ToString();
-            overBestLabel.gameObject.SetActive(!newBest);
-            overBest.text = newBest ? "NEW BEST!" : best.ToString();
-            overBest.alignment = newBest ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight;
         }
 
         // ------------------------------------------------------------------ per frame
@@ -312,6 +353,7 @@ namespace ZombiePile
         {
             float dt = Time.unscaledDeltaTime;
             bool playing = Game.I != null && Game.I.Playing;
+            var cam = Camera.main;
 
             // crosshair follows the mouse on desktop and opens up while firing
             bool touch = Input.touchCount > 0 || Application.isMobilePlatform;
@@ -319,17 +361,20 @@ namespace ZombiePile
             if (crosshair.gameObject.activeSelf)
             {
                 Vector2 local;
-                RectTransformUtility.ScreenPointToLocalPointInRectangle(root, Input.mousePosition, null, out local);
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(Root, Input.mousePosition, null, out local);
                 crosshair.anchoredPosition = local;
-                spread = Mathf.Lerp(spread, Gunner.I.Firing ? 1f : 0f, 1f - Mathf.Exp(-dt * 14f));
+                var sh = Shooter.Active;
+                spread = Mathf.Lerp(spread, sh != null && sh.Firing ? 1f : 0f, 1f - Mathf.Exp(-dt * 14f));
                 crosshair.localScale = Vector3.one * (1f + spread * 0.25f);
                 Cursor.visible = false;
             }
             else Cursor.visible = true;
+            hitT -= dt;
+            var hc = hitmark.color; hc.a = Mathf.Clamp01(hitT / 0.12f); hitmark.color = hc;
 
-            if (Gunner.I != null)
+            if (Shooter.Wall != null)
             {
-                float ready = Gunner.I.BarrelReady;
+                float ready = Shooter.Wall.BarrelReady;
                 bool on = ready >= 1f;
                 barrelFill.fillAmount = 1f - ready;
                 barrelFace.color = on ? Color.white : new Color(0.75f, 0.7f, 0.72f);
@@ -340,17 +385,59 @@ namespace ZombiePile
                     barrelGlow.rectTransform.localScale = Vector3.one * (0.9f + k * 0.3f);
                     barrelGlow.color = new Color(UIKit.Gold.r, UIKit.Gold.g, UIKit.Gold.b, 1f - k);
                 }
+                bool hasAir = Econ.Lvl(Up.Airstrike) > 0;
+                if (airBox.activeSelf != hasAir) airBox.SetActive(hasAir);
+                if (hasAir)
+                {
+                    float ar = Shooter.Wall.AirReady;
+                    airFill.fillAmount = 1f - ar;
+                    airFace.color = ar >= 1f ? Color.white : new Color(0.75f, 0.7f, 0.72f);
+                }
             }
+            // the switch button shows the other shooter
+            bool onTower = CameraRig.I != null && CameraRig.I.View == 1;
+            var por = UIKit.Spr(onTower ? "por_shaun" : "por_lis");
+            if (portrait.sprite != por) { portrait.sprite = por; switchName.text = onTower ? "SHAUN" : "LIS"; }
 
             wallShown = Mathf.MoveTowards(wallShown, wallTarget, dt * 0.8f);
             wallFill.rectTransform.anchorMax = new Vector2(Mathf.Max(0.04f, wallShown), 1f);
             wallFill.color = wallShown > 0.5f ? Color.Lerp(UIKit.Gold, UIKit.Green, (wallShown - 0.5f) * 2f) : Color.Lerp(UIKit.Red, UIKit.Gold, wallShown * 2f);
             wallPct.text = Mathf.CeilToInt(wallShown * 100f) + "%";
-            waveShown = Mathf.MoveTowards(waveShown, waveTarget, dt * 1.5f);
-            waveFill.rectTransform.anchorMax = new Vector2(Mathf.Max(0.04f, waveShown), 1f);
+            progShown = Mathf.MoveTowards(progShown, progTarget, dt * 1.5f);
+            progFill.rectTransform.anchorMax = new Vector2(Mathf.Max(0.04f, progShown), 1f);
 
-            killPunch = Mathf.Max(0f, killPunch - dt * 6f);
-            killText.transform.localScale = Vector3.one * (1f + killPunch * 0.18f);
+            // boss health
+            var boss = Level.I != null ? Level.I.Boss : null;
+            bool showBoss = hud.activeSelf && boss != null && boss.IsAlive;
+            if (bossBox.activeSelf != showBoss) bossBox.SetActive(showBoss);
+            if (showBoss) bossFill.rectTransform.anchorMax = new Vector2(Mathf.Max(0.03f, boss.Hp / boss.MaxHp), 1f);
+
+            // coins: the counter lags behind the savings by what is still flying in
+            int target = (Save.Data != null ? Save.Data.coins : 0) - coinsInFlight;
+            if (coinsShown < 0) coinsShown = target;
+            if (coinsShown != target) coinsShown = target;
+            coinText.text = coinsShown.ToString("N0");
+            coinPunch = Mathf.Max(0f, coinPunch - dt * 5f);
+            coinIcon.localScale = Vector3.one * (1f + coinPunch * 0.25f);
+            Vector2 coinTo = Root.InverseTransformPoint(coinIcon.position);
+            foreach (var f in flyers)
+            {
+                if (!f.r.gameObject.activeSelf) continue;
+                f.t += dt;
+                if (f.t < 0f) continue;
+                float k = Mathf.Clamp01(f.t / f.dur);
+                float e = k * k;
+                var p = (1f - e) * (1f - e) * f.from + 2f * (1f - e) * e * f.ctrl + e * e * coinTo;
+                f.r.anchoredPosition = p;
+                f.r.localScale = Vector3.one * Mathf.Min(1f, f.t * 8f) * (1f - 0.35f * e);
+                if (k >= 1f)
+                {
+                    f.r.gameObject.SetActive(false);
+                    coinsInFlight = Mathf.Max(0, coinsInFlight - f.value);
+                    coinPunch = 1f;
+                    SoundBank.I.Play(SoundBank.I.coin, 0.25f, Random.Range(0.95f, 1.1f));
+                }
+            }
 
             damageT = Mathf.Max(0f, damageT - dt * 2.5f);
             damage.color = new Color(0.9f, 0.1f, 0.05f, damageT * 0.6f);
@@ -369,33 +456,42 @@ namespace ZombiePile
                 if (bannerT <= 0f) banner.SetActive(false);
             }
 
-            var cam = Camera.main;
-            foreach (var p in pops)
+            if (cam != null)
+            {
+                Float(pops, cam, dt);
+                Float(numbers, cam, dt);
+                HealthBars(cam);
+            }
+        }
+
+        void Float(List<Pop> list, Camera cam, float dt)
+        {
+            foreach (var p in list)
             {
                 if (p.life <= 0f) continue;
                 p.life -= dt;
                 if (p.life <= 0f) { p.t.gameObject.SetActive(false); continue; }
-                var sp = cam.WorldToScreenPoint(p.world + Vector3.up * (1f - p.life) * 1.5f);
+                float k = 1f - p.life / p.max;
+                var sp = cam.WorldToScreenPoint(p.world + Vector3.up * k * p.rise);
+                if (sp.z < 0f) { p.t.gameObject.SetActive(false); p.life = 0f; continue; }
                 Vector2 local;
-                RectTransformUtility.ScreenPointToLocalPointInRectangle(root, sp, null, out local);
+                RectTransformUtility.ScreenPointToLocalPointInRectangle(Root, sp, null, out local);
                 p.t.rectTransform.anchoredPosition = local;
-                float pop = p.life > 0.85f ? 1f + (p.life - 0.85f) * 3f : 1f;
+                float pop = k < 0.15f ? 1f + (0.15f - k) * 3f : 1f;
                 p.t.transform.localScale = Vector3.one * p.size * pop;
-                var c = p.t.color; c.a = Mathf.Clamp01(p.life * 2f); p.t.color = c;
+                var c = p.t.color; c.a = Mathf.Clamp01((1f - k) * 2.5f); p.t.color = c;
             }
-
-            HealthBars(cam);
         }
 
         /// Small health bars over wounded zombies (full-health ones stay clean).
         void HealthBars(Camera cam)
         {
             int used = 0;
-            if (hud.activeSelf && cam != null)
+            if (hud.activeSelf)
             {
                 foreach (var z in Zombie.Alive)
                 {
-                    if (z == null || z.Hp >= z.MaxHp || z.Head == null) continue;
+                    if (z == null || z.Hp >= z.MaxHp || z.Head == null || z.IsBoss) continue;
                     var sp = cam.WorldToScreenPoint(z.Head.position + Vector3.up * (z.IsBrute ? 0.75f : 0.5f));
                     if (sp.z < 0f) continue;
                     if (used == bars.Count)

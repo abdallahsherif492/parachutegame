@@ -3,7 +3,7 @@ const fs = require('fs');
 (async () => {
   const b = await chromium.launch({ args: ['--use-gl=swiftshader'] });
   const manifest = {};
-  for (const pg of ['sprites.html', 'logo.html']) {
+  for (const pg of ['sprites.html', 'sprites2.html', 'logo.html']) {
     const p = await b.newPage({ viewport: { width: 1400, height: 900 }, deviceScaleFactor: 2 });
     await p.goto('http://localhost:8765/ui/' + pg); await p.waitForTimeout(800);
     for (const h of await p.$$('.spr')) {

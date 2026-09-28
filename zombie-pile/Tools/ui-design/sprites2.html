@@ -1,0 +1,69 @@
+<!doctype html><html><head><link rel="stylesheet" href="ui.css">
+<style>
+body { background: transparent; }
+.sheet { display: flex; flex-wrap: wrap; gap: 24px; padding: 24px; align-items: flex-start; width: 1400px; }
+.sheet > * { flex: none; }
+svg { overflow: visible; }
+.portrait { position: relative; border-radius: 50%; }
+.portrait .bg { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 50% 35%, #6b5a86, #2a1f3a 70%); border: 5px solid #140a1c; box-shadow: inset 0 4px 0 rgba(255,255,255,.18); }
+.portrait .img { position: absolute; inset: 5px; border-radius: 50%; background-size: 118%; background-position: 50% 30%; background-repeat: no-repeat; }
+.portrait .ring { position: absolute; inset: 0; border-radius: 50%; border: 5px solid #140a1c; box-shadow: inset 0 0 0 4px rgba(255,255,255,.85); }
+.glow { background: radial-gradient(circle, rgba(255,255,255,.95) 0%, rgba(255,255,255,.45) 35%, rgba(255,255,255,0) 70%); }
+.hitmark svg path { stroke-linecap: round; }
+</style>
+<script src="icons.js"></script></head><body>
+<div class="sheet">
+  <!-- coin: gold disc with an embossed skull -->
+  <div class="spr" data-name="coin" style="width:72px;height:72px">
+    <svg viewBox="0 0 72 72" width="72" height="72">
+      <defs><radialGradient id="cg" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#fff6a8"/><stop offset=".45" stop-color="#ffcf2e"/><stop offset="1" stop-color="#d98a06"/></radialGradient></defs>
+      <circle cx="36" cy="38" r="31" fill="#8a4d02" stroke="#140a1c" stroke-width="4"/>
+      <circle cx="36" cy="34" r="31" fill="url(#cg)" stroke="#140a1c" stroke-width="4"/>
+      <circle cx="36" cy="34" r="22" fill="none" stroke="#c07a05" stroke-width="3"/>
+      <g transform="translate(19 17) scale(0.066)"><path id="skull" fill="#c67d04"/></g>
+      <path d="M17 22 a22 22 0 0 1 20 -10" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round" opacity=".75"/>
+    </svg></div>
+  <div class="spr" data-name="star_on" style="width:96px;height:96px">
+    <svg viewBox="0 0 96 96" width="96" height="96"><defs><linearGradient id="sg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff38a"/><stop offset=".55" stop-color="#ffc21f"/><stop offset="1" stop-color="#e58a00"/></linearGradient></defs>
+      <path d="M48 6 L60 34 L90 36 L67 56 L74 86 L48 70 L22 86 L29 56 L6 36 L36 34 Z" fill="#a25f04" stroke="#140a1c" stroke-width="6" stroke-linejoin="round" transform="translate(0 4)"/>
+      <path d="M48 6 L60 34 L90 36 L67 56 L74 86 L48 70 L22 86 L29 56 L6 36 L36 34 Z" fill="url(#sg)" stroke="#140a1c" stroke-width="6" stroke-linejoin="round"/>
+      <path d="M40 30 L48 14 L54 28" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/></svg></div>
+  <div class="spr" data-name="star_off" style="width:96px;height:96px">
+    <svg viewBox="0 0 96 96" width="96" height="96">
+      <path d="M48 6 L60 34 L90 36 L67 56 L74 86 L48 70 L22 86 L29 56 L6 36 L36 34 Z" fill="#241a31" stroke="#140a1c" stroke-width="6" stroke-linejoin="round" transform="translate(0 4)"/>
+      <path d="M48 6 L60 34 L90 36 L67 56 L74 86 L48 70 L22 86 L29 56 L6 36 L36 34 Z" fill="#46395a" stroke="#140a1c" stroke-width="6" stroke-linejoin="round"/></svg></div>
+  <div class="spr" data-name="ic_video" style="width:72px;height:72px">
+    <svg viewBox="0 0 72 72" width="72" height="72"><rect x="6" y="14" width="60" height="44" rx="10" fill="#fff" stroke="#140a1c" stroke-width="5"/>
+      <path d="M29 25 L49 36 L29 47 Z" fill="#e8372b" stroke="#140a1c" stroke-width="4" stroke-linejoin="round"/></svg></div>
+  <div class="spr" data-name="ic_back" style="width:72px;height:72px">
+    <svg viewBox="0 0 72 72" width="72" height="72"><path d="M44 12 L18 36 L44 60" fill="none" stroke="#140a1c" stroke-width="20" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M44 12 L18 36 L44 60" fill="none" stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="spr" data-name="ic_infinity" style="width:96px;height:72px">
+    <svg viewBox="0 0 96 72" width="96" height="72"><path d="M48 36 C38 18 12 18 12 36 C12 54 38 54 48 36 C58 18 84 18 84 36 C84 54 58 54 48 36 Z" fill="none" stroke="#140a1c" stroke-width="20" stroke-linejoin="round"/>
+      <path d="M48 36 C38 18 12 18 12 36 C12 54 38 54 48 36 C58 18 84 18 84 36 C84 54 58 54 48 36 Z" fill="none" stroke="#8fd9ff" stroke-width="9" stroke-linejoin="round"/></svg></div>
+  <div class="spr" data-name="hitmark" style="width:48px;height:48px">
+    <svg viewBox="0 0 48 48" width="48" height="48" class="hitmark"><path d="M8 8 L18 18 M40 8 L30 18 M8 40 L18 30 M40 40 L30 30" stroke="#140a1c" stroke-width="9"/>
+      <path d="M8 8 L18 18 M40 8 L30 18 M8 40 L18 30 M40 40 L30 30" stroke="#fff" stroke-width="4"/></svg></div>
+  <div class="btn blue spr" data-name="btn_blue" data-border="36" style="width:128px;height:128px"></div>
+  <div class="btn gold round spr" data-name="round_gold" style="width:140px;height:140px"></div>
+  <div class="glow spr" data-name="glow" style="width:256px;height:256px"></div>
+  <div class="portrait spr" data-name="por_shaun" style="width:128px;height:128px"><div class="bg"></div><div class="img" style="background-image:url(p_shaun.png)"></div><div class="ring"></div></div>
+  <div class="portrait spr" data-name="por_lis" style="width:128px;height:128px"><div class="bg"></div><div class="img" style="background-image:url(p_lis.png)"></div><div class="ring"></div></div>
+</div>
+<div class="sheet" id="icons"></div>
+<script>
+document.getElementById('skull').setAttribute('d', ICONS['lorc_skull-crossed-bones']);
+const IC = [
+  ['ic_switch','lorc_cycle','#ffffff'], ['ic_airstrike','delapouite_jet-fighter','#ffffff'], ['ic_lock','lorc_padlock','#c9c2d6'],
+  ['ic_upgrade','delapouite_upgrade','#a8f04a'], ['ic_magnet','lorc_magnet','#ff6a5a'], ['ic_levels','lorc_treasure-map','#ffe7b0'],
+  ['ic_firerate','lorc_fast-arrow','#ffffff'], ['ic_crosshair','lorc_crosshair-arrow','#ffffff'], ['ic_rocket','lorc_incoming-rocket','#ffffff'],
+  ['ic_parachute','lorc_parachute','#ffffff'], ['ic_shield','lorc_checked-shield','#ffffff'], ['ic_swords','lorc_crossed-swords','#ffffff'],
+];
+const host = document.getElementById('icons');
+for (const [name, key, col] of IC) {
+  const d = document.createElement('div'); d.className = 'spr'; d.dataset.name = name; d.style.cssText = 'width:128px;height:128px;padding:10px';
+  d.innerHTML = `<svg viewBox="0 0 512 512" width="108" height="108"><path d="${ICONS[key]}" fill="${col}" stroke="#140a1c" stroke-width="44" stroke-linejoin="round" paint-order="stroke"/></svg>`;
+  host.appendChild(d);
+}
+</script>
+</body></html>

@@ -11,14 +11,18 @@ namespace ZombiePile
         {
             if (gone) return;
             gone = true;
-            if (delay > 0f) Game.I.Delay(delay, Boom); else Boom();
+            if (delay > 0f && Game.I != null) Game.I.Delay(delay, Boom_);
+            else Boom_();
         }
 
-        void Boom()
+        void Boom_()
         {
+            if (this == null) return;
             var at = transform.position + Vector3.up * 0.6f;
-            ThrownBarrel.Explode(at, 4.2f, 16f, 20f);
-            Destroy(gameObject);
+            Boom.Explode(at, 4.2f, 160f, 13f, true);
+            gameObject.SetActive(false);   // comes back next level
         }
+
+        public void Restore() { gone = false; gameObject.SetActive(true); }
     }
 }

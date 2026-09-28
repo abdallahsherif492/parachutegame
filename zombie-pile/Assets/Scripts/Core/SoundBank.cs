@@ -10,6 +10,7 @@ namespace ZombiePile
         const int SR = 22050;
 
         public AudioClip shot, hit, headshot, boom, breach, click, horn, chime, lose, thump, throwS;
+        public AudioClip coin, whoosh, sniper, jet, clang, fanfare, smash, buy;
         public AudioClip[] groans;
         AudioSource[] pool;
         int next;
@@ -66,6 +67,47 @@ namespace ZombiePile
             lp = 0f;
             throwS = Gen("throw", 0.3f, t => { lp += 0.2f * (noise() - lp); return lp * Mathf.Sin(Mathf.PI * t / 0.3f) * 0.8f; });
 
+            coin = Gen("coin", 0.22f, t => (Sine(1318.5f * t) * (t < 0.06f ? 1f : 0f) + Sine(1760f * t) * (t >= 0.06f ? 1f : 0f)) * Mathf.Exp(-t * 14f) * 0.22f);
+            buy = Gen("buy", 0.35f, t =>
+            {
+                float f = t < 0.08f ? 880f : t < 0.16f ? 1108.7f : 1318.5f;
+                return (Square(f * t) * 0.3f + Sine(f * t)) * Mathf.Exp(-(t % 0.08f) * 10f) * 0.14f;
+            });
+            lp = 0f;
+            whoosh = Gen("whoosh", 0.55f, t =>
+            {
+                lp += (0.05f + 0.35f * Mathf.Sin(Mathf.PI * t / 0.55f)) * (noise() - lp);
+                return lp * Mathf.Sin(Mathf.PI * t / 0.55f) * 1.3f;
+            });
+            lp = 0f;
+            sniper = Gen("sniper", 0.5f, t =>
+            {
+                lp += 0.7f * (noise() - lp);
+                return lp * Mathf.Exp(-t * 22f) * 1.1f + Sine((90f - 40f * t) * t) * Mathf.Exp(-t * 9f) * 0.7f + noise() * Mathf.Exp(-t * 5f) * 0.08f;
+            });
+            lp = 0f;
+            jet = Gen("jet", 1.6f, t =>
+            {
+                lp += 0.15f * (noise() - lp);
+                float env = Mathf.Sin(Mathf.PI * Mathf.Clamp01(t / 1.6f));
+                return (lp * 1.4f + Sine((420f - 180f * t) * t) * 0.15f) * env * env;
+            });
+            clang = Gen("clang", 0.4f, t => (Sine(740f * t) + Sine(1130f * t) * 0.6f + Sine(1990f * t) * 0.3f) * Mathf.Exp(-t * 11f) * 0.2f);
+            float[] fan = { 523.25f, 659.25f, 783.99f, 1046.5f };
+            fanfare = Gen("fanfare", 1.1f, t =>
+            {
+                int n = Mathf.Min(3, (int)(t / 0.13f));
+                float lt = t - n * 0.13f;
+                float env = n == 3 ? Mathf.Exp(-lt * 2.5f) : Mathf.Exp(-lt * 9f);
+                return (Square(fan[n] * t) * 0.25f + Sine(fan[n] * t) + Sine(fan[n] * 0.5f * t) * 0.4f) * env * 0.15f;
+            });
+            lp = 0f;
+            smash = Gen("smash", 0.45f, t =>
+            {
+                lp += 0.35f * (noise() - lp);
+                return lp * Mathf.Exp(-t * 12f) * 1.2f + Sine(55f * t) * Mathf.Exp(-t * 10f) * 0.9f;
+            });
+
             // groans: a low buzzy voice with a falling pitch and a noisy throat
             groans = new AudioClip[4];
             for (int g = 0; g < groans.Length; g++)
@@ -83,7 +125,7 @@ namespace ZombiePile
                 });
             }
 
-            pool = new AudioSource[16];
+            pool = new AudioSource[24];
             for (int i = 0; i < pool.Length; i++)
             {
                 pool[i] = gameObject.AddComponent<AudioSource>();

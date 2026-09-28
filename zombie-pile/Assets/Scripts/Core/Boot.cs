@@ -36,7 +36,7 @@ namespace ZombiePile
             // blood-orange apocalypse sunset
             var sky = new Color(0.91f, 0.53f, 0.35f);
             SkyEnv.Apply(sky, new Color(1f, 0.9f, 0.78f), new Color(0.55f, 0.48f, 0.55f), new Color(0.22f, 0.17f, 0.16f));
-            SkyEnv.SetFog(28f, 85f);
+            SkyEnv.SetFog(32f, 70f);
             if (Kit.Available)
             {
                 // real models: Unity lighting with soft shadows, warm sun, trilight ambient and fog

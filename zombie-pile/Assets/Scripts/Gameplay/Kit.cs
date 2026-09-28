@@ -13,7 +13,7 @@ namespace ZombiePile
     {
         [Serializable] public class ModelMeta { public string name; public float[] size, min, center; }
         [Serializable] public class Prop { public string m; public float[] p; public float r; public float s = 1f; }
-        [Serializable] public class LayoutData { public float wallHeight, wallFront, halfWidth; public Prop[] props; public ModelMeta[] models; }
+        [Serializable] public class LayoutData { public float wallHeight, wallFront, halfWidth; public float[] tower; public Prop[] props; public ModelMeta[] models; }
 
         /// Per-model correction, measured once: 'scale' only differs from 1 if the import scale is off,
         /// 'yaw' is 180 only if a character turns out to face -Z (it should face +Z like the glTF).
@@ -69,12 +69,14 @@ namespace ZombiePile
         }
 
         /// World-space vertices of everything visible (skinned meshes baked in their current pose).
-        static List<Vector3> Vertices(GameObject go)
+        /// skinnedOnly: just the character body, not the weapons it carries.
+        static List<Vector3> Vertices(GameObject go, bool skinnedOnly = false)
         {
             var list = new List<Vector3>();
             foreach (var r in go.GetComponentsInChildren<Renderer>(true))
             {
                 if (!r.enabled || !r.gameObject.activeInHierarchy) continue;
+                if (skinnedOnly && !(r is SkinnedMeshRenderer)) continue;
                 var smr = r as SkinnedMeshRenderer;
                 Mesh mesh = null;
                 Matrix4x4 m;
@@ -118,7 +120,9 @@ namespace ZombiePile
             var tmp = UnityEngine.Object.Instantiate(prefab);
             tmp.transform.position = Vector3.zero;
             Prepare(tmp);
-            var vs = Vertices(tmp);
+            // characters: measure the body only (the weapons in the file are laid out around it)
+            var vs = Vertices(tmp, IsCharacter(name));
+            if (vs.Count == 0) vs = Vertices(tmp);
             if (vs.Count == 0)
             {
                 // mesh data not readable (Read/Write off): trust the import as it is
@@ -152,13 +156,23 @@ namespace ZombiePile
 
         static bool IsCharacter(string name) { return name.StartsWith("Zombie") || name.StartsWith("Characters"); }
 
-        // characters come with every weapon attached: keep only the rifle
-        static readonly string[] Weapons = { "Axe", "Guitar", "Knife", "Pistol", "Shotgun", "SMG", "Spear", "WoodenBat_Barbed", "WoodenBat_Saw" };
+        // characters come with every weapon attached: show one (the rifle by default)
+        static readonly string[] Weapons = { "Axe", "Guitar", "Knife", "Pistol", "Rifle", "Shotgun", "SMG", "Spear", "WoodenBat_Barbed", "WoodenBat_Saw" };
 
-        static void Prepare(GameObject go)
+        static void Prepare(GameObject go) { ShowWeapon(go, "Rifle"); }
+
+        /// Shows only the named weapon on a character model; returns its renderer (for the muzzle).
+        public static Renderer ShowWeapon(GameObject model, string weapon)
         {
-            foreach (var t in go.GetComponentsInChildren<Transform>(true))
-                if (Array.IndexOf(Weapons, t.name) >= 0) t.gameObject.SetActive(false);
+            Renderer found = null;
+            foreach (var t in model.GetComponentsInChildren<Transform>(true))
+            {
+                if (Array.IndexOf(Weapons, t.name) < 0) continue;
+                bool on = t.name == weapon;
+                t.gameObject.SetActive(on);
+                if (on) found = t.GetComponentInChildren<Renderer>(true);
+            }
+            return found;
         }
 
         /// Places a kit model: 'holder' gets position, yaw and scale; the model inside keeps its import transform.
@@ -199,7 +213,7 @@ namespace ZombiePile
         public class Anim
         {
             public Animation anim;
-            public string run, climb, death, punch, idle, hit;
+            public string run, climb, death, punch, idle, hit, jump;
             string current;
 
             public static Anim From(GameObject model)
@@ -217,6 +231,7 @@ namespace ZombiePile
                     else if (n.EndsWith("punch") || (a.punch == null && n.EndsWith("run_attack"))) a.punch = st.name;
                     else if (n.EndsWith("idle_gun") || (a.idle == null && n.EndsWith("idle"))) a.idle = st.name;
                     else if (n.EndsWith("hitreact")) a.hit = st.name;
+                    else if (n.EndsWith("jump")) a.jump = st.name;
                 }
                 a.anim.cullingType = AnimationCullingType.AlwaysAnimate;
                 return a;
