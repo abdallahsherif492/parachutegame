@@ -33,6 +33,13 @@ namespace ZombiePile.EditorTools
             }
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
 
+            // the game turns on linear fog at runtime: save it in the scene so WebGL builds keep the fog shader variants
+            var open = EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
+            RenderSettings.fog = true;
+            RenderSettings.fogMode = FogMode.Linear;
+            EditorSceneManager.MarkSceneDirty(open);
+            EditorSceneManager.SaveScene(open);
+
             PlayerSettings.productName = "Zombie Pile";
             PlayerSettings.colorSpace = ColorSpace.Gamma;
             PlayerSettings.stripEngineCode = true;

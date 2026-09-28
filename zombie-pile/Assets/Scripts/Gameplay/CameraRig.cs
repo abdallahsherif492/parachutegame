@@ -17,19 +17,20 @@ namespace ZombiePile
         {
             I = this;
             cam = GetComponent<Camera>();
-            // close over the gunner's shoulder, looking down the wall face at the pile
-            basePos = new Vector3(0f, Arena.WallHeight + 4.6f, -3.6f);
-            baseRot = Quaternion.LookRotation(new Vector3(0f, 2.4f, 9.5f) - basePos);
+
         }
 
         public void Shake(float amount) { shake = Mathf.Max(shake, amount); }
 
         void LateUpdate()
         {
+            // above the gunner, looking down the wall face at the pile and up the street at the horde
+            basePos = new Vector3(0f, Arena.WallHeight + 3.7f, Arena.WallFront - 1.5f);
+            baseRot = Quaternion.LookRotation(new Vector3(0f, 2.5f, Arena.WallFront + 8f) - basePos);
             float aspect = (float)Screen.width / Mathf.Max(1, Screen.height);
             // keep ~13 m of the gate visible horizontally at the pile's distance
-            float wantV = 2f * Mathf.Atan(Mathf.Tan(32f * Mathf.Deg2Rad) / aspect) * Mathf.Rad2Deg;
-            cam.fieldOfView = Mathf.Clamp(wantV, 54f, 92f);
+            float wantV = 2f * Mathf.Atan(Mathf.Tan(34f * Mathf.Deg2Rad) / aspect) * Mathf.Rad2Deg;
+            cam.fieldOfView = Mathf.Clamp(wantV, 62f, 95f);
 
             // lean a little toward where the player aims
             var mp = Input.mousePosition;

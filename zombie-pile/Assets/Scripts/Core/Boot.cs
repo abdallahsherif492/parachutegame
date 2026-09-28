@@ -33,10 +33,37 @@ namespace ZombiePile
             Physics.bounceThreshold = 3f;
 
             // Dusk over a ruined city.
-            // blood-orange apocalypse sunset, dark streets
-            SkyEnv.Apply(new Color(0.93f, 0.45f, 0.26f), new Color(1f, 0.82f, 0.6f),
-                new Color(0.5f, 0.45f, 0.55f), new Color(0.2f, 0.15f, 0.14f));
-            SkyEnv.SetFog(22f, 75f);
+            // blood-orange apocalypse sunset
+            var sky = new Color(0.91f, 0.53f, 0.35f);
+            SkyEnv.Apply(sky, new Color(1f, 0.9f, 0.78f), new Color(0.55f, 0.48f, 0.55f), new Color(0.22f, 0.17f, 0.16f));
+            SkyEnv.SetFog(28f, 85f);
+            if (Kit.Available)
+            {
+                // real models: Unity lighting with soft shadows, warm sun, trilight ambient and fog
+                var sun = GameObject.Find("Sun");
+                if (sun != null)
+                {
+                    var l = sun.GetComponent<Light>();
+                    l.shadows = LightShadows.Soft;
+                    l.shadowStrength = 0.7f;
+                    l.intensity = 1.25f;
+                    l.color = new Color(1f, 0.93f, 0.85f);
+                    sun.transform.rotation = Quaternion.LookRotation(new Vector3(12f, -22f, -4f));
+                }
+                QualitySettings.shadows = ShadowQuality.All;
+                QualitySettings.shadowResolution = ShadowResolution.High;
+                QualitySettings.shadowDistance = 55f;
+                QualitySettings.shadowCascades = 2;
+                RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
+                RenderSettings.ambientSkyColor = new Color(0.95f, 0.78f, 0.66f);
+                RenderSettings.ambientEquatorColor = new Color(0.6f, 0.46f, 0.42f);
+                RenderSettings.ambientGroundColor = new Color(0.24f, 0.2f, 0.22f);
+                RenderSettings.fog = true;
+                RenderSettings.fogMode = FogMode.Linear;
+                RenderSettings.fogColor = sky;
+                RenderSettings.fogStartDistance = 28f;
+                RenderSettings.fogEndDistance = 85f;
+            }
 
             Save.Load();
             new GameObject("Sound").AddComponent<SoundBank>();

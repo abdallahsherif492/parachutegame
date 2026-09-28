@@ -20,7 +20,7 @@ namespace ZombiePile
         float spawnT, spawnEvery, zHp, zSpeed, comboT;
         int combo;
         bool waveOver;
-        const int MaxAlive = 110;
+        const int MaxAlive = 85;
 
         class Upgrade { public string title, desc; public Color color; public Action apply; public Func<bool> allowed; }
         List<Upgrade> pool;

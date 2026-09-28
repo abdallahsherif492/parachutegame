@@ -20,6 +20,8 @@ namespace ZombiePile
         public Vector3 AimPoint { get; private set; }
 
         Transform yaw, gun, muzzle;
+        Renderer rifle;
+        Kit.Anim kit;
         float fireT, barrelT, kick;
         Camera cam;
         readonly RaycastHit[] hits = new RaycastHit[24];
@@ -28,7 +30,7 @@ namespace ZombiePile
         public static Gunner Build()
         {
             var go = new GameObject("Gunner");
-            go.transform.position = new Vector3(0f, Arena.WallHeight + 0.2f, -0.35f);
+            go.transform.position = Kit.Available ? new Vector3(0f, Arena.WallHeight, Arena.WallFront - 1.1f) : new Vector3(0f, Arena.WallHeight + 0.2f, -0.35f);
             return go.AddComponent<Gunner>();
         }
 
@@ -36,6 +38,19 @@ namespace ZombiePile
         {
             I = this;
             cam = Camera.main;
+            AimPoint = new Vector3(0, 1, 12);
+            if (Kit.Available)
+            {
+                // Shaun from the kit, rifle in hand
+                var holder = Kit.Place("Characters_Shaun", transform.position, 0f, 1.75f / Kit.Height("Characters_Shaun"), transform, true);
+                yaw = holder.transform;
+                gun = yaw;
+                kit = Kit.Anim.From(holder);
+                kit.Start(kit.idle);
+                foreach (var r in holder.GetComponentsInChildren<Renderer>(true)) if (r.name == "Rifle" || r.transform.parent != null && r.transform.parent.name == "Rifle") rifle = r;
+                muzzle = Shapes.Group("Muzzle", yaw, new Vector3(0.25f, 1.25f, 1.1f)).transform;
+                return;
+            }
             var army = new Color(0.36f, 0.45f, 0.27f);
             var dark = new Color(0.2f, 0.24f, 0.18f);
             var skin = new Color(0.95f, 0.75f, 0.58f);
@@ -90,10 +105,14 @@ namespace ZombiePile
             // turn the soldier toward the aim point
             var flat = AimPoint - transform.position; flat.y = 0f;
             if (flat.sqrMagnitude > 0.01f) yaw.rotation = Quaternion.Slerp(yaw.rotation, Quaternion.LookRotation(flat), 1f - Mathf.Exp(-dt * 20f));
-            var local = yaw.InverseTransformPoint(AimPoint) - gun.localPosition;
-            float pitch = -Mathf.Atan2(local.y, local.z) * Mathf.Rad2Deg;
-            gun.localRotation = Quaternion.Euler(pitch, 0, 0);
-            gun.localPosition = new Vector3(0.22f, 1.45f, 0.25f - kick * 0.12f);
+            if (kit == null)
+            {
+                var local = yaw.InverseTransformPoint(AimPoint) - gun.localPosition;
+                float pitch = -Mathf.Atan2(local.y, local.z) * Mathf.Rad2Deg;
+                gun.localRotation = Quaternion.Euler(pitch, 0, 0);
+                gun.localPosition = new Vector3(0.22f, 1.45f, 0.25f - kick * 0.12f);
+            }
+            else if (rifle != null) muzzle.position = rifle.bounds.center + yaw.forward * rifle.bounds.extents.magnitude * 0.8f;
 
             Firing = down;
             fireT -= dt;
@@ -127,6 +146,8 @@ namespace ZombiePile
             {
                 var hit = hits[i];
                 var z = hit.collider.GetComponentInParent<Zombie>();
+                var drum = z == null ? hit.collider.GetComponentInParent<ExplosiveBarrel>() : null;
+                if (drum != null) { end = hit.point; drum.Detonate(); break; }
                 if (z == null)
                 {
                     end = hit.point;
@@ -204,6 +225,8 @@ namespace ZombiePile
             var done = new HashSet<Zombie>();
             foreach (var c in cols)
             {
+                var drum = c.GetComponentInParent<ExplosiveBarrel>();
+                if (drum != null) { drum.Detonate(0.12f); continue; }   // chain reaction
                 var z = c.GetComponentInParent<Zombie>();
                 if (z == null || done.Contains(z)) continue;
                 done.Add(z);

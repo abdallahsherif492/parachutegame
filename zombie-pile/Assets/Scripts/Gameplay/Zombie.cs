@@ -18,7 +18,8 @@ namespace ZombiePile
         public float Hp { get; private set; }
         public Collider HeadCollider { get; private set; }
 
-        ZombieModels.Rig model;
+        Transform model, headBone;
+        Kit.Anim kit;
         Rigidbody rb;
         BoxCollider body;
         Transform vis, head, legL, legR, armL, armR;
@@ -55,10 +56,41 @@ namespace ZombiePile
             rb.collisionDetectionMode = CollisionDetectionMode.Discrete;
 
             body = gameObject.AddComponent<BoxCollider>();
+            if (Kit.Available) KitLook(s, brute); else PrimitiveLook(s, brute);
+
+            IsAlive = true;
+            Alive.Add(this);
+        }
+
+        /// A Quaternius zombie model, animated with its own clips; the physics box sits from the feet to the shoulders.
+        void KitLook(float s, bool brute)
+        {
+            string type = brute ? "Zombie_Chubby" : (Random.value < 0.55f ? "Zombie_Basic" : "Zombie_Arm");
+            float hm = (brute ? 1.75f : 1.8f) * s;                        // model height
+            float boxH = hm - 0.36f * s;
+            body.size = new Vector3(brute ? 0.95f : 0.7f, boxH / s, brute ? 0.75f : 0.55f) * s;
+            body.center = Vector3.zero;
+            baseScale = 1f;
+            var holder = Kit.Place(type, transform.position + Vector3.down * boxH * 0.5f, 180f, hm / Kit.Height(type), transform, true);
+            model = holder.transform;
+            vis = model;
+            kit = Kit.Anim.From(holder);
+            kit.Start(kit.run);
+            foreach (var t in holder.GetComponentsInChildren<Transform>()) if (t.name == "Head") { headBone = t; break; }
+
+            var headGo = new GameObject("Head");
+            headGo.transform.SetParent(transform, false);
+            headGo.transform.localPosition = new Vector3(0, -boxH * 0.5f + hm - 0.24f * s, -0.05f * s);
+            head = headGo.transform;
+            var hc = headGo.AddComponent<SphereCollider>();
+            hc.radius = 0.25f * s;
+            HeadCollider = hc;
+        }
+
+        void PrimitiveLook(float s, bool brute)
+        {
             body.size = new Vector3(0.72f, 1.62f, 0.56f) * s;
             body.center = Vector3.zero;
-
-            // ---- looks (built from smooth low-poly shapes)
             var skin = Skins[Random.Range(0, Skins.Length)] * (brute ? 0.85f : 1f);
             var shirt = Shirts[Random.Range(0, Shirts.Length)];
             var pants = Pants[Random.Range(0, Pants.Length)];
@@ -66,13 +98,11 @@ namespace ZombiePile
             vis.localScale = Vector3.one * s;
             baseScale = s;
             Shapes.Make("Torso", MeshGen.Capsule(0.42f), Mat.Lit(shirt), vis, new Vector3(0, 0.12f, 0), new Vector3(0.74f, 1f, 0.56f));
-            Shapes.Make("Rip", MeshGen.Capsule(0.3f), Mat.Lit(skin), vis, new Vector3(0.15f, 0.25f, -0.24f), new Vector3(0.22f, 0.3f, 0.12f));
             Shapes.Box(vis, new Vector3(0, -0.36f, 0), new Vector3(0.66f, 0.34f, 0.5f), pants);
             legL = Limb(vis, new Vector3(-0.17f, -0.45f, 0), new Vector3(0.26f, 0.42f, 0.26f), pants, skin);
             legR = Limb(vis, new Vector3(0.17f, -0.45f, 0), new Vector3(0.26f, 0.42f, 0.26f), pants, skin);
             armL = Limb(vis, new Vector3(-0.43f, 0.48f, 0), new Vector3(0.2f, 0.62f, 0.2f), skin, skin);
             armR = Limb(vis, new Vector3(0.43f, 0.48f, 0), new Vector3(0.2f, 0.62f, 0.2f), skin, skin);
-
             var headGo = new GameObject("Head");
             headGo.transform.SetParent(transform, false);
             headGo.transform.localPosition = new Vector3(0, 1.02f * s, 0);
@@ -86,22 +116,6 @@ namespace ZombiePile
             var eye = brute ? new Color(1f, 0.25f, 0.2f) : new Color(1f, 0.92f, 0.35f);
             Shapes.Sphere(hv, new Vector3(-0.11f, 0.06f, -0.22f), new Vector3(0.12f, 0.1f, 0.06f), eye, 1f);
             Shapes.Sphere(hv, new Vector3(0.11f, 0.04f, -0.22f), new Vector3(0.1f, 0.12f, 0.06f), eye, 1f);
-            Shapes.Box(hv, new Vector3(0, -0.14f, -0.23f), new Vector3(0.2f, 0.07f, 0.04f), new Color(0.2f, 0.08f, 0.08f));
-            Shapes.Make("Hair", MeshGen.Capsule(0.46f), Mat.Lit(new Color(0.2f, 0.17f, 0.15f)), hv, new Vector3(0, 0.2f, 0.05f), new Vector3(0.5f, 0.25f, 0.46f));
-            if (brute)
-                Shapes.Make("Jaw", MeshGen.Capsule(0.4f), Mat.Lit(skin * 0.9f), hv, new Vector3(0, -0.2f, -0.05f), new Vector3(0.5f, 0.25f, 0.45f));
-
-            model = ZombieModels.Spawn(transform, body.size.y + 0.3f * s);
-            if (model != null)
-            {
-                // the imported model replaces the low-poly body and head
-                vis.gameObject.SetActive(false);
-                hv.gameObject.SetActive(false);
-                if (brute) model.root.localScale *= 1.05f;
-            }
-
-            IsAlive = true;
-            Alive.Add(this);
         }
 
         static Transform Limb(Transform parent, Vector3 pivot, Vector3 size, Color top, Color bottom)
@@ -157,7 +171,15 @@ namespace ZombiePile
             if (IsAlive && !breaching)
             {
                 var v = Velocity;
-                if (model != null) model.Move(new Vector2(v.x, v.z).magnitude + Mathf.Max(0f, v.y));
+                if (kit != null)
+                {
+                    float hs = new Vector2(v.x, v.z).magnitude;
+                    if (v.y > 1.2f && kit.climb != null) kit.Play(kit.climb, 0.12f, 1.2f);
+                    else kit.Play(kit.run, 0.15f, Mathf.Clamp(hs / 4.5f, 0.75f, 1.6f));
+                    groanT -= dt;
+                    if (groanT < 0f) { groanT = Random.Range(4f, 12f); if (Random.value < 0.35f) SoundBank.I.Groan(); }
+                    goto afterAnim;
+                }
                 animT += dt * (3f + new Vector2(v.x, v.z).magnitude * 2.6f);
                 float swing = Mathf.Sin(animT) * 45f;
                 vis.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(animT)) * 0.12f, 0f);
@@ -171,13 +193,14 @@ namespace ZombiePile
                 head.localRotation = Quaternion.Euler(Mathf.Sin(animT * 0.5f) * 8f, 0, Mathf.Sin(animT * 0.7f) * 12f);
                 groanT -= dt;
                 if (groanT < 0f) { groanT = Random.Range(4f, 12f); if (Random.value < 0.35f) SoundBank.I.Groan(); }
+                afterAnim:;
             }
             else if (breaching)
             {
                 breachT += dt * 2.2f;
                 var top = new Vector3(breachFrom.x, Arena.WallHeight + 1.2f, -0.2f);
                 transform.position = Vector3.Lerp(breachFrom, top, Mathf.SmoothStep(0, 1, breachT)) + Vector3.up * Mathf.Sin(breachT * Mathf.PI) * 0.8f;
-                armL.localRotation = armR.localRotation = Quaternion.Euler(160f, 0, 0);
+                if (kit != null) kit.Play(kit.punch ?? kit.climb, 0.1f); else armL.localRotation = armR.localRotation = Quaternion.Euler(160f, 0, 0);
                 if (breachT >= 1f)
                 {
                     Game.I.OnBreach(this);
@@ -198,7 +221,7 @@ namespace ZombiePile
             if (punch > 0f)
             {
                 punch = Mathf.Max(0f, punch - dt * 6f);
-                vis.localScale = Vector3.one * baseScale * (1f + punch * 0.25f);
+                if (kit == null) vis.localScale = Vector3.one * baseScale * (1f + punch * 0.25f);
             }
         }
 
@@ -225,22 +248,33 @@ namespace ZombiePile
             return true;
         }
 
-        public void Die(Vector3 impulse, Vector3 point, bool popHead)
+        public void Die(Vector3 impulse, Vector3 point, bool popHead) { Die(impulse, point, popHead, kit == null); }
+
+        public void Die(Vector3 impulse, Vector3 point, bool popHead, bool tumble)
         {
             if (!IsAlive) return;
             IsAlive = false;
             Alive.Remove(this);
-            rb.constraints = RigidbodyConstraints.None;
-            if (model != null)
+            if (kit != null)
             {
-                model.Die();
-                if (popHead && model.headBone != null) { model.headBone.localScale = Vector3.one * 0.01f; Fx.I.Burst(head.position, 16, new Color(0.35f, 0.75f, 0.25f), 6f); }
+                kit.Play(kit.death, 0.08f, Random.Range(1f, 1.3f));
+                if (popHead && headBone != null) { headBone.localScale = Vector3.one * 0.01f; Fx.I.Burst(head.position, 18, new Color(0.35f, 0.75f, 0.25f), 6f, 0.14f); }
+                HeadCollider.enabled = false;
+                if (!tumble)
+                {
+                    // a shot zombie drops where it stands: a low box that stays in the pile
+                    float h = body.size.y;
+                    body.size = new Vector3(body.size.x * 1.2f, h * 0.38f, h * 0.7f);
+                    body.center = new Vector3(0f, -h * 0.31f, 0.1f * h);
+                    rb.AddForceAtPosition(impulse * 0.5f * rb.mass, point, ForceMode.Impulse);
+                    return;
+                }
             }
+            rb.constraints = RigidbodyConstraints.None;
             rb.AddForceAtPosition(impulse * rb.mass, point, ForceMode.Impulse);
             rb.AddTorque(Random.insideUnitSphere * 6f * rb.mass, ForceMode.Impulse);
-            armL.localRotation = Quaternion.Euler(170f, 0, -30f);
-            armR.localRotation = Quaternion.Euler(170f, 0, 30f);
-            if (popHead && !IsBrute && model == null)
+            if (armL != null) { armL.localRotation = Quaternion.Euler(170f, 0, -30f); armR.localRotation = Quaternion.Euler(170f, 0, 30f); }
+            if (popHead && !IsBrute && kit == null)
             {
                 // off it goes
                 head.SetParent(null, true);
@@ -264,7 +298,7 @@ namespace ZombiePile
                 if (Hp <= 0f)
                 {
                     var dir = (transform.position - center).normalized;
-                    Die((dir + Vector3.up * 0.8f) * force * (0.5f + k) / (IsBrute ? 3f : 1f), transform.position, false);
+                    Die((dir + Vector3.up * 0.8f) * force * (0.5f + k) / (IsBrute ? 3f : 1f), transform.position, false, true);
                     return;
                 }
             }

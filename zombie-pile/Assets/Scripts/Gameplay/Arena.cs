@@ -6,10 +6,10 @@ namespace ZombiePile
     /// Zombies come from +z and pile up against the wall face at z = WallFront.
     public class Arena : MonoBehaviour
     {
-        public const float WallHeight = 7.5f;
-        public const float WallFront = 0.75f;      // z of the face the zombies climb
-        public const float HalfWidth = 5.2f;       // the gate: zombies are funnelled into |x| < HalfWidth
-        public const float SpawnZ = 27f;
+        public static float WallHeight = 7.5f;
+        public static float WallFront = 0.75f;     // z of the face the zombies climb
+        public static float HalfWidth = 5.2f;      // the gate: zombies are funnelled into |x| < HalfWidth
+        public static float SpawnZ = 27f;
         public const int IgnoreRaycast = 2;        // built-in layer: bullets pass through walls, bodies still collide
 
         readonly System.Collections.Generic.List<Transform> flames = new System.Collections.Generic.List<Transform>();
@@ -17,8 +17,78 @@ namespace ZombiePile
         public static Arena Build()
         {
             var a = new GameObject("Arena").AddComponent<Arena>();
-            a.Make();
+            if (Kit.Available) a.MakeFromKit(); else a.Make();
             return a;
+        }
+
+        /// The street built from the Zombie Apocalypse Kit models (layout.json), plus invisible colliders.
+        void MakeFromKit()
+        {
+            var L = Kit.Layout;
+            WallHeight = L.wallHeight; WallFront = L.wallFront; HalfWidth = L.halfWidth; SpawnZ = 30f;
+            var t = transform;
+            foreach (var p in L.props)
+            {
+                var pos = new Vector3(p.p[0], p.p[1], p.p[2]);
+                bool small = p.m.StartsWith("Blood") || p.m.StartsWith("Street") || p.m.StartsWith("TrafficCone");
+                var go = Kit.Place(p.m, pos, p.r, p.s <= 0f ? 1f : p.s, t, !small);
+                if (go == null) continue;
+                bool onRoad = p.p[1] < 0.1f && Mathf.Abs(p.p[0]) < HalfWidth && p.p[2] > WallFront + 0.5f;
+                if (!onRoad) continue;
+                if (p.m == "Barrel") { AddBox(go, 0); go.AddComponent<ExplosiveBarrel>(); }
+                else if (p.m.StartsWith("Vehicle") || p.m.StartsWith("TrafficBarrier") || p.m == "PlasticBarrier" || p.m == "Wheels_Stack" || p.m.StartsWith("TrashBag") || p.m == "FireHydrant")
+                    AddBox(go, IgnoreRaycast);
+            }
+
+            // ground under everything
+            var groundMat = new Material(Shader.Find("Standard")) { color = new Color(0.3f, 0.26f, 0.26f) };
+            groundMat.SetFloat("_Glossiness", 0.05f);
+            var g = GameObject.CreatePrimitive(PrimitiveType.Plane);
+            g.name = "Ground";
+            g.transform.SetParent(t, false);
+            g.transform.position = new Vector3(0f, -0.02f, 40f);
+            g.transform.localScale = new Vector3(30f, 1f, 30f);
+            g.GetComponent<Renderer>().sharedMaterial = groundMat;
+            Destroy(g.GetComponent<Collider>());
+            Colliders(t);
+        }
+
+        static void AddBox(GameObject go, int layer)
+        {
+            // measure in the holder's own frame (holders are only rotated about Y)
+            var rot = go.transform.rotation;
+            go.transform.rotation = Quaternion.identity;
+            var b = Kit.BoundsOf(go);
+            var col = go.AddComponent<BoxCollider>();
+            col.center = go.transform.InverseTransformPoint(b.center);
+            col.size = new Vector3(Mathf.Max(0.3f, b.size.x), Mathf.Max(0.3f, b.size.y), Mathf.Max(0.3f, b.size.z));
+            go.transform.rotation = rot;
+            go.layer = layer;
+        }
+
+        /// Invisible physics: ground, the wall the horde climbs and the side walls of the funnel.
+        static void Colliders(Transform t)
+        {
+            var ground = new GameObject("GroundCollider");
+            ground.transform.SetParent(t, false);
+            var gc = ground.AddComponent<BoxCollider>();
+            gc.center = new Vector3(0, -0.5f, 40);
+            gc.size = new Vector3(160, 1, 200);
+            var wall = new GameObject("WallCollider");
+            wall.transform.SetParent(t, false);
+            wall.layer = IgnoreRaycast;
+            var wc = wall.AddComponent<BoxCollider>();
+            wc.center = new Vector3(0, WallHeight / 2f, WallFront - 1.3f);
+            wc.size = new Vector3(40f, WallHeight, 2.6f);
+            for (int s = -1; s <= 1; s += 2)
+            {
+                var side = new GameObject("SideCollider");
+                side.transform.SetParent(t, false);
+                side.layer = IgnoreRaycast;
+                var sc = side.AddComponent<BoxCollider>();
+                sc.center = new Vector3(s * (HalfWidth + 2f), 6f, 30f);
+                sc.size = new Vector3(4f, 12f, 62f);
+            }
         }
 
         void Make()
