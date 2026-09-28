@@ -20,7 +20,7 @@ namespace ZombiePile
         float spawnT, spawnEvery, zHp, zSpeed, comboT;
         int combo;
         bool waveOver;
-        const int MaxAlive = 70;
+        const int MaxAlive = 110;
 
         class Upgrade { public string title, desc; public Color color; public Action apply; public Func<bool> allowed; }
         List<Upgrade> pool;
@@ -37,7 +37,7 @@ namespace ZombiePile
             Hud.I.ShowMenu(Save.Data.bestWave);
             // zombies shambling toward the wall behind the menu
             for (int i = 0; i < 14; i++)
-                Zombie.Spawn(new Vector3(UnityEngine.Random.Range(-4f, 4f), 1f, 8f + i * 2.2f), 1f, 1.4f, false);
+                Zombie.Spawn(new Vector3(UnityEngine.Random.Range(-4f, 4f), 1f, 6f + i * 1.4f), 1f, 3.5f, false);
         }
 
         public void Delay(float seconds, Action a) { StartCoroutine(DelayCo(seconds, a)); }
@@ -49,7 +49,7 @@ namespace ZombiePile
             foreach (var z in FindObjectsByType<Zombie>(FindObjectsSortMode.None)) Destroy(z.gameObject);
             Zombie.Alive.Clear();
             var g = Gunner.I;
-            g.fireRate = 7f; g.damage = 1f; g.headMult = 2.5f; g.bullets = 1; g.pierce = 0;
+            g.fireRate = 10f; g.damage = 1f; g.headMult = 2.5f; g.bullets = 1; g.pierce = 0;
             g.barrelCooldown = 5f; g.barrelRadius = 3.6f; g.cluster = false;
             WallMax = WallHp = 100f;
             Kills = 0;
@@ -64,11 +64,12 @@ namespace ZombiePile
         {
             Wave++;
             int n = Wave;
-            waveTotal = toSpawn = 12 + 7 * (n - 1) + Mathf.Max(0, n - 5) * 4;
+            // hordes, not handfuls: dozens of fast, fragile zombies
+            waveTotal = toSpawn = 36 + 16 * (n - 1);
             brutesLeft = n % 3 == 0 ? n / 3 : 0;
-            zHp = 2.5f + 0.9f * (n - 1);
-            zSpeed = Mathf.Min(3.6f, 2.3f + 0.08f * n);
-            spawnEvery = Mathf.Max(0.22f, 0.85f - 0.06f * n);
+            zHp = 1f + 0.45f * (n - 1);
+            zSpeed = Mathf.Min(6.5f, 4.4f + 0.2f * n);
+            spawnEvery = Mathf.Max(0.25f, 0.55f - 0.03f * n);
             spawnT = 1.2f;
             spawnedThisWave = 0;
             waveOver = false;
@@ -89,7 +90,7 @@ namespace ZombiePile
             if (toSpawn > 0 && spawnT <= 0f && Zombie.Alive.Count < MaxAlive)
             {
                 spawnT = spawnEvery * UnityEngine.Random.Range(0.6f, 1.4f);
-                int burst = UnityEngine.Random.value < 0.25f ? 3 : 1;   // little packs keep it lively
+                int burst = UnityEngine.Random.Range(3, 7);   // packs of runners
                 for (int i = 0; i < burst && toSpawn > 0; i++) SpawnOne();
             }
             Hud.I.SetLeft(toSpawn + Zombie.Alive.Count);

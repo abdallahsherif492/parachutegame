@@ -10,7 +10,7 @@ namespace ZombiePile
         public static Gunner I;
 
         // upgradable stats
-        public float fireRate = 7f, damage = 1f, headMult = 2.5f, spread = 1.2f;
+        public float fireRate = 10f, damage = 1f, headMult = 2.5f, spread = 1.2f;
         public int bullets = 1, pierce = 0;
         public float barrelCooldown = 5f, barrelRadius = 3.6f;
         public bool cluster;

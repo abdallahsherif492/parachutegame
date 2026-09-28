@@ -18,6 +18,7 @@ namespace ZombiePile
         public float Hp { get; private set; }
         public Collider HeadCollider { get; private set; }
 
+        ZombieModels.Rig model;
         Rigidbody rb;
         BoxCollider body;
         Transform vis, head, legL, legR, armL, armR;
@@ -39,10 +40,10 @@ namespace ZombiePile
         void Init(float hp, float spd, bool brute)
         {
             IsBrute = brute;
-            float s = brute ? 1.75f : Random.Range(0.92f, 1.08f);
+            float s = brute ? 1.9f : Random.Range(1.05f, 1.2f);
             Hp = hp * (brute ? 12f : 1f);
-            speed = spd * (brute ? 0.6f : Random.Range(0.85f, 1.2f));
-            climb = brute ? 3.2f : Random.Range(3.4f, 4.2f);
+            speed = spd * (brute ? 0.55f : Random.Range(0.8f, 1.25f));
+            climb = brute ? 4f : Random.Range(4.6f, 5.6f);
             steerX = Random.Range(-1f, 1f);
             groanT = Random.Range(1f, 6f);
             animT = Random.value * 10f;
@@ -90,6 +91,15 @@ namespace ZombiePile
             if (brute)
                 Shapes.Make("Jaw", MeshGen.Capsule(0.4f), Mat.Lit(skin * 0.9f), hv, new Vector3(0, -0.2f, -0.05f), new Vector3(0.5f, 0.25f, 0.45f));
 
+            model = ZombieModels.Spawn(transform, body.size.y + 0.3f * s);
+            if (model != null)
+            {
+                // the imported model replaces the low-poly body and head
+                vis.gameObject.SetActive(false);
+                hv.gameObject.SetActive(false);
+                if (brute) model.root.localScale *= 1.05f;
+            }
+
             IsAlive = true;
             Alive.Add(this);
         }
@@ -115,7 +125,7 @@ namespace ZombiePile
             float targetX = Mathf.Clamp(steerX * 1.8f, -Arena.HalfWidth + 0.8f, Arena.HalfWidth - 0.8f);
             var want = new Vector3((targetX - pos.x) * 0.6f, 0f, -speed);
             var dv = new Vector3(want.x - v.x, 0f, want.z - v.z);
-            dv = Vector3.ClampMagnitude(dv, 14f * Time.fixedDeltaTime);
+            dv = Vector3.ClampMagnitude(dv, 30f * Time.fixedDeltaTime);
             rb.AddForce(dv, ForceMode.VelocityChange);
 
             // blocked by a zombie or a body in front: clamber up over it
@@ -127,7 +137,7 @@ namespace ZombiePile
             if (!blocked) blocked = Physics.Raycast(pos - Vector3.up * body.size.y * 0.35f, Vector3.back, out hit, half + 0.35f, ~(1 << Arena.IgnoreRaycast), QueryTriggerInteraction.Ignore)
                                     && hit.collider.GetComponentInParent<Zombie>() != null;
             if (blocked && touching && v.y < climb)
-                rb.AddForce(Vector3.up * Mathf.Min(climb - v.y, 40f * Time.fixedDeltaTime), ForceMode.VelocityChange);
+                rb.AddForce(Vector3.up * Mathf.Min(climb - v.y, 60f * Time.fixedDeltaTime), ForceMode.VelocityChange);
 
             // unstick: pinned in place for a while -> a small hop
             if (v.sqrMagnitude < 0.05f && !atWall) { stuckT += Time.fixedDeltaTime; if (stuckT > 1.2f) { rb.AddForce(new Vector3(Random.Range(-1f, 1f), 4f, -1f), ForceMode.VelocityChange); stuckT = 0f; } }
@@ -147,8 +157,11 @@ namespace ZombiePile
             if (IsAlive && !breaching)
             {
                 var v = Velocity;
-                animT += dt * (2f + new Vector2(v.x, v.z).magnitude * 3f);
-                float swing = Mathf.Sin(animT) * 32f;
+                if (model != null) model.Move(new Vector2(v.x, v.z).magnitude + Mathf.Max(0f, v.y));
+                animT += dt * (3f + new Vector2(v.x, v.z).magnitude * 2.6f);
+                float swing = Mathf.Sin(animT) * 45f;
+                vis.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(animT)) * 0.12f, 0f);
+                vis.localRotation = Quaternion.Euler(-14f, 0f, Mathf.Sin(animT) * 6f);   // lunging run
                 legL.localRotation = Quaternion.Euler(swing, 0, 0);
                 legR.localRotation = Quaternion.Euler(-swing, 0, 0);
                 // arms reach forward (toward the wall); up when climbing
@@ -218,11 +231,16 @@ namespace ZombiePile
             IsAlive = false;
             Alive.Remove(this);
             rb.constraints = RigidbodyConstraints.None;
+            if (model != null)
+            {
+                model.Die();
+                if (popHead && model.headBone != null) { model.headBone.localScale = Vector3.one * 0.01f; Fx.I.Burst(head.position, 16, new Color(0.35f, 0.75f, 0.25f), 6f); }
+            }
             rb.AddForceAtPosition(impulse * rb.mass, point, ForceMode.Impulse);
             rb.AddTorque(Random.insideUnitSphere * 6f * rb.mass, ForceMode.Impulse);
             armL.localRotation = Quaternion.Euler(170f, 0, -30f);
             armR.localRotation = Quaternion.Euler(170f, 0, 30f);
-            if (popHead && !IsBrute)
+            if (popHead && !IsBrute && model == null)
             {
                 // off it goes
                 head.SetParent(null, true);

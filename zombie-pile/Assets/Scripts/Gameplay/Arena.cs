@@ -9,7 +9,7 @@ namespace ZombiePile
         public const float WallHeight = 7.5f;
         public const float WallFront = 0.75f;      // z of the face the zombies climb
         public const float HalfWidth = 5.2f;       // the gate: zombies are funnelled into |x| < HalfWidth
-        public const float SpawnZ = 44f;
+        public const float SpawnZ = 27f;
         public const int IgnoreRaycast = 2;        // built-in layer: bullets pass through walls, bodies still collide
 
         readonly System.Collections.Generic.List<Transform> flames = new System.Collections.Generic.List<Transform>();
@@ -24,8 +24,8 @@ namespace ZombiePile
         void Make()
         {
             var t = transform;
-            var asphalt = new Color(0.36f, 0.33f, 0.36f);
-            var dirt = new Color(0.52f, 0.42f, 0.36f);
+            var asphalt = new Color(0.2f, 0.2f, 0.23f);
+            var dirt = new Color(0.3f, 0.26f, 0.24f);
 
             // ground (visual + collider)
             Shapes.Make("Ground", MeshGen.Plane(), Mat.Lit(dirt), t, new Vector3(0, 0, 40), new Vector3(160, 1, 200));
@@ -80,7 +80,7 @@ namespace ZombiePile
                 {
                     float h = 6f + ((k * 5 + (s > 0 ? 2 : 0)) % 4) * 2.5f;
                     float z = 4f + k * 8.5f;
-                    var col = Color.Lerp(new Color(0.55f, 0.47f, 0.5f), new Color(0.45f, 0.5f, 0.58f), (k % 3) / 2f);
+                    var col = Color.Lerp(new Color(0.3f, 0.29f, 0.33f), new Color(0.24f, 0.28f, 0.34f), (k % 3) / 2f);
                     var b = Shapes.Box(t, new Vector3(s * (HalfWidth + 3.5f), h / 2f, z), new Vector3(6f, h, 8f), col);
                     // dark windows
                     for (int wy = 1; wy < (int)(h / 2.2f); wy++)
@@ -96,7 +96,7 @@ namespace ZombiePile
             for (int i = 0; i < 18; i++)
             {
                 float x = -60f + i * 7f, h = 12f + (i * 37 % 11) * 2.2f;
-                Shapes.Box(t, new Vector3(x, h / 2f, 95f + (i % 3) * 8f), new Vector3(6f, h, 6f), new Color(0.5f, 0.4f, 0.48f));
+                Shapes.Box(t, new Vector3(x, h / 2f, 95f + (i % 3) * 8f), new Vector3(6f, h, 6f), new Color(0.22f, 0.18f, 0.22f));
             }
 
             // street clutter: wrecked cars, burning barrels, cones

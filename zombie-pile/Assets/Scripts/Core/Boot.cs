@@ -33,9 +33,10 @@ namespace ZombiePile
             Physics.bounceThreshold = 3f;
 
             // Dusk over a ruined city.
-            SkyEnv.Apply(new Color(0.98f, 0.62f, 0.45f), new Color(1f, 0.9f, 0.78f),
-                new Color(0.72f, 0.66f, 0.8f), new Color(0.42f, 0.32f, 0.3f));
-            SkyEnv.SetFog(35f, 140f);
+            // blood-orange apocalypse sunset, dark streets
+            SkyEnv.Apply(new Color(0.93f, 0.45f, 0.26f), new Color(1f, 0.82f, 0.6f),
+                new Color(0.5f, 0.45f, 0.55f), new Color(0.2f, 0.15f, 0.14f));
+            SkyEnv.SetFog(22f, 75f);
 
             Save.Load();
             new GameObject("Sound").AddComponent<SoundBank>();
