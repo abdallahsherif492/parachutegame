@@ -132,6 +132,28 @@
   .invite { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px; border: 3px dashed var(--ink); border-radius: 16px; }
   .invite b { font-family: "Lilita One", "Arial Black", sans-serif; font-size: 44px; letter-spacing: .14em; line-height: 1; }
   .invite .link { font: 600 13px "Baloo 2", sans-serif; color: #6B5049; word-break: break-all; user-select: text; -webkit-user-select: text; text-align: center; margin: 0; }
+  .rankpill { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 12px); left: 16px; display: flex; flex-direction: column; gap: 3px; padding: 4px 12px 6px;
+    background: var(--panel-solid); border: 3px solid var(--ink); border-radius: 14px; color: var(--cream); pointer-events: none; min-width: 130px; }
+  .rankpill b { font-family: "Lilita One", "Arial Black", sans-serif; font-size: 16px; letter-spacing: .04em; line-height: 1.1; }
+  .rankpill small { font: 800 11px "Baloo 2", sans-serif; opacity: .8; letter-spacing: .06em; }
+  .xpbar { display: block; height: 8px; border-radius: 999px; background: rgba(255,244,226,.25); overflow: hidden; }
+  .xpbar i { display: block; height: 100%; background: var(--gold); border-radius: 999px; transition: width .6s ease; }
+  .rankline { display: flex; align-items: center; gap: 10px; font: 800 15px "Baloo 2", sans-serif; color: var(--cream); background: var(--panel); padding: 4px 14px; border-radius: 999px; }
+  .rankline .xpbar { width: 120px; }
+  .toast { position: fixed; left: 50%; top: calc(env(safe-area-inset-top, 0px) + 64px); transform: translateX(-50%); z-index: 20; pointer-events: none;
+    display: flex; flex-direction: column; align-items: center; background: var(--gold); color: var(--ink); border: 4px solid var(--ink); border-radius: 16px; box-shadow: 0 5px 0 var(--ink);
+    padding: 6px 18px; text-align: center; max-width: calc(100% - 32px); }
+  .toast b { font-family: "Lilita One", "Arial Black", sans-serif; font-size: clamp(16px, 3.6vw, 22px); line-height: 1.1; }
+  .toast span { font: 800 14px "Baloo 2", sans-serif; }
+  .toast.show { animation: toastIn .35s cubic-bezier(.2, 1.6, .4, 1); }
+  @keyframes toastIn { from { transform: translateX(-50%) scale(.6); opacity: 0; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .toast.show { animation: none; } }
+  .quest { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border: 3px solid var(--ink); border-radius: 14px; background: #fff; }
+  .quest > div { display: flex; flex-direction: column; gap: 6px; flex: 1; font: 800 17px "Baloo 2", sans-serif; }
+  .quest .xpbar { background: #EFE3D2; height: 10px; }
+  .quest .qrew { font: 800 18px "Baloo 2", sans-serif; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+  .quest.done { background: #D9F2DF; }
+  .quest.done .xpbar i { background: var(--green); }
   .soon { text-align: center; padding: 18px; border: 3px dashed var(--ink); border-radius: 16px; font: 800 18px/1.4 "Baloo 2", sans-serif; }
 </style>
 
@@ -143,6 +165,8 @@
   <div class="side right"><div class="name" id="n2" style="background:var(--p2)">CPU</div><div class="pips" id="pips2"></div></div>
 </div>
 
+<div class="rankpill" id="rankPill" hidden><b id="rankName">JONOKUCHI</b><span class="xpbar"><i id="rankFill"></i></span><small id="rankXp">0 / 120 XP</small></div>
+<div class="toast" id="toast" hidden role="status"></div>
 <div class="coins" id="coinPill" hidden><span class="coin"></span><span id="coinText">0</span></div>
 
 <div class="layer top" id="menu">
@@ -157,6 +181,7 @@
     <button class="btn purple" id="bCup" type="button">DAILY CUP<small id="cupSub">3 bouts, big prize</small></button>
     <button class="btn blue" id="b2p" type="button">2 PLAYERS<small>same device</small></button>
     <button class="btn gold" id="bShop" type="button">LOCKER<small>fighters and hats</small></button>
+    <button class="btn" id="bQuests" type="button" style="background:#FF7A59">QUESTS<small id="questSub">3 new today</small></button>
   </div>
   <div class="card">
     <p class="hint">Hold <b>left</b> or <b>right</b> to wind up, let go to lunge that way. Tap to hop. Let go on <b style="color:#7CFF6B">green</b> for a SUPER SLAP.</p>
@@ -182,6 +207,7 @@
   <div class="stars" id="endStars"><span>★</span><span>★</span><span>★</span></div>
   <p class="tag" id="endSub">Tofu Tanaka is swimming home.</p>
   <div class="earned"><span class="coin"></span><span id="endCoins">+0</span></div>
+  <div class="rankline" id="endRank"><b id="endRankName">JONOKUCHI</b><span class="xpbar"><i id="endRankFill"></i></span><span id="endRankXp"></span></div>
   <div class="unlock" id="endUnlock" hidden>NEW FIGHTER UNLOCKED</div>
   <div class="row">
     <button class="btn green" id="bNext" type="button">NEXT LEVEL</button>
@@ -189,6 +215,7 @@
   </div>
   <div class="row">
     <button class="btn purple" id="bDouble" type="button" hidden>x2 COINS<small>watch an ad</small></button>
+    <button class="btn teal" id="bSkip" type="button" hidden>SKIP LEVEL<small>watch an ad</small></button>
     <button class="btn gold" id="bEndShop" type="button">LOCKER</button>
     <button class="btn ghost" id="bMenu" type="button">MENU</button>
   </div>
@@ -250,6 +277,18 @@
     </div>
     <div class="row"><button class="btn teal" id="bCpu" type="button" hidden>PLAY VS CPU<small>nobody around right now</small></button></div>
     <p class="muted">You are <b id="netName">…</b> · first to 3 wins</p>
+  </div>
+</div>
+
+<div class="modal" id="quests" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="questTitle">
+    <div class="sheet-head">
+      <span style="width:84px"></span>
+      <h2 id="questTitle">DAILY QUESTS</h2>
+      <button class="btn ghost" id="questClose" type="button">CLOSE</button>
+    </div>
+    <div id="questList" style="display:flex;flex-direction:column;gap:10px"></div>
+    <p class="muted">Finish all three for a <b>+150</b> bonus. New quests every day.</p>
   </div>
 </div>
 
@@ -343,7 +382,8 @@ const CG = {
   }
 };
 const DEFAULT_SAVE = { coins: 0, hats: ["topknot"], belts: ["red"], hat: "topknot", belt: "red", fighter: -1, fighters: [],
-  stars: {}, levelMax: 0, giftDay: "", giftStreak: 0, cupDay: "", muted: false, voiceOff: false, matches: 0, survBest: 0 };
+  stars: {}, levelMax: 0, giftDay: "", giftStreak: 0, cupDay: "", muted: false, voiceOff: false, matches: 0, survBest: 0,
+  xp: 0, rank: 0, fails: {}, quests: null, netName: "" };
 let save = Object.assign({}, DEFAULT_SAVE);
 function loadSave() {
   let raw = null;
@@ -353,6 +393,7 @@ function loadSave() {
   save = Object.assign({}, DEFAULT_SAVE, d);
   for (const k of ["hats", "belts", "fighters"]) if (!Array.isArray(save[k])) save[k] = DEFAULT_SAVE[k].slice();
   if (typeof save.stars !== "object" || !save.stars) save.stars = {};
+  if (typeof save.fails !== "object" || !save.fails) save.fails = {};
   if (save.fighter >= 0 && !save.fighters.includes(save.fighter)) save.fighter = -1;
 }
 function persist() {
@@ -653,7 +694,11 @@ const RIVALS = [
   { name: "VIKING VLAD", skin: "#F7D2B6", belt: "black", hat: "viking", hair: "#C9772B", arena: "windy", react: 0.24, noise: 0.3, counter: 0.5, range: 5.5, sup: 0.55,
     trait: "Headbutts hit like slaps", t: { head: true, mass: 1.1 } },
   { name: "YOKOZUNA YUKI", skin: "#F2C6A0", belt: "galaxy", hat: "crown", hair: "#111111", arena: "classic", react: 0.2, noise: 0.22, counter: 0.55, range: 5.6, sup: 0.7, boss: true,
-    trait: "Grand champion: +15% power", t: { power: 1.15, mass: 1.1 } }
+    trait: "Grand champion: +15% power", t: { power: 1.15, mass: 1.1 } },
+  { name: "MUMMY MO", skin: "#E9DFC8", belt: "white", hat: "headband", hair: "#CFC4A8", wrap: true, arena: "temple", react: 0.26, noise: 0.33, counter: 0.48, range: 5.4, sup: 0.5,
+    trait: "Wrapped tight: shrugs off slaps", t: { mass: 1.12, recover: 1.2 } },
+  { name: "SCARAB SAM", skin: "#C98E5E", belt: "teal", hat: "shades", hair: "#1B3B3B", arena: "temple", react: 0.24, noise: 0.3, counter: 0.5, range: 5.5, sup: 0.55,
+    trait: "Six-part arms + quick wind-up", t: { arms: 6, full: 0.7 } }
 ];
 
 // ============================================================ physics (Verlet particles + distance links)
@@ -701,6 +746,8 @@ const ARENAS = {
               sky: ["#1F2A5A", "#5B4B8A", "#F08A6B"], hill: "#2A2F55", far: "#3A3F6A", sea: ["#2B3F73", "#18284F"], sun: "#FFE3B0" },
   conveyor: { name: "Conveyor Belt", hw: 5.8, friction: 0.85, rest: 0.05, top: "#444A55", side: "#6B7280", line: "#FFC83D", base: "rollers", conveyor: true, scene: "factory", amb: "smoke",
               sky: ["#FFB36B", "#FFD08A", "#FFE6B8"], hill: "#C98B5B", far: "#B07850", sea: ["#29C3B4", "#138C8A"], sun: "#FFE9A6" },
+  temple:   { name: "Sun Temple", hw: 6.0, friction: 0.82, rest: 0.05, top: "#E9C27A", side: "#B88A4A", line: "#FFF1C9", base: "stilts", scene: "desert", amb: "sand",
+              sky: ["#F7B267", "#FFD8A0", "#FFF1C9"], hill: "#E8C98A", far: "#D9B270", sea: ["#2E9BD6", "#1B6FA8"], sun: "#FFF6C9" },
   tiny:     { name: "Tiny Pillar", hw: 5.0, friction: 0.9, rest: 0.05, top: "#E8B77A", side: "#B07A45", line: "#FFF4E2", base: "pillar", scene: "temple", amb: "petal",
               sky: ["#FFCF70", "#FFE7A8", "#FFF4D2"], hill: "#F2C27A", far: "#E3AE62", sea: ["#29C3B4", "#138C8A"], sun: "#FFFFFF" }
 };
@@ -713,12 +760,13 @@ class Platform {
     if (opts.hw) this.hw = opts.hw;
     if (opts.windy) this.windy = true;
     this.hw0 = this.hw; this.thick = 1.1;
-    this.gaps = opts.gaps || [];
+    this.gaps0 = (opts.gaps || []).map(g => g.slice()); this.gaps = this.gaps0.map(g => g.slice());
     this.shrinkRate = opts.shrink != null ? opts.shrink : (this.shrink ? 0.18 : 0);
     this.minHw = opts.minHw || 3.2;
     this.reset();
   }
   reset() {
+    this.gaps = this.gaps0.map(g => g.slice());
     this.hw = this.hw0; this.ang = 0; this.angVel = 0; this.torque = 0;
     this.ox = 0; this.oy = 0; this.vx = 0; this.vy = 0; this.t = 0;
     this.belt = 0; this.beltDir = Math.random() < 0.5 ? -1 : 1; this.beltT = 0;
@@ -1039,10 +1087,10 @@ function shockwave(boss) {
 }
 
 // rolling snowballs and thrown projectiles
-function spawnBall(x, y, r, m, vx, vy, kind) {
+function spawnBall(x, y, r, m, vx, vy, kind, look) {
   const p = new P(x, y, r, m, "ball");
   p.setVel(vx, vy);
-  world.balls.push({ p, kind, life: kind === "proj" ? 4 : 14, hits: new Map(), spin: 0 });
+  world.balls.push({ p, kind, look: look || "snow", life: kind === "proj" ? 4 : 14, hits: new Map(), spin: 0 });
 }
 function stepBalls(active) {
   const plat = world.plat;
@@ -1058,7 +1106,7 @@ function stepBalls(active) {
       world.nextBall = rand(cfg.every * 0.8, cfg.every * 1.2);
       const side = world.pendingSide || 1;
       const [wx, wy] = plat.toWorld(side * (plat.hw + 1.2), cfg.r + 0.6);
-      spawnBall(wx, wy + 1.5, cfg.r, cfg.m || 5, -side * cfg.speed, 0, "roll");
+      spawnBall(wx, wy + 1.5, cfg.r, cfg.m || 5, -side * cfg.speed, 0, "roll", cfg.look);
     }
   }
   for (const w of world.warns) w.t -= DT;
@@ -1190,6 +1238,22 @@ function physicsStep(active) {
     for (const w of ws) for (const p of w.ps) plat.collide(p);
   }
   collideBalls();
+  if (world.graceT > 0) {
+    world.graceT -= DT;
+    const me = ws[0];
+    if (me && !me.out && me.team === 0) {
+      const [lx] = plat.toLocal(me.belly.x, me.belly.y), outward = Math.sign(lx);
+      if (Math.abs(lx) > plat.hw - 1.8) for (const p of me.ps) { const vx = p.x - p.px; if (Math.sign(vx) === outward) p.px = p.x - vx * 0.88; }
+    }
+  }
+  if (plat.sand) for (const w of ws) {
+    w.inSand = false;
+    if (w.out || !w.grounded()) continue;
+    const [lx] = plat.toLocal(w.hip.x, w.hip.y);
+    if (!plat.sand.some(z => lx > z[0] && lx < z[1])) continue;
+    w.inSand = true;
+    for (const p of w.ps) p.px = p.x - (p.x - p.px) * 0.965;   // quicksand drinks your momentum
+  }
 }
 
 // ============================================================ AI
@@ -1228,7 +1292,7 @@ class Brain {
         this.throwT = rand(R.throw * 0.8, R.throw * 1.2);
         const h = me.hands[1], dir = Math.sign(op.belly.x - h.x) || 1;
         const dist = Math.abs(op.belly.x - h.x);
-        spawnBall(h.x + dir * 0.6, h.y + 0.6, 0.45, 1.6, dir * clamp(dist * 1.6, 7, 15), 8.5, "proj");
+        spawnBall(h.x + dir * 0.6, h.y + 0.6, 0.45, 1.6, dir * clamp(dist * 1.6, 7, 15), 8.5, "proj", R.proj);
         Sfx.whoosh();
       }
     }
@@ -1293,7 +1357,8 @@ const E = (r, o) => Object.assign({ r }, o || {});
 const WORLDS = [
   { name: "Beach Dohyo", color: "#E63946" },
   { name: "Frozen North", color: "#2F6FDE" },
-  { name: "Nile Adventure", color: "#E0A030", soon: "Crocodiles in the water, mummies that come back, a sandstorm and the Pharaoh himself." }
+  { name: "Nile Adventure", color: "#E0A030" },
+  { name: "Volcano Dojo", color: "#E0503A", soon: "Lava floors, fire-breathing rivals, a volcano that erupts mid-bout and the Oni boss." }
 ];
 const LEVELS = [
   // ---- World 1: Beach Dohyo
@@ -1343,7 +1408,31 @@ const LEVELS = [
     par: 26, star: { type: "time", value: 20, text: "Grab them all in 20 seconds" } },
   { name: "BOSS: The Yeti", arena: "snow", hw: 7, boss: true, isNew: "BOSS throws SNOWBALLS and stomps", goal: { type: "ko", points: 2 },
     enemies: [E(10, { scale: 1.7, look: YETI, react: 0.75, noise: 0.55, stomp: 5.5, throw: 3.2, boss: true, x: 3.6 })], px: -3.6,
-    par: 45, star: { type: "flawless", text: "Beat the Yeti without losing a point" }, unlock: 10 }
+    par: 45, star: { type: "flawless", text: "Beat the Yeti without losing a point" }, unlock: 10 },
+  // ---- World 3: Nile Adventure
+  { name: "Rock the Boat", arena: "boat", isNew: "The boat ROCKS under your feet", goal: { type: "ko", points: 2 }, enemies: [E(3, { react: 0.7 })],
+    par: 25, star: { type: "super", value: 1, text: "Land a SUPER SLAP" } },
+  { name: "Crocodile Moat", arena: "temple", gaps: [[-0.9, 0.9]], pit: "croc", isNew: "A crocodile SNAPS at anyone near the moat", px: -3.6, goal: { type: "ko", points: 2 },
+    enemies: [E(6, { x: 3.6, react: 0.85, patience: 0, leapPad: 0.5 })], par: 30, star: { type: "pit", text: "Feed him to the crocodile" } },
+  { name: "The Mummy Returns", arena: "temple", isNew: "Mummies get back up ONCE", goal: { type: "ko" }, enemies: [E(12, { react: 1.15, revive: 1, look: { name: "MUMMY" } })],
+    par: 25, star: { type: "time", value: 15, text: "Beat him twice in 15 seconds" }, unlock: 12 },
+  { name: "Quicksand", arena: "temple", sand: [[-1.4, 1.4]], isNew: "QUICKSAND in the middle: tap to hop out", goal: { type: "ko", points: 2 }, enemies: [E(4, { react: 0.8 })],
+    par: 30, star: { type: "flawless", text: "Don't lose a single point" } },
+  { name: "Scarab Stampede", arena: "temple", isNew: "Scarab beetles scuttle across the ring", balls: { every: 2.2, r: 0.5, m: 3, speed: 12, look: "scarab" },
+    goal: { type: "ko", points: 2 }, enemies: [E(5, { react: 0.8 })], par: 30, star: { type: "ball", text: "Knock him out with a scarab" } },
+  { name: "Crumbling Temple", arena: "temple", crumble: { tile: 1.5, time: 3.2 }, isNew: "Floor tiles CRUMBLE if you stand still", goal: { type: "ko", points: 2 },
+    enemies: [E(8, { react: 0.8 })], par: 25, star: { type: "time", value: 14, text: "Win in under 14 seconds" } },
+  { name: "Tag Team", arena: "temple", hw: 7, isNew: "A PARTNER fights on your side: 2 vs 2", goal: { type: "ko" }, px: -2,
+    allies: [E(0, { x: -4.4, react: 0.5, noise: 0.6, counter: 0.3, range: 5, sup: 0.3, look: { name: "PARTNER", belt: "red" } })],
+    enemies: [E(1, { x: 2.4, react: 0.8 }), E(3, { x: 4.6, react: 0.9 })], par: 22, star: { type: "time", value: 14, text: "Win in under 14 seconds" } },
+  { name: "Ankh Hunt", arena: "temple", isNew: "Grab golden ANKHS while mummies chase you", pickup: "ankh", goal: { type: "collect", count: 6, time: 40 }, px: 0,
+    enemies: [E(12, { x: -4, react: 1.0, look: { name: "MUMMY" } }), E(12, { x: 4, react: 1.1, look: { name: "MUMMY" } })],
+    par: 24, star: { type: "time", value: 20, text: "Grab them all in 20 seconds" } },
+  { name: "Temple Guards", arena: "temple", queue: true, lives: 2, isNew: "Three guards, one after another (2 lives)", goal: { type: "ko" },
+    enemies: [E(2, { react: 1.1 }), E(7, { react: 1.15 }), E(10, { react: 1.2 })], par: 40, star: { type: "super", value: 2, text: "Land 2 SUPER SLAPs" } },
+  { name: "BOSS: The Pharaoh", arena: "temple", hw: 7, boss: true, windy: true, isNew: "BOSS throws SCARABS, stomps and calls sandstorms", goal: { type: "ko", points: 2 },
+    enemies: [E(9, { scale: 1.7, react: 0.7, noise: 0.5, stomp: 5, throw: 3.4, proj: "scarab", boss: true, x: 3.6 })], px: -3.6,
+    par: 45, star: { type: "flawless", text: "Beat the Pharaoh without losing a point" }, unlock: 13 }
 ];
 const PER_WORLD = 10;
 
@@ -1358,6 +1447,15 @@ function fighterLook(name) {
 }
 function enemyLook(spec) { return Object.assign({}, RIVALS[spec.r], spec.look || {}); }
 function brainCfg(spec) { return Object.assign({}, RIVALS[spec.r], spec); }
+// losing the same level again and again quietly makes its rivals a bit slower (up to 4 steps)
+function levelBrainCfg(spec) {
+  const cfg = brainCfg(spec);
+  const f = game.mode === "adv" ? Math.min(4, save.fails[game.level] || 0) : 0;
+  if (!f) return cfg;
+  const e = 1 + 0.2 * f;
+  return Object.assign(cfg, { react: cfg.react * e, sup: (cfg.sup || 0) / e, counter: (cfg.counter || 0) / e,
+    stomp: cfg.stomp ? cfg.stomp * e : cfg.stomp, throw: cfg.throw ? cfg.throw * e : cfg.throw });
+}
 
 // run any match described by a level-like definition
 function runDef(def, mode) {
@@ -1365,6 +1463,7 @@ function runDef(def, mode) {
   game.def = def;
   game.score = [0, 0];
   game.target = def.goal.points || 1;
+  game.lives = def.lives || 0;
   game.lv = { time: 0, slaps: 0, supers: 0, boingKO: false, pitKO: false, ballKO: false, slipped: false, kos: 0, lostPoint: false, collected: 0 };
   world.plat = new Platform(def.arena, { hw: def.hw, gaps: def.gaps, shrink: def.shrink, windy: def.windy });
   world.amb = [];
@@ -1374,12 +1473,21 @@ function runDef(def, mode) {
 function startRound() {
   const def = game.def;
   world.plat.reset();
-  world.roundT = 0; world.items = []; world.balls = []; world.pickups = []; world.waves = []; world.warns = []; world.respawns = [];
+  world.roundT = 0; world.graceT = 0; world.items = []; world.balls = []; world.pickups = []; world.waves = []; world.warns = []; world.respawns = [];
   world.fx = []; world.pops = [];
   world.wind = { acc: 0, target: 0, next: rand(2.5, 4), warn: 0, dir: 1 };
   world.sudden = def.goal.type === "ko" && !def.boss;
   world.itemCfg = def.items || null; world.nextItem = def.items ? rand(2, 3.5) : 99;
   world.ballCfg = def.balls || null; world.nextBall = def.balls ? 2.5 : 99;
+  world.croc = def.pit === "croc" ? { t: rand(2.5, 3.5), side: 1, snap: 0, warned: false } : null;
+  world.debris = [];
+  world.tiles = [];
+  if (def.crumble) {
+    const hw = world.plat.hw0, n = Math.max(3, Math.round(2 * hw / def.crumble.tile)), tw = 2 * hw / n;
+    for (let i = 0; i < n; i++) world.tiles.push({ x0: -hw + i * tw, x1: -hw + (i + 1) * tw, load: 0, gone: false });
+  }
+  world.plat.sand = def.sand || null;
+  game.revives = (def.enemies || []).map(e => e.revive || 0);
   // wrestlers
   const ws = [];
   if (game.mode === "attract") {
@@ -1387,8 +1495,12 @@ function startRound() {
   } else {
     ws.push(new Wrestler(0, def.px != null ? def.px : -3.1, def.player || fighterLook(game.mode === "2p" ? "PLAYER 1" : "YOU"), { team: 0, face: 1 }));
     def.enemies.forEach((spec, i) => {
+      if (def.queue && i > 0) return;        // guards wait their turn
       const x = spec.x != null ? spec.x : 3.1;
       ws.push(new Wrestler(i + 1, x, spec.lookFull || enemyLook(spec), { team: 1, scale: spec.scale, boss: spec.boss, face: x > (def.px || 0) ? -1 : 1 }));
+    });
+    (def.allies || []).forEach((spec, k) => {
+      ws.push(new Wrestler(def.enemies.length + 1 + k, spec.x != null ? spec.x : -4, enemyLook(spec), { team: 0, face: 1 }));
     });
   }
   world.w = ws;
@@ -1397,7 +1509,8 @@ function startRound() {
     const mid = { react: 0.45, noise: 0.6, counter: 0.2, range: 4.8, sup: 0.3 };
     game.brains = [new Brain(ws[0], mid), new Brain(ws[1], mid)];
   } else if (game.mode !== "2p" && game.mode !== "online") {
-    def.enemies.forEach((spec, i) => game.brains.push(new Brain(ws[i + 1], brainCfg(spec))));
+    def.enemies.forEach((spec, i) => { if (ws[i + 1] && ws[i + 1].team === 1) game.brains[i] = new Brain(ws[i + 1], levelBrainCfg(spec)); });
+    (def.allies || []).forEach((spec, k) => { const w = ws.find(o => o.idx === def.enemies.length + 1 + k); if (w) game.brains[w.idx - 1] = new Brain(w, brainCfg(spec)); });
   }
   if (game.mode === "online") NET.round++;
   if (def.bananas) for (const lx of def.bananas) world.items.push({ type: "banana", lx, y: 0.45, vy: 0, landed: true, t: 0 });
@@ -1418,6 +1531,60 @@ function spawnPickup() {
   }
 }
 
+// ---------------- Nile hazards: crocodile moat, crumbling tiles
+function stepCroc() {
+  const c = world.croc, g = world.plat.gaps[0];
+  if (!c || !g) return;
+  c.t -= DT; c.snap = Math.max(0, c.snap - DT);
+  if (c.t <= 0.85 && !c.warned) {
+    c.warned = true;
+    // go for the side where someone is standing closest to the water
+    let best = 9;
+    for (const w of world.w) {
+      if (w.out) continue;
+      const [lx] = world.plat.toLocal(w.belly.x, w.belly.y);
+      for (const side of [-1, 1]) { const d = Math.abs(lx - (side < 0 ? g[0] : g[1])); if (d < best) { best = d; c.side = side; } }
+    }
+    Sfx.warn();
+  }
+  if (c.t > 0) return;
+  c.t = rand(3, 4.5); c.warned = false; c.snap = 0.5;
+  const rim = c.side < 0 ? g[0] : g[1], mid = (g[0] + g[1]) / 2;
+  const [cx, cy] = world.plat.toWorld(rim, 0.6);
+  Sfx.slap(); Sfx.thud(); world.shake = Math.max(world.shake, 0.4);
+  pop("CHOMP!", cx, cy + 1.6, "#9CFF8A", 1.4);
+  for (const w of world.w) {
+    if (w.out) continue;
+    const [lx, ly] = world.plat.toLocal(w.belly.x, w.belly.y);
+    if (Math.abs(lx - rim) > 1.5 || ly > 3 * w.sc) continue;
+    const away = Math.sign(lx - mid) || c.side;
+    for (const q of w.body) q.addVel(away * 10, 7);
+    w.balance = 0; w.dazed = 0.6; w.kick(12); w.hitBy("croc");
+    burst(w.belly.x, w.belly.y, 14, ["#FFFFFF", "#7CC87C"], 8, -10, 0.16, "star");
+  }
+}
+function stepTiles() {
+  const def = game.def;
+  if (!world.tiles.length) return;
+  for (const t of world.tiles) {
+    if (t.gone) continue;
+    let stood = false;
+    for (const w of world.w) {
+      if (w.out) continue;
+      for (const f of w.foot) { if (f.gt <= 0) continue; const [lx] = world.plat.toLocal(f.x, f.y); if (lx > t.x0 && lx < t.x1) stood = true; }
+    }
+    if (stood) t.load += DT;
+    if (t.load >= def.crumble.time) {
+      t.gone = true;
+      world.plat.gaps.push([t.x0, t.x1]);
+      world.debris.push({ x0: t.x0, x1: t.x1, y: 0, vy: 0, rot: 0, vr: rand(-1, 1) });
+      Sfx.thud(); world.shake = Math.max(world.shake, 0.3);
+      const [x, y] = world.plat.toWorld((t.x0 + t.x1) / 2, 0);
+      burst(x, y, 16, ["#E9C27A", "#B88A4A"], 5, -14, 0.2);
+    }
+  }
+}
+
 // who fell off this step?
 function checkOuts() {
   const res = [];
@@ -1435,9 +1602,11 @@ function checkOuts() {
 }
 function knockOut(w, why) {
   w.out = true; w.charging = false;
+  const me = humanWrestler();
+  if (me && w.team !== me.team) track("ko");
   if (window.__sumoLog) window.__sumoLog.push({ team: w.team, why, x: +w.belly.x.toFixed(1), t: +game.lv.time.toFixed(1), hit: w.lastHit && w.lastHit.type });
   const L = game.lv;
-  const text = why === "pit" ? (game.def.pit === "spring" ? "HOT SPRING!" : "SPLASH!") : why === "flop" ? "FLOPPED!" : "RING OUT!";
+  const text = why === "pit" ? (game.def.pit === "spring" ? "HOT SPRING!" : game.def.pit === "croc" ? "CROC SNACK!" : "SPLASH!") : why === "flop" ? "FLOPPED!" : "RING OUT!";
   pop(text, w.belly.x, w.belly.y + 2.5, "#FFF4E2", 1.4);
   if (why === "flop") Sfx.thud();
   if (w.team !== 0 || game.mode === "2p") {
@@ -1459,12 +1628,20 @@ function fightUpdate() {
     knockOut(w, why);
     if (game.mode === "attract") continue;
     const type = def.goal.type;
+    if (w.team === 0 && w !== world.w[0]) { pop("PARTNER DOWN!", w.belly.x, w.belly.y + 3.2, "#FFB36B", 1.1); continue; }
+    if (w.team === 0 && game.lives > 1) {   // spare life: drop back in
+      game.lives--; world.respawns.push({ idx: 0, t: 1.2, player: true }); hudNote(); Sfx.lose(); continue;
+    }
     if (w.team === 0) {
       if (type === "ko") return point(1);
       return finish(false, type === "collect" ? "You fell off before grabbing them all." : "You got pushed out.");
     }
     if (type === "ko") {
-      if (world.w.every(o => o.team === 0 || o.out)) return point(0);
+      const ei = w.idx - 1;
+      world.graceT = 0.9;   // the bout goes on: help the player not follow the rival off the edge
+      if (game.revives[ei] > 0) { game.revives[ei]--; world.respawns.push({ idx: w.idx, t: 1.3, text: "IT'S BACK!" }); Sfx.cheer(); continue; }
+      if (def.queue && w.idx < def.enemies.length) { world.respawns.push({ idx: w.idx + 1, t: 1.1, text: "NEXT GUARD!" }); Sfx.cheer(); continue; }
+      if (world.w.every(o => o.team === 0 || o.out) && !world.respawns.length) return point(0);
       Sfx.cheer(); world.slow = 0.55;
     } else {
       // survive / collect: knocked-out attackers drop back in from the sky
@@ -1480,15 +1657,37 @@ function fightUpdate() {
   for (const r of world.respawns) {
     r.t -= DT;
     if (r.t <= 0) {
+      if (r.player) {
+        const nw = new Wrestler(0, 0, def.player || fighterLook("YOU"), { team: 0, face: 1, y: 7, vy: -4 });
+        world.w[0] = nw; input.held[0] = false; r.done = true;
+        pop("BACK IN!", 0, 6, "#9CFF8A", 1.2);
+        continue;
+      }
       const spec = def.enemies[r.idx - 1];
-      const x = rand(-world.plat.hw + 1.5, world.plat.hw - 1.5);
+      let x = rand(-world.plat.hw + 1.5, world.plat.hw - 1.5);
+      for (let k = 0; k < 20; k++) {           // land on solid floor, not right on top of the player
+        const me = world.w[0];
+        if (world.plat.onSurface(x) && (!me || Math.abs(x - me.belly.x) > 2.2)) break;
+        x = rand(-world.plat.hw + 1.5, world.plat.hw - 1.5);
+      }
+      if (r.text && world.w[0]) {   // guards and risen mummies drop in on the far side, giving you a moment to re-center
+        const me = world.w[0], side = -(Math.sign(world.plat.toLocal(me.belly.x, me.belly.y)[0]) || 1);
+        x = side * (world.plat.hw - 2.2);
+        if (!world.plat.onSurface(x)) x = side * 1.5;
+      }
+      if (r.text) pop(r.text, x, 6, "#FFE36B", 1.3);
       const nw = new Wrestler(r.idx, x, spec.lookFull || enemyLook(spec), { team: 1, scale: spec.scale, y: 7, vy: -4 });
       world.w[r.idx] = nw;
-      game.brains[r.idx - 1] = new Brain(nw, brainCfg(spec));
+      game.brains[r.idx - 1] = new Brain(nw, levelBrainCfg(spec));
       r.done = true;
     }
   }
   world.respawns = world.respawns.filter(r => !r.done);
+  if (def.goal.type === "ko" && !world.respawns.length && world.w.every(o => o.team === 0 || o.out)) return point(0);   // last rival fell while someone was dropping back in
+  stepCroc(); stepTiles();
+  // a rival flying off the edge in a bout that goes on: steady the player so they don't follow
+  if (def.enemies && (def.queue || def.enemies.length > 1 || game.revives.some(v => v > 0)))
+    for (const w of world.w) if (w.team === 1 && !w.out && Math.abs(world.plat.toLocal(w.belly.x, w.belly.y)[0]) > world.plat.hw + 0.2) world.graceT = Math.max(world.graceT, 0.6);
   if (def.goal.type === "survive" && L.time >= def.goal.time) return finish(true);
   if (def.goal.type === "collect") {
     if (L.collected >= def.goal.count) return finish(true);
@@ -1513,12 +1712,15 @@ function onPointOver() {
 function finish(won, why) {
   if (game.state === "end") return;
   game.state = "end";
+  if (won && ["adv", "surv", "cup", "warm"].includes(game.mode)) track("win");
+  if (won && game.mode === "cup") track("cupwin");
   for (const w of world.w) if (!w.out && (w.team === 0) === won) w.cheer = true;
   const L = game.lv;
   if (game.mode === "adv") levelResult(won, why);
   else if (game.mode === "surv") survivalResult(won);
   else if (game.mode === "cup") cupResult(won);
   else if (game.mode === "online") { if (NET.role === "host") netRelay({ k: "end", sc: game.score, hw: won }); onlineResult(won); }
+  else if (game.mode === "warm") warmResult(won);
   else twoPlayerResult(won);
 }
 function starsFor(def, L) {
@@ -1547,12 +1749,14 @@ function attractNext() {
 // ---------------- survival: endless, each rival brings a random twist
 const TWISTS = [
   {}, { items: { every: 3, types: ["chili", "mega", "fish", "banana"] } }, { balls: { every: 3.4, r: 0.85, m: 5, speed: 9.5 } },
-  { gaps: [[-1.1, 1.1]], pit: "spring" }, { bananas: [-3, 0.5, 3] }, { windy: true }, { shrink: 0.25 }
+  { gaps: [[-1.1, 1.1]], pit: "spring" }, { bananas: [-3, 0.5, 3] }, { windy: true }, { shrink: 0.25 },
+  { gaps: [[-0.9, 0.9]], pit: "croc" }, { sand: [[-1.4, 1.4]] }, { crumble: { tile: 1.5, time: 3.2 } },
+  { balls: { every: 2.4, r: 0.5, m: 3, speed: 12, look: "scarab" } }
 ];
 function survivalDef() {
   const idx = clamp(Math.floor(game.surv / 2) + Math.floor(rand(0, 2)), 0, RIVALS.length - 1);
   const tw = game.surv < 1 ? {} : pick(TWISTS);
-  const def = Object.assign({ arena: pick(["classic", "snow", "seesaw", "boat", "bouncy", "tiny", "ice"]), goal: { type: "ko" }, enemies: [E(idx)], par: 99, star: { type: "time", value: 0 } }, tw);
+  const def = Object.assign({ arena: pick(["classic", "snow", "seesaw", "boat", "bouncy", "tiny", "ice", "temple"]), goal: { type: "ko" }, enemies: [E(idx)], par: 99, star: { type: "time", value: 0 } }, tw);
   if (def.gaps) { def.px = -3.4; def.enemies = [E(idx, { x: 3.4 })]; }
   return def;
 }
@@ -1588,7 +1792,7 @@ function keyInfo(code) {
   if (game.mode === "2p") return KEYMAP_2P[code] || null;
   return code in KEYMAP_1P ? [0, KEYMAP_1P[code]] : null;
 }
-function modalOpen() { return !$("online").hidden || !$("shop").hidden || !$("gift").hidden || !$("map").hidden || !$("intro").hidden; }
+function modalOpen() { return !$("quests").hidden || !$("online").hidden || !$("shop").hidden || !$("gift").hidden || !$("map").hidden || !$("intro").hidden; }
 window.addEventListener("keydown", e => {
   Sfx.init();
   if (e.repeat || modalOpen()) return;
@@ -1630,6 +1834,7 @@ const totalStars = () => Object.values(save.stars).reduce((a, b) => a + b, 0);
 function renderCoins() { $("coinText").textContent = save.coins; $("shopCoins").textContent = save.coins; }
 function goalText(def) {
   const g = def.goal, n = def.enemies.length;
+  if (g.type === "ko" && def.queue) return "Beat " + n + " guards in a row";
   if (g.type === "ko") return (n > 1 ? "Knock all " + n + " of them out" : "Knock " + titleCase(enemyLook(def.enemies[0]).name) + " out of the ring") + (g.points > 1 ? " · first to " + g.points : "");
   if (g.type === "survive") return "Stay on the ring for " + g.time + " seconds";
   if (g.type === "collect") return "Grab " + g.count + " dumplings in " + g.time + " seconds";
@@ -1663,8 +1868,10 @@ function hudNote() {
   else if (game.mode === "surv") note = "Survival · streak " + game.surv + " · best " + save.survBest;
   else if (game.mode === "cup") note = "Daily Cup · Bout " + (game.cup.stage + 1) + "/3";
   else if (game.mode === "online") note = "Online · " + ARENAS[def.arena].name + " · first to " + game.target;
+  else if (game.mode === "warm") note = NET.status === "waiting" ? "Warm-up vs CPU · still searching for a player…" : "Warm-up vs CPU";
   else note = ARENAS[def.arena].name + " · first to " + game.target;
   if (def.goal.type === "survive") note += " · " + Math.max(0, Math.ceil(def.goal.time - L.time)) + "s left";
+  if (game.lives) note += " · " + "♥".repeat(game.lives);
   if (def.goal.type === "collect") note += " · " + L.collected + "/" + def.goal.count + " · " + Math.max(0, Math.ceil(def.goal.time - L.time)) + "s";
   $("centerNote").textContent = note;
 }
@@ -1676,6 +1883,10 @@ function renderMenu() {
   const old = $("bCup").querySelector(".badge"); if (old) old.remove();
   if (!cupDone) $("bCup").insertAdjacentHTML("beforeend", '<span class="badge">!</span>');
   $("survSub").textContent = save.survBest ? "best streak: " + save.survBest : "how many in a row?";
+  const Q = questsToday(), left = Q.list.filter(q => !q.done).length;
+  $("questSub").textContent = left ? left + " left today" : "all done!";
+  const oldQ = $("bQuests").querySelector(".badge"); if (oldQ) oldQ.remove();
+  if (left) $("bQuests").insertAdjacentHTML("beforeend", '<span class="badge">' + left + '</span>');
   renderCoins();
 }
 function hideLayers() { for (const k of ["menu", "end", "intro"]) ui[k].hidden = true; $("map").hidden = true; }
@@ -1684,12 +1895,12 @@ function showMenu() {
   attractNext();
   hideLayers();
   ui.menu.hidden = false; ui.hud.hidden = true;
-  ui.coins.hidden = false; ui.coins.classList.remove("low"); soundBtn.hidden = false; voiceBtn.hidden = false;
+  ui.coins.hidden = false; ui.coins.classList.remove("low"); soundBtn.hidden = false; voiceBtn.hidden = false; $("rankPill").hidden = false; renderRank();
   renderMenu(); netFetchStats();
   if (save.giftDay !== today()) openGift();
 }
 function enterPlay() {
-  hideLayers(); $("endStars").hidden = false;
+  hideLayers(); $("endStars").hidden = false; $("bSkip").hidden = true; $("rankPill").hidden = true;
   ui.hud.hidden = false; ui.coins.hidden = true; soundBtn.hidden = true; voiceBtn.hidden = true;
   CG.gameplayStart();
 }
@@ -1702,6 +1913,97 @@ function withBreak(then) {
     CG.ad("midgame", () => { game.paused = true; Sfx.pause(true); }, resume, resume);
   } else then();
 }
+
+// ---------------- progression: real sumo ranks (XP from every bout) and three daily quests
+const RANKS = ["JONOKUCHI", "JONIDAN", "SANDANME", "MAKUSHITA", "JURYO", "MAEGASHIRA", "KOMUSUBI", "SEKIWAKE", "OZEKI", "YOKOZUNA"];
+const rankNeed = r => 120 + r * 90;
+const rankName = r => r < RANKS.length ? RANKS[r] : "YOKOZUNA " + (r - RANKS.length + 2);
+function addXP(n) {
+  save.xp += n;
+  while (save.xp >= rankNeed(save.rank)) {
+    save.xp -= rankNeed(save.rank); save.rank++;
+    const bonus = 100 + save.rank * 25;
+    save.coins += bonus;
+    toast("RANK UP! " + rankName(save.rank), "+" + bonus + " coins");
+    CG.happy();
+  }
+  persist(); renderRank(); renderCoins();
+}
+function renderRank() {
+  const need = rankNeed(save.rank), pct = Math.min(100, save.xp / need * 100) + "%";
+  $("rankName").textContent = $("endRankName").textContent = rankName(save.rank);
+  $("rankFill").style.width = $("endRankFill").style.width = pct;
+  $("rankXp").textContent = $("endRankXp").textContent = save.xp + " / " + need + " XP";
+}
+const QUESTS = [
+  { id: "win3", text: "Win 3 bouts", stat: "win", goal: 3, reward: 80 },
+  { id: "super3", text: "Land 3 SUPER SLAPs", stat: "super", goal: 3, reward: 90 },
+  { id: "ko6", text: "Knock out 6 rivals", stat: "ko", goal: 6, reward: 70 },
+  { id: "stars3", text: "Earn 3 new Adventure stars", stat: "star", goal: 3, reward: 100 },
+  { id: "online2", text: "Play 2 online matches", stat: "online", goal: 2, reward: 120 },
+  { id: "streak3", text: "Win 3 in a row in Survival", stat: "streak", goal: 3, reward: 120 },
+  { id: "boing3", text: "BOING bellies 3 times", stat: "boing", goal: 3, reward: 60 },
+  { id: "slap30", text: "Land 30 slaps", stat: "slap", goal: 30, reward: 60 },
+  { id: "dump10", text: "Grab 10 dumplings", stat: "dumpling", goal: 10, reward: 70 },
+  { id: "cup1", text: "Win a Daily Cup bout", stat: "cupwin", goal: 1, reward: 80 }
+];
+function questsToday() {
+  if (!save.quests || save.quests.day !== today()) {
+    const pool = QUESTS.slice(), list = [];
+    while (list.length < 3) list.push({ id: pool.splice(Math.floor(Math.random() * pool.length), 1)[0].id, prog: 0, done: false });
+    save.quests = { day: today(), list, bonus: false };
+    persist();
+  }
+  return save.quests;
+}
+function humanWrestler() {
+  if (game.mode === "attract" || game.mode === "2p") return null;
+  return world.w[game.mode === "online" ? NET.me : 0] || null;
+}
+function track(stat, n, asMax) {
+  if (game.mode === "attract") return;
+  const Q = questsToday();
+  let changed = false;
+  for (const q of Q.list) {
+    const d = QUESTS.find(x => x.id === q.id);
+    if (!d || q.done || d.stat !== stat) continue;
+    q.prog = asMax ? Math.max(q.prog, n) : q.prog + (n || 1); changed = true;
+    if (q.prog >= d.goal) { q.prog = d.goal; q.done = true; save.coins += d.reward; toast("QUEST DONE: " + d.text, "+" + d.reward + " coins"); Sfx.coin(); }
+  }
+  if (!Q.bonus && Q.list.every(q => q.done)) { Q.bonus = true; save.coins += 150; toast("ALL DAILY QUESTS DONE!", "+150 bonus coins"); }
+  if (changed) { persist(); renderCoins(); if (!$("quests").hidden) renderQuests(); }
+}
+function openQuests() { Sfx.init(); Sfx.click(); $("quests").hidden = false; renderQuests(); }
+function renderQuests() {
+  const Q = questsToday();
+  $("questList").innerHTML = Q.list.map(q => {
+    const d = QUESTS.find(x => x.id === q.id);
+    return `<div class="quest ${q.done ? "done" : ""}"><div>${d.text}<span class="xpbar"><i style="width:${q.prog / d.goal * 100}%"></i></span></div>` +
+      `<span class="qrew">${q.done ? "DONE ✓" : q.prog + "/" + d.goal + ' · <span class="coin" style="width:16px;height:16px;border-width:2px"></span>' + d.reward}</span></div>`;
+  }).join("");
+}
+$("bQuests").addEventListener("click", openQuests);
+$("questClose").addEventListener("click", () => { Sfx.click(); $("quests").hidden = true; renderMenu(); });
+const toastQ = []; let toastBusy = false;
+function toast(title, sub) { toastQ.push([title, sub]); if (!toastBusy) nextToast(); }
+function nextToast() {
+  const t = toastQ.shift(), el = $("toast");
+  if (!t) { toastBusy = false; el.hidden = true; return; }
+  toastBusy = true;
+  el.innerHTML = "<b></b><span></span>"; el.firstChild.textContent = t[0]; el.lastChild.textContent = t[1] || "";
+  el.hidden = false; el.classList.remove("show"); void el.offsetWidth; el.classList.add("show");
+  setTimeout(nextToast, 2600);
+}
+$("bSkip").addEventListener("click", () => {
+  const i = game.level;
+  $("bSkip").disabled = true;
+  CG.ad("rewarded", () => { game.paused = true; Sfx.pause(true); }, () => {
+    game.paused = false; Sfx.pause(false); $("bSkip").disabled = false;
+    if (i >= save.levelMax) save.levelMax = i + 1;
+    delete save.fails[i]; persist();
+    showIntro(i + 1);
+  }, () => { game.paused = false; Sfx.pause(false); $("bSkip").disabled = false; });
+});
 
 // ---------------- adventure: map, intro card, results
 let mapWorld = 0;
@@ -1769,6 +2071,8 @@ function levelResult(won, why) {
     const st = starsFor(def, L), n = st.filter(Boolean).length;
     const prev = save.stars[i] || 0;
     save.stars[i] = Math.max(prev, n);
+    if (n > prev) track("star", n - prev);
+    delete save.fails[i];
     earned = 15 + n * 10 + Math.max(0, n - prev) * 25 + (i >= save.levelMax ? 40 + i * 4 : 0);
     if (i >= save.levelMax) save.levelMax = i + 1;
     if (def.unlock != null && !save.fighters.includes(def.unlock)) {
@@ -1785,6 +2089,8 @@ function levelResult(won, why) {
     Sfx.win(); if (n === 3 || def.boss) CG.happy();
   } else {
     earned = 5 + L.kos * 3;
+    save.fails[i] = (save.fails[i] || 0) + 1;
+    $("bSkip").hidden = !(CG.sdk && save.fails[i] >= 3 && i === save.levelMax && i + 1 < LEVELS.length);
     $("endTitle").textContent = "SPLASH...";
     $("endSub").textContent = (why ? why + " " : "") + "Tip: " + pick(TIPS);
     for (let k = 0; k < 3; k++) starsEl[k].className = "";
@@ -1803,7 +2109,8 @@ const TIPS = [
   "grab power-ups before your rival does."
 ];
 function awardCoins(earned) {
-  save.coins += earned; save.matches++; game.lastEarned = earned; persist();
+  save.coins += earned; save.matches++; game.lastEarned = earned;
+  addXP(earned);
   $("endCoins").textContent = "+" + earned + " coins";
   $("bDouble").hidden = !CG.sdk || earned < 20; $("bDouble").disabled = false;
   ui.coins.hidden = false; ui.coins.classList.add("low"); renderCoins();
@@ -1815,6 +2122,7 @@ function playSurvival() { Sfx.init(); Sfx.click(); game.surv = 0; runDef(surviva
 function survivalResult(won) {
   if (won) {
     game.surv++;
+    track("streak", game.surv, true);
     pop("STREAK " + game.surv + "!", 0, 6, "#FFE36B", 1.4);
     setTimeout(() => { if (game.mode === "surv") { runDef(survivalDef(), "surv"); game.state = "countdown"; } }, 900);
     return;
@@ -1838,7 +2146,7 @@ function playCup() {
   const rivals = [];
   while (rivals.length < 3) { const r = pick(pool); if (!rivals.includes(r)) rivals.push(r); }
   rivals.sort((a, b) => a - b);
-  game.cup = { defs: rivals.map(r => Object.assign({ arena: pick(["classic", "snow", "seesaw", "boat", "bouncy", "tiny", "conveyor", "windy"]), goal: { type: "ko", points: 2 }, enemies: [E(r)], par: 99, star: { type: "time", value: 0 } }, pick(TWISTS))), stage: 0 };
+  game.cup = { defs: rivals.map(r => Object.assign({ arena: pick(["classic", "snow", "seesaw", "boat", "bouncy", "tiny", "conveyor", "windy", "temple"]), goal: { type: "ko", points: 2 }, enemies: [E(r)], par: 99, star: { type: "time", value: 0 } }, pick(TWISTS))), stage: 0 };
   for (const d of game.cup.defs) if (d.gaps) { d.px = -3.4; d.enemies = [E(d.enemies[0].r, { x: 3.4 })]; }
   runDef(game.cup.defs[0], "cup"); enterPlay();
 }
@@ -1895,8 +2203,8 @@ function twoPlayerResult(won) {
 // physics and streams ~30 snapshots a second; the guest sends its button presses and draws what it receives.
 const NET_URL = window.SUMO_SERVER || "wss://sumo-noodles.fly.dev";
 const NET_PROTOCOL = 1;
-const NET_ARENAS = ["classic", "snow", "seesaw", "boat", "bouncy", "windy", "conveyor", "tiny", "ice"];
-const NET_TWISTS = TWISTS.filter(t => !t.balls);
+const NET_ARENAS = ["classic", "snow", "seesaw", "boat", "bouncy", "windy", "conveyor", "tiny", "ice", "temple"];
+const NET_TWISTS = TWISTS.filter(t => !t.balls && !t.crumble && t.pit !== "croc");   // only twists the guest can draw from snapshots
 const NAME_A = ["SALTY", "CHUBBY", "WOBBLY", "MIGHTY", "SNEAKY", "JOLLY", "SPICY", "BOUNCY", "SLEEPY", "FUZZY"];
 const NAME_B = ["DUMPLING", "BAO", "TOFU", "MOCHI", "UDON", "RAMEN", "NOODLE", "GYOZA", "SUSHI", "WASABI"];
 const NET = {
@@ -1960,6 +2268,7 @@ function netOnMessage(m) {
     case "waiting": NET.waitStart = performance.now(); netSetStatus("waiting"); break;
     case "room": NET.code = m.code; netShowInvite(m.code); netSetStatus("room"); break;
     case "matched":
+      if (game.mode === "warm") toast("CHALLENGER FOUND!", titleCase(m.name || "PLAYER") + " wants to fight");
       NET.role = m.role; NET.me = m.role === "host" ? 0 : 1; NET.code = m.code; NET.oppName = m.name || "PLAYER"; NET.oppLook = null;
       NET.rematch = [false, false];
       CG.call(s => s.game.hideInviteButton());
@@ -2070,7 +2379,28 @@ setInterval(() => {
   const s = Math.floor((performance.now() - NET.waitStart) / 1000);
   $("netStatus").textContent = "Looking for an opponent… " + Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
   if (s >= 12) $("bCpu").hidden = false;
+  if (s >= 7) startWarmup();   // nobody yet: warm up against the CPU, the search keeps running
 }, 500);
+function startWarmup() {
+  if (NET.status !== "waiting" || NET.role) return;
+  $("online").hidden = true;
+  const r = 1 + Math.floor(Math.random() * 6);
+  const def = Object.assign({ arena: pick(NET_ARENAS), goal: { type: "ko", points: 3 }, enemies: [E(r)], par: 99, star: { type: "time", value: 0 } },
+    Math.random() < 0.5 ? pick(NET_TWISTS) : {});
+  if (def.gaps) { def.px = -3.4; def.enemies = [E(r, { x: 3.4 })]; }
+  runDef(def, "warm"); enterPlay();
+  toast("WARM-UP VS CPU", "We'll pull you into a real match as soon as someone joins");
+}
+function warmResult(won) {
+  CG.gameplayStop();
+  ui.end.hidden = false; $("endUnlock").hidden = true; $("endStars").hidden = true;
+  $("endTitle").textContent = won ? "YOU WIN!" : "SPLASH...";
+  $("endSub").textContent = NET.status === "waiting" ? "Still looking for a real opponent…" : "Warm-up over.";
+  $("bNext").hidden = false; $("bNext").textContent = "ANOTHER WARM-UP";
+  $("bAgain").textContent = "KEEP SEARCHING"; $("bAgain").disabled = false;
+  if (won) Sfx.win(); else Sfx.lose();
+  awardCoins(won ? 20 + game.score[0] * 4 : 6 + game.score[0] * 3);
+}
 function netFetchStats() {
   fetch(NET_URL.replace(/^ws/, "http") + "/stats").then(r => r.json()).then(j => {
     NET.online = j.online || 0;
@@ -2181,6 +2511,7 @@ function netMaybeRematch() {
 }
 function onlineResult(won, note) {
   CG.gameplayStop();
+  track("online"); if (won) track("win");
   ui.end.hidden = false; $("endUnlock").hidden = true;
   $("endStars").hidden = true;
   const me = NET.me;
@@ -2192,8 +2523,8 @@ function onlineResult(won, note) {
   awardCoins(won ? 30 + game.score[me] * 5 : 8 + game.score[me] * 3);
 }
 function drawYouMarker() {
-  if (!NET.role && game.state === "end") return;
-  const w = world.w[NET.me];
+  if (game.mode === "online" && !NET.role && game.state === "end") return;
+  const w = humanWrestler();
   if (!w || w.out || !(game.state === "countdown" || (game.state === "fight" && game.t < 2.2))) return;
   const [x, y] = w2s(w.head.x, w.head.y + 1.5 * w.sc);
   const bob = Math.sin(world.time * 8) * 4;
@@ -2231,6 +2562,7 @@ $("bNext").addEventListener("click", () => {
   withBreak(() => {
     if (game.mode === "adv") showIntro(game.level + 1);
     else if (game.mode === "online") { netLeaveRoom(); openOnline(true); }
+    else if (game.mode === "warm") { if (NET.status === "waiting") startWarmup(); else openOnline(true); }
     else if (game.mode === "cup") { game.cup.stage++; runDef(game.cup.defs[game.cup.stage], "cup"); enterPlay(); }
     else play2P();
   });
@@ -2240,12 +2572,18 @@ $("bAgain").addEventListener("click", () => {
   withBreak(() => {
     if (game.mode === "adv") startLevel();
     else if (game.mode === "online") netAskRematch();
+    else if (game.mode === "warm") { if (NET.status === "waiting") { ui.end.hidden = true; $("online").hidden = false; NET.waitStart = performance.now(); netSetStatus("waiting"); } else openOnline(true); }
     else if (game.mode === "cup") playCup();
     else if (game.mode === "surv") playSurvival();
     else play2P(game.def.arena);
   });
 });
-$("bMenu").addEventListener("click", () => { Sfx.click(); if (game.mode === "online") netLeaveRoom(); showMenu(); });
+$("bMenu").addEventListener("click", () => {
+  Sfx.click();
+  if (game.mode === "online") netLeaveRoom();
+  if (game.mode === "warm" && NET.status === "waiting") { netSend({ t: "leave" }); NET.status = "off"; }
+  showMenu();
+});
 $("bDouble").addEventListener("click", () => {
   $("bDouble").disabled = true;
   CG.ad("rewarded", () => { game.paused = true; Sfx.pause(true); }, () => {
@@ -2350,6 +2688,11 @@ $("giftClaim").addEventListener("click", () => {
 world.onEvent = (type, x, y, s, who, label, color) => {
   const L = game.lv, mine = who && who === world.w[0] && game.mode !== "attract";
   if (type === "slap" || type === "headbutt" || type === "fishhit") { if (mine && L) L.slaps++; }
+  const me = humanWrestler();
+  if (me && who === me && (type === "slap" || type === "headbutt" || type === "fishhit" || type === "superhit")) track("slap");
+  if (me && who === me && type === "superhit") track("super");
+  if (me && type === "boing") track("boing");
+  if (type === "pickup") track("dumpling", s);
   if (type === "superhit" && mine && L) { L.supers++; L.slaps++; }
   if (type === "slip" && who && who.team !== 0 && L) L.slipped = true;
   if (type === "slap") { Sfx.slap(); Voice.say("slap", 1, 0.4); pop("SLAP!", x, y + 0.6, "#FFE36B", 1 + clamp(s / 20, 0, 0.6)); burst(x, y, 12, ["#FFFFFF", "#FFE36B"], 7, -10, 0.14, "star"); }
@@ -2368,7 +2711,7 @@ world.onEvent = (type, x, y, s, who, label, color) => {
   else if (type === "pickup") {
     if (L) L.collected += s;
     Sfx.coin(); const me = world.w[0];
-    pop("+1 DUMPLING", me.head.x, me.head.y + 1.4, "#FFE36B", 1);
+    pop(game.def && game.def.pickup === "ankh" ? "+1 ANKH" : "+1 DUMPLING", me.head.x, me.head.y + 1.4, "#FFE36B", 1);
     burst(me.head.x, me.head.y, 12, ["#FFE36B", "#FFFFFF"], 6, -8, 0.14, "star");
     if (game.def && game.def.goal.type === "collect" && L.collected + world.pickups.length < game.def.goal.count) spawnPickup();
     hudNote();
@@ -2679,6 +3022,16 @@ function drawPlatform(t) {
     }
     ctx.globalAlpha = 1;
   }
+  if (game.def && game.def.pit === "croc") drawCroc(P, s, t);
+  for (const d of world.debris || []) {
+    d.vy -= 20 * (1 / 60); d.y += d.vy * (1 / 60); d.rot += d.vr * (1 / 60);
+    const c = P((d.x0 + d.x1) / 2, d.y - p.thick / 2), wpx = (d.x1 - d.x0) * s, hpx = p.thick * s;
+    ctx.save(); ctx.translate(c[0], c[1]); ctx.rotate(d.rot);
+    ctx.fillStyle = p.side; ctx.strokeStyle = INK; ctx.lineWidth = 3;
+    ctx.fillRect(-wpx / 2, -hpx / 2, wpx, hpx); ctx.strokeRect(-wpx / 2, -hpx / 2, wpx, hpx);
+    ctx.restore();
+  }
+  if (world.debris) world.debris = world.debris.filter(d => d.y > -12);
   for (const [x0, x1] of p.segments()) {
     const edgeL = x0 <= -p.hw + 1e-6, edgeR = x1 >= p.hw - 1e-6;
     poly([P(x0, 0), P(x1, 0), P(x1, -p.thick), P(x0, -p.thick)], p.side);
@@ -2714,6 +3067,7 @@ function drawPlatform(t) {
 function drawBalls() {
   for (const b of world.balls) {
     const p = b.p, [x, y] = w2s(p.x, p.y), r = p.r * cam.scale;
+    if (b.look === "scarab") { drawScarab(x, y, r, p.vx, world.time); continue; }
     const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.35, r * 0.1, x, y, r);
     g.addColorStop(0, "#FFFFFF"); g.addColorStop(1, "#BFDDF2");
     ctx.fillStyle = g; ctx.strokeStyle = INK; ctx.lineWidth = 3.5;
@@ -2722,6 +3076,89 @@ function drawBalls() {
     for (let k = 0; k < 3; k++) { const a = b.spin + k * 2.1; ctx.beginPath(); ctx.arc(x + Math.cos(a) * r * 0.45, y + Math.sin(a) * r * 0.45, r * 0.18, 0, TAU); ctx.stroke(); }
   }
 }
+function drawPlatformOverlays(t) {
+  const p = world.plat, s = cam.scale, P = (lx, ly) => w2s(...p.toWorld(lx, ly));
+  if (p.sand) for (const [x0, x1] of p.sand) {
+    ctx.fillStyle = "#D9A441"; ctx.strokeStyle = "rgba(43,27,23,0.6)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(...P(x0, 0.02));
+    for (let k = 0; k <= 12; k++) { const x = lerp(x0, x1, k / 12), edge = Math.sin(k / 12 * Math.PI); ctx.lineTo(...P(x, 0.04 + 0.14 * edge + 0.05 * Math.sin(t * 2 + k * 1.3))); }
+    ctx.lineTo(...P(x1, -0.3)); ctx.lineTo(...P(x0, -0.3)); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "rgba(120,80,30,0.45)";
+    for (let k = 0; k < 10; k++) { const [dx, dy] = P(lerp(x0, x1, ((k * 0.37 + t * 0.05) % 1)), -0.1 + (k % 3) * 0.06); ctx.beginPath(); ctx.arc(dx, dy, 0.035 * s, 0, TAU); ctx.fill(); }
+    // swirl
+    const [cx, cy] = P((x0 + x1) / 2, 0.05);
+    ctx.strokeStyle = "rgba(120,80,30,0.5)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(cx, cy, (x1 - x0) * 0.25 * s, 0.05 * s, 0, t * 2, t * 2 + 4); ctx.stroke();
+  }
+  for (const tl of world.tiles || []) {
+    if (tl.gone) continue;
+    const k = tl.load / game.def.crumble.time;
+    ctx.strokeStyle = "rgba(43,27,23,0.35)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(...P(tl.x0, 0)); ctx.lineTo(...P(tl.x0, -p.thick)); ctx.stroke();
+    if (k < 0.25) continue;
+    const jit = k > 0.7 ? Math.sin(t * 60) * 0.02 : 0;
+    ctx.strokeStyle = `rgba(43,27,23,${0.4 + k * 0.5})`; ctx.lineWidth = 2 + k * 2;
+    const mx = (tl.x0 + tl.x1) / 2, w = tl.x1 - tl.x0;
+    ctx.beginPath(); ctx.moveTo(...P(mx - w * 0.3 + jit, 0)); ctx.lineTo(...P(mx - w * 0.05, -0.35 * k)); ctx.lineTo(...P(mx + w * 0.15, -0.2)); ctx.lineTo(...P(mx + w * 0.3 * k, -0.7 * k)); ctx.stroke();
+    if (k > 0.55) { ctx.beginPath(); ctx.moveTo(...P(mx + w * 0.2, 0)); ctx.lineTo(...P(mx + w * 0.05, -0.45)); ctx.stroke(); }
+  }
+}
+function drawCroc(P, s, t) {
+  const c = world.croc, g = world.plat.gaps[0];
+  if (!g) return;
+  const th = world.plat.thick;
+  // murky moat water
+  poly([P(g[0] - 0.1, -0.35), P(g[1] + 0.1, -0.35), P(g[1] + 0.1, -th - 0.5), P(g[0] - 0.1, -th - 0.5)], "#3E8A6A", 3);
+  ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(...P(g[0], -0.4)); ctx.lineTo(...P(g[1], -0.4)); ctx.stroke();
+  if (!c) return;
+  const rim = c.side < 0 ? g[0] : g[1];
+  const rise = c.snap > 0 ? Math.sin((0.5 - c.snap) / 0.5 * Math.PI) : c.t < 0.85 ? (0.85 - c.t) / 0.85 * 0.35 : 0.05 + 0.03 * Math.sin(t * 2);
+  const [hx, hy] = P(rim - c.side * 0.45, -0.45 + rise * 1.9);
+  const r = 0.34 * s, jaw = c.snap > 0 ? 0.9 : 0.15;
+  ctx.save(); ctx.translate(hx, hy); ctx.scale(c.side, 1);
+  ctx.fillStyle = "#4FA85A"; ctx.strokeStyle = INK; ctx.lineWidth = 3;
+  // upper jaw (tilts open) and lower jaw
+  ctx.save(); ctx.rotate(-jaw * 0.6);
+  ctx.beginPath(); ctx.ellipse(r * 1.2, -r * 0.1, r * 1.5, r * 0.45, 0, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#FFFFFF"; for (let k = 0; k < 5; k++) { ctx.beginPath(); ctx.moveTo(r * (0.3 + k * 0.45), r * 0.25); ctx.lineTo(r * (0.5 + k * 0.45), r * 0.55); ctx.lineTo(r * (0.7 + k * 0.45), r * 0.25); ctx.fill(); }
+  ctx.restore();
+  ctx.fillStyle = "#3F8C4A"; ctx.beginPath(); ctx.ellipse(r * 1.0, r * 0.45, r * 1.3, r * 0.32, jaw * 0.3, 0, TAU); ctx.fill(); ctx.stroke();
+  // eyes
+  const glow = c.t < 0.85 && c.snap <= 0;
+  for (const ex of [-0.1, 0.35]) {
+    ctx.fillStyle = "#4FA85A"; ctx.beginPath(); ctx.arc(ex * r, -r * 0.55, r * 0.32, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = glow ? "#FFE36B" : "#FFFFFF"; ctx.beginPath(); ctx.arc(ex * r, -r * 0.6, r * 0.18, 0, TAU); ctx.fill();
+    ctx.fillStyle = INK; ctx.beginPath(); ctx.ellipse(ex * r + r * 0.03, -r * 0.6, r * 0.05, r * 0.14, 0, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+  if (glow && Math.floor(t * 8) % 2 === 0) { const [wx, wy] = P(rim, 2.2); ctx.font = `${Math.round(0.9 * s)}px 'Lilita One', 'Arial Black', sans-serif`; ctx.textAlign = "center"; ctx.fillStyle = "#FF4D3D"; ctx.strokeStyle = INK; ctx.lineWidth = 5; ctx.strokeText("!", wx, wy); ctx.fillText("!", wx, wy); }
+}
+function drawScarab(x, y, r, vx, t) {
+  const dir = vx >= 0 ? 1 : -1;
+  ctx.save(); ctx.translate(x, y); ctx.scale(dir, 1);
+  ctx.strokeStyle = INK; ctx.lineWidth = 2.5;
+  for (let k = -1; k <= 1; k++) {           // scuttling legs
+    const a = Math.sin(t * 30 + k * 2) * 0.35;
+    ctx.beginPath(); ctx.moveTo(k * r * 0.45, r * 0.3); ctx.lineTo(k * r * 0.45 + Math.sin(a) * r * 0.4, r * 0.95); ctx.stroke();
+  }
+  const g = ctx.createRadialGradient(-r * 0.3, -r * 0.4, r * 0.1, 0, 0, r * 1.1);
+  g.addColorStop(0, "#7FE0C8"); g.addColorStop(0.5, "#1F8A7A"); g.addColorStop(1, "#0D4A45");
+  ctx.fillStyle = g; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.ellipse(0, 0, r * 1.05, r * 0.75, 0, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(-r * 0.2, -r * 0.72); ctx.lineTo(-r * 0.2, r * 0.7); ctx.stroke();
+  ctx.fillStyle = "#0D4A45"; ctx.beginPath(); ctx.ellipse(r * 1.05, 0, r * 0.35, r * 0.3, 0, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#FFE36B"; ctx.beginPath(); ctx.arc(r * 1.15, -r * 0.08, r * 0.08, 0, TAU); ctx.fill();
+  ctx.restore();
+}
+function drawAnkh(x, y, r) {
+  ctx.fillStyle = "#FFC83D"; ctx.strokeStyle = INK; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.ellipse(x, y - r * 0.75, r * 0.42, r * 0.55, 0, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#FFF4E2"; ctx.beginPath(); ctx.ellipse(x, y - r * 0.75, r * 0.18, r * 0.3, 0, 0, TAU); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "#FFC83D";
+  ctx.beginPath(); ctx.rect(x - r * 0.95, y - r * 0.2, r * 1.9, r * 0.36); ctx.fill(); ctx.stroke();
+  ctx.beginPath(); ctx.rect(x - r * 0.2, y - r * 0.2, r * 0.4, r * 1.35); ctx.fill(); ctx.stroke();
+}
 function drawPickups(t) {
   const s = cam.scale;
   for (const d of world.pickups) {
@@ -2729,6 +3166,7 @@ function drawPickups(t) {
     const g = ctx.createRadialGradient(x, y, 0.1 * s, x, y, 1 * s);
     g.addColorStop(0, "rgba(255,230,120,0.7)"); g.addColorStop(1, "rgba(255,230,120,0)");
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 1 * s, 0, TAU); ctx.fill();
+    if (game.def && game.def.pickup === "ankh") { drawAnkh(x, y + 0.2 * s, r * 1.1); continue; }
     ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(t * 3 + d.lx) * 0.15);
     ctx.fillStyle = "#FFF4E2"; ctx.strokeStyle = INK; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.moveTo(-r * 1.1, r * 0.5); ctx.quadraticCurveTo(-r * 1.1, -r * 0.9, 0, -r * 0.95); ctx.quadraticCurveTo(r * 1.1, -r * 0.9, r * 1.1, r * 0.5); ctx.closePath(); ctx.fill(); ctx.stroke();
@@ -2871,6 +3309,12 @@ function drawWrestler(w, still) {
   ctx.beginPath(); ctx.arc(dir * 0.55 * R1, -0.55 * R2, 0.28 * R1, 0.2, Math.PI - 0.6); ctx.stroke();
   ctx.beginPath(); ctx.arc(dir * 0.05 * R1, -0.55 * R2, 0.28 * R1, 0.4, Math.PI - 0.3); ctx.stroke();
   ctx.fillStyle = INK; ctx.beginPath(); ctx.ellipse(dir * 0.7 * R1, 0.22 * R2, 0.05 * s, 0.07 * s, 0, 0, TAU); ctx.fill();
+  if (L.wrap) {   // mummy bandages
+    ctx.save(); ctx.beginPath(); ctx.ellipse(dir * 0.12 * s * bk, 0, R1, R2, 0, 0, TAU); ctx.clip();
+    ctx.strokeStyle = "rgba(150,128,96,0.6)"; ctx.lineWidth = 0.13 * s;
+    for (let k = -3; k <= 3; k++) { ctx.beginPath(); ctx.moveTo(-R1 * 1.3, k * R2 * 0.36 - R1 * 0.3 * dir); ctx.lineTo(R1 * 1.3, k * R2 * 0.36 + R1 * 0.3 * dir); ctx.stroke(); }
+    ctx.restore();
+  }
   ctx.restore();
   // mawashi belt with front flap, back knot and hanging sagari strings
   drawBelt(ctx, L.belt, -1.1 * s * bk + dir * 0.12 * s * bk, 0.55 * s * bk, 2.24 * s * bk, 0.52 * s * sc, 0.14 * s);
@@ -3148,11 +3592,12 @@ function frame(now) {
   drawSea(A, world.time);
   drawLanterns(A, world.time);
   drawPlatform(world.time);
+  drawPlatformOverlays(world.time);
   drawWaves(dt);
   drawItems(world.time);
   drawPickups(world.time);
   for (const w of world.w) drawWrestler(w);
-  if (game.mode === "online") drawYouMarker();
+  if (game.mode === "online" || (game.def && game.def.allies)) drawYouMarker();
   drawBalls();
   drawFx();
   drawAmbient(A);
@@ -3160,7 +3605,7 @@ function frame(now) {
   ctx.restore();
   drawVignette();
   if (game.mode !== "attract") drawWind(world.time);
-  if (game.state === "countdown") drawBanner(game.t < 0.6 ? "READY..." : "HAKKEYOI!", game.t < 0.6 ? "#FFF4E2" : "#FFE36B");
+  if (game.state === "countdown") drawBanner(game.t < 0.6 ? (game.mode === "online" && NET.round === 1 ? "VS " + NET.oppName : "READY...") : "HAKKEYOI!", game.t < 0.6 ? "#FFF4E2" : "#FFE36B");
   if (game.state === "fight" && game.t < 0.5 && game.mode !== "attract") drawBanner("HAKKEYOI!", "#FFE36B");
   if (game.state === "fight" && world.sudden && world.roundT > 10 && world.roundT < 12.5 && game.mode !== "attract" && Math.floor(world.roundT * 4) % 2 === 0) drawBanner("RING SHRINKING!", "#FF7A59");
   drawTutorial();
@@ -3209,6 +3654,9 @@ CG.init().then(() => {
   try { if (CG.sdk) room = CG.sdk.game.getInviteParam("roomId"); } catch (e) {}
   if (!room) room = new URLSearchParams(location.search).get("room");
   if (room) { NET.pendingJoin = room; $("gift").hidden = true; openOnline(false); }
+  else if (save.matches === 0 && save.levelMax === 0 && !(CG.sdk && CG.sdk.game.isInstantMultiplayer)) {
+    $("gift").hidden = true; game.level = 0; runDef(LEVELS[0], "adv"); enterPlay();   // brand-new player: fight in the first second
+  }
   else if (CG.sdk && CG.sdk.game.isInstantMultiplayer) { NET.autoInvite = true; $("gift").hidden = true; openOnline(false); }
 });
 })();
