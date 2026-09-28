@@ -66,6 +66,7 @@ namespace ZombiePile
             }
 
             Save.Load();
+            Debug.Log("Zombie Pile " + Game.Version + " | " + Kit.Status);
             new GameObject("Sound").AddComponent<SoundBank>();
             new GameObject("Fx").AddComponent<Fx>();
             new GameObject("Game").AddComponent<Game>();

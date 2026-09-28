@@ -136,6 +136,9 @@ namespace ZombiePile
             }, 26);
             UIKit.Place((RectTransform)muteBtn.transform, new Vector2(1, 0), new Vector2(-24, 24), new Vector2(220, 60));
 
+            var ver = UIKit.Text(mt, "Zombie Pile " + Game.Version + " · " + Kit.Status, 18, new Color(1f, 1f, 1f, 0.7f), TextAnchor.LowerLeft);
+            UIKit.Place(ver.rectTransform, new Vector2(0, 0), new Vector2(16, 12), new Vector2(1000, 26));
+
             // ---------------- upgrades
             upgrades = Panel("Upgrades", 0.55f);
             var ut = UIKit.Text(upgrades.transform, "CHOOSE AN UPGRADE", 56, Color.white);

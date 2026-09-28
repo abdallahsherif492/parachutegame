@@ -9,6 +9,7 @@ namespace ZombiePile
     public class Game : MonoBehaviour
     {
         public static Game I;
+        public const string Version = "v0.3";
 
         public bool Playing { get; private set; }
         public int Wave { get; private set; }

@@ -24,6 +24,19 @@ namespace ZombiePile
         public static LayoutData Layout { get { Load(); return layout; } }
         public static bool Available { get { Load(); return layout != null && Prefab("Zombie_Basic") != null; } }
 
+        /// Why the kit is (not) in use: shown on the menu and logged, so a missing import is obvious.
+        public static string Status
+        {
+            get
+            {
+                Load();
+                if (Resources.Load<TextAsset>("ZombieKit/layout") == null) return "models OFF: Assets/Resources/ZombieKit/layout.json missing (pull the latest version)";
+                if (layout == null) return "models OFF: layout.json could not be read";
+                if (Prefab("Zombie_Basic") == null) return "models OFF: ZombieKit/Characters/Zombie_Basic.fbx not imported";
+                return "models ON";
+            }
+        }
+
         static void Load()
         {
             if (loaded) return;
