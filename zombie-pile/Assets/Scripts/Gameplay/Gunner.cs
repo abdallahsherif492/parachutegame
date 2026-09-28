@@ -30,7 +30,7 @@ namespace ZombiePile
         public static Gunner Build()
         {
             var go = new GameObject("Gunner");
-            go.transform.position = Kit.Available ? new Vector3(0f, Arena.WallHeight, Arena.WallFront - 1.1f) : new Vector3(0f, Arena.WallHeight + 0.2f, -0.35f);
+            go.transform.position = Kit.Available ? new Vector3(0f, Arena.WallHeight, Arena.WallFront - 1.3f) : new Vector3(0f, Arena.WallHeight + 0.2f, -0.35f);
             return go.AddComponent<Gunner>();
         }
 
@@ -42,8 +42,9 @@ namespace ZombiePile
             if (Kit.Available)
             {
                 // Shaun from the kit, rifle in hand
-                var holder = Kit.Place("Characters_Shaun", transform.position, 0f, 1.75f / Kit.Height("Characters_Shaun"), transform, true);
-                yaw = holder.transform;
+                // the soldier turns as a whole ('yaw'); the model inside keeps any facing correction from Kit
+                yaw = Shapes.Group("Yaw", transform, Vector3.zero).transform;
+                var holder = Kit.Place("Characters_Shaun", transform.position, 0f, 1f, yaw, true);
                 gun = yaw;
                 kit = Kit.Anim.From(holder);
                 kit.Start(kit.idle);

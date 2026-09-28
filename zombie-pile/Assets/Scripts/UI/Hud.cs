@@ -6,25 +6,29 @@ using UnityEngine.UI;
 
 namespace ZombiePile
 {
-    /// All UI, built from code: HUD, menu, upgrade cards, game over, floating popups.
+    /// All UI, built from code with the rendered sprites in Resources/UI. Every position comes from the
+    /// 1280x720 design mock-up (Tools/ui-design/mock.html) through UIKit.At, so the game matches the design.
     public class Hud : MonoBehaviour
     {
         public static Hud I;
 
-        RectTransform root;
-        Text waveText, leftText, killText, wallPct, bannerText, bannerSub, bestText, overStats, overTitle;
-        Image wallFill, barrelFill, barrelFace, barrelGlow, damage;
-        RectTransform crosshair;
-        RectTransform[] ticks = new RectTransform[4];
-        Button barrelBtn, muteBtn;
-        GameObject hud, menu, upgrades, over, bestPill;
-        RectTransform cardRow, killBox;
-        float bannerT, damageT, killPunch, wallShown = 1f, wallTarget = 1f, spread;
-        Color bannerColor = UIKit.Gold;
+        static readonly Vector2 TL = new Vector2(0f, 1f), TC = new Vector2(0.5f, 1f), TR = new Vector2(1f, 1f);
+        static readonly Vector2 BL = new Vector2(0f, 0f), BC = new Vector2(0.5f, 0f), BR = new Vector2(1f, 0f), C = new Vector2(0.5f, 0.5f);
+
+        RectTransform root, cardRow, crosshair, barBox;
+        Text waveText, leftText, killText, wallPct, bannerText, bannerSub, bestText, overWave, overKills, overBest, overBestLabel;
+        Image wallFill, waveFill, barrelFill, barrelGlow, barrelFace, damage, muteIcon;
+        Button barrelBtn;
+        GameObject hud, menu, upgrades, over, bestPill, banner;
+        float bannerT, damageT, killPunch, wallShown = 1f, wallTarget = 1f, waveShown, waveTarget, spread;
+        Color bannerColor = Color.white;
 
         class Pop { public Text t; public Vector3 world; public float life; public float size; }
         readonly List<Pop> pops = new List<Pop>();
         int nextPop;
+
+        class Bar { public RectTransform r; public Image fill; }
+        readonly List<Bar> bars = new List<Bar>();
 
         public static void Build()
         {
@@ -38,6 +42,53 @@ namespace ZombiePile
             }
         }
 
+        // ------------------------------------------------------------------ small builders
+        static Text Label(Transform p, string s, bool bangers, int size, Color c, Vector2 anchor, float x, float y, float w, TextAnchor align = TextAnchor.MiddleCenter, bool stroke = true)
+        {
+            var t = bangers ? UIKit.Title(p, s, size, c, align) : UIKit.Text(p, s, size, c, align, stroke);
+            UIKit.At(t.rectTransform, anchor, x, y, w, size);
+            return t;
+        }
+
+        static Image Pic(Transform p, string sprite, Color c, Vector2 anchor, float x, float y, float w, float h)
+        {
+            var img = UIKit.Pic(p, sprite, c);
+            UIKit.At(img.rectTransform, anchor, x, y, w, h);
+            return img;
+        }
+
+        /// A bar fill inside a track: stretches from the left, its width set through anchorMax.x.
+        static Image FillIn(Image track, Color c, float pad)
+        {
+            var f = UIKit.Pic(track.transform, "fill", c);
+            UIKit.Inset(f.rectTransform, pad, pad, pad, pad);
+            return f;
+        }
+
+        /// A child placed with mock-up coordinates relative to its parent's top-left corner.
+        static RectTransform In(RectTransform r, Vector2 parentSize, float x, float y, float w, float h)
+        {
+            r.anchorMin = r.anchorMax = r.pivot = new Vector2(0.5f, 0.5f);
+            r.sizeDelta = new Vector2(w, h);
+            r.anchoredPosition = new Vector2(x + w * 0.5f - parentSize.x * 0.5f, -(y + h * 0.5f - parentSize.y * 0.5f));
+            return r;
+        }
+
+        GameObject Overlay(string name, Color tint)
+        {
+            var img = UIKit.Image(root, name, tint, null, true);
+            UIKit.Stretch(img.rectTransform);
+            return img.gameObject;
+        }
+
+        static void Vignette(Transform p, float alpha)
+        {
+            var v = UIKit.Pic(p, "vignette", new Color(1f, 1f, 1f, alpha));
+            v.preserveAspect = false;
+            UIKit.Stretch(v.rectTransform);
+        }
+
+        // ------------------------------------------------------------------ build
         void Make()
         {
             I = this;
@@ -59,96 +110,68 @@ namespace ZombiePile
             hud = UIKit.Node("HUD", root).gameObject;
             UIKit.Stretch((RectTransform)hud.transform);
             var ht = hud.transform;
+            Vignette(ht, 0.55f);
+            barBox = UIKit.Node("HealthBars", ht);
+            UIKit.Stretch(barBox);
 
-            // top shade so the numbers read on any background
-            var topShade = UIKit.Image(ht, "TopShade", new Color(0f, 0f, 0f, 0.45f), UIKit.Fade);
-            topShade.rectTransform.localRotation = Quaternion.Euler(0, 0, 180f);
-            UIKit.Place(topShade.rectTransform, new Vector2(0.5f, 1f), Vector2.zero, new Vector2(4000, 150));
-            topShade.rectTransform.pivot = new Vector2(0.5f, 0f);
+            // wall health (top left)
+            Pic(ht, "panel", Color.white, TL, 16, 14, 330, 80);
+            Pic(ht, "ic_wall", Color.white, TL, 26, 20, 68, 68);
+            Label(ht, "WALL", true, 30, Color.white, TL, 104, 22, 120, TextAnchor.MiddleLeft);
+            var wallTrack = Pic(ht, "track", Color.white, TL, 102, 52, 230, 32);
+            wallFill = FillIn(wallTrack, UIKit.Green, 4f);
+            wallPct = Label(ht, "100%", false, 22, Color.white, TL, 102, 56, 230);
 
-            // wave (top left)
-            var wavePanel = UIKit.Panel(ht, "WavePanel", UIKit.Dark);
-            UIKit.Place(wavePanel.rectTransform, new Vector2(0, 1), new Vector2(16, -14), new Vector2(250, 96));
-            waveText = UIKit.Title(wavePanel.transform, "WAVE 1", 60, UIKit.Gold, TextAnchor.UpperLeft);
-            UIKit.Inset(waveText.rectTransform, 18, 34, 10, 2);
-            leftText = UIKit.Text(wavePanel.transform, "0 ZOMBIES LEFT", 22, UIKit.Lime, TextAnchor.LowerLeft);
-            UIKit.Inset(leftText.rectTransform, 20, 12, 10, 50);
+            // wave + progress (top centre)
+            Pic(ht, "panel", Color.white, TC, 430, 14, 420, 98);
+            waveText = Label(ht, "WAVE 1", true, 48, UIKit.Gold, TC, 430, 22, 420);
+            var waveTrack = Pic(ht, "track", Color.white, TC, 452, 70, 330, 30);
+            waveFill = FillIn(waveTrack, UIKit.Lime, 4f);
+            leftText = Label(ht, "0 LEFT", false, 21, Color.white, TC, 452, 74, 330);
+            Pic(ht, "zhead", Color.white, TC, 770, 46, 76, 76);
 
             // kills (top right)
-            var killPanel = UIKit.Panel(ht, "KillPanel", UIKit.Dark);
-            UIKit.Place(killPanel.rectTransform, new Vector2(1, 1), new Vector2(-16, -14), new Vector2(210, 80));
-            killBox = killPanel.rectTransform;
-            var skull = UIKit.Skull(killPanel.transform, 50);
-            UIKit.Place(skull, new Vector2(0, 0.5f), new Vector2(16, 0), new Vector2(50, 50));
-            killText = UIKit.Title(killPanel.transform, "0", 60, Color.white, TextAnchor.MiddleRight);
-            UIKit.Inset(killText.rectTransform, 70, 0, 18, 0);
+            Pic(ht, "panel", Color.white, TR, 1054, 14, 210, 80);
+            Pic(ht, "ic_skull", Color.white, TR, 1064, 20, 68, 68);
+            killText = Label(ht, "0", true, 60, Color.white, TR, 1130, 22, 120, TextAnchor.MiddleRight);
 
-            // wall health (top centre)
-            var wallPanel = UIKit.Panel(ht, "WallPanel", UIKit.Dark);
-            UIKit.Place(wallPanel.rectTransform, new Vector2(0.5f, 1), new Vector2(0, -14), new Vector2(470, 64));
-            var wl = UIKit.Title(wallPanel.transform, "WALL", 40, Color.white, TextAnchor.MiddleLeft);
-            UIKit.Inset(wl.rectTransform, 18, 0, 0, 0);
-            var track = UIKit.Image(wallPanel.transform, "Track", new Color(0f, 0f, 0f, 0.6f), UIKit.Round);
-            UIKit.Inset(track.rectTransform, 110, 14, 16, 14);
-            wallFill = UIKit.Image(track.transform, "Fill", UIKit.Green, UIKit.Round);
-            UIKit.Inset(wallFill.rectTransform, 3, 3, 3, 3);
-            wallFill.rectTransform.pivot = new Vector2(0, 0.5f);
-            var wg = UIKit.Image(wallFill.transform, "Gloss", new Color(1f, 1f, 1f, 0.28f), UIKit.Round);
-            UIKit.Inset(wg.rectTransform, 4, 17, 4, 3);
-            wallPct = UIKit.Text(track.transform, "100%", 24, Color.white);
-            UIKit.Stretch(wallPct.rectTransform);
-
-            // barrel (bottom right)
-            barrelBtn = UIKit.Button(ht, "", UIKit.Red, new Vector2(170, 170), () => Gunner.I.ThrowBarrel());
-            UIKit.Place((RectTransform)barrelBtn.transform, new Vector2(1, 0), new Vector2(-28, 28), new Vector2(170, 170));
-            ((Image)barrelBtn.targetGraphic).sprite = UIKit.Circle;
-            ((Image)barrelBtn.targetGraphic).type = Image.Type.Simple;
-            barrelFace = UIKit.Face(barrelBtn);
-            barrelFace.sprite = UIKit.Circle;
-            barrelFace.type = Image.Type.Simple;
-            var bgloss = barrelFace.transform.Find("Gloss");
-            if (bgloss != null) Destroy(bgloss.gameObject);
-            var icon = UIKit.BarrelIcon(barrelFace.transform, 84);
-            UIKit.Place(icon, new Vector2(0.5f, 0.5f), new Vector2(0, 16), new Vector2(84, 84));
-            var bl = UIKit.Title(barrelFace.transform, "BARREL", 34, Color.white);
-            UIKit.Place(bl.rectTransform, new Vector2(0.5f, 0f), new Vector2(0, 14), new Vector2(170, 36));
-            if (!Application.isMobilePlatform)
-            {
-                var key = UIKit.Panel(barrelBtn.transform, "Key", UIKit.Dark);
-                UIKit.Place(key.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, 40), new Vector2(110, 34));
-                var kt = UIKit.Text(key.transform, "SPACE", 20, Color.white, TextAnchor.MiddleCenter, false);
-                UIKit.Stretch(kt.rectTransform);
-            }
-            barrelFill = UIKit.Image(barrelFace.transform, "Cooldown", new Color(0f, 0f, 0f, 0.6f), UIKit.Circle);
-            UIKit.Stretch(barrelFill.rectTransform);
+            // barrel button (bottom right): its parts are children so they squash with the press
+            barrelBtn = UIKit.SpriteButton(ht, "round_red", "", 0, () => Gunner.I.ThrowBarrel());
+            var bt = (RectTransform)barrelBtn.transform;
+            UIKit.At(bt, BR, 1082, 522, 176, 176);
+            var bsz = new Vector2(176, 176);
+            barrelFace = (Image)barrelBtn.targetGraphic;
+            In(UIKit.Pic(bt, "barrel3d", Color.white).rectTransform, bsz, 28, 4, 120, 120);
+            In(UIKit.Title(bt, "BARREL", 34, Color.white).rectTransform, bsz, 0, 118, 176, 34);
+            barrelFill = UIKit.Image(bt, "Cooldown", new Color(0.05f, 0.02f, 0.08f, 0.62f), UIKit.Circle);
+            In(barrelFill.rectTransform, bsz, 6, 4, 164, 164);
             barrelFill.type = Image.Type.Filled;
             barrelFill.fillMethod = Image.FillMethod.Radial360;
             barrelFill.fillOrigin = (int)Image.Origin360.Top;
             barrelFill.fillClockwise = false;
-            barrelGlow = UIKit.Image(barrelBtn.transform, "Glow", UIKit.Gold, UIKit.Ring);
-            UIKit.Place(barrelGlow.rectTransform, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(200, 200));
+            barrelGlow = UIKit.Image(bt, "Glow", UIKit.Gold, UIKit.Ring);
+            In(barrelGlow.rectTransform, bsz, -14, -14, 204, 204);
+            if (!Application.isMobilePlatform)
+            {
+                var key = UIKit.Pic(bt, "keycap", Color.white);
+                In(key.rectTransform, bsz, 46, -36, 84, 38);
+                var kt = UIKit.Text(key.transform, "SPACE", 18, new Color(0.17f, 0.11f, 0.23f), TextAnchor.MiddleCenter, false);
+                UIKit.Inset(kt.rectTransform, 0, 5, 0, 0);
+            }
 
-            var hint = UIKit.Text(ht, Application.isMobilePlatform ? "HOLD ANYWHERE TO SHOOT" : "HOLD THE MOUSE TO SHOOT   ·   SPACE / RIGHT-CLICK = BARREL", 24, Color.white);
-            UIKit.Place(hint.rectTransform, new Vector2(0.5f, 0), new Vector2(0, 26), new Vector2(900, 30));
+            var hint = Label(ht, Application.isMobilePlatform ? "HOLD ANYWHERE TO SHOOT" : "HOLD THE MOUSE TO SHOOT   |   SPACE / RIGHT-CLICK = BARREL", false, 22, Color.white, BC, 0, 684, 1280);
             hint.gameObject.AddComponent<FadeAfter>().delay = 8f;
 
-            // crosshair: four ticks and a dot, opening up while firing
-            crosshair = UIKit.Node("Crosshair", root);
-            crosshair.sizeDelta = new Vector2(60, 60);
-            for (int i = 0; i < 4; i++)
-            {
-                var tk = UIKit.Image(crosshair, "Tick", Color.white, UIKit.Round);
-                tk.rectTransform.sizeDelta = i % 2 == 0 ? new Vector2(6, 18) : new Vector2(18, 6);
-                var o = tk.gameObject.AddComponent<Outline>(); o.effectColor = new Color(0, 0, 0, 0.7f); o.effectDistance = new Vector2(1.5f, -1.5f);
-                ticks[i] = tk.rectTransform;
-            }
-            var dot = UIKit.Image(crosshair, "Dot", new Color(1f, 0.25f, 0.2f), UIKit.Circle);
-            dot.rectTransform.sizeDelta = new Vector2(8, 8);
+            crosshair = UIKit.Pic(root, "crosshair", Color.white).rectTransform;
+            crosshair.sizeDelta = new Vector2(72, 72);
 
-            bannerText = UIKit.Title(root, "", 110, UIKit.Gold);
-            UIKit.Place(bannerText.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, 150), new Vector2(1200, 120));
-            bannerSub = UIKit.Text(root, "", 34, Color.white);
-            UIKit.Place(bannerSub.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, 78), new Vector2(1200, 50));
+            // wave banner on a ribbon
+            banner = UIKit.Node("Banner", root).gameObject;
+            UIKit.Stretch((RectTransform)banner.transform);
+            Pic(banner.transform, "ribbon", Color.white, C, 370, 170, 540, 100);
+            bannerText = Label(banner.transform, "", true, 76, Color.white, C, 370, 174, 540);
+            bannerSub = Label(banner.transform, "", true, 40, UIKit.Gold, C, 170, 286, 940);
+            banner.SetActive(false);
 
             for (int i = 0; i < 16; i++)
             {
@@ -159,88 +182,74 @@ namespace ZombiePile
             }
 
             // ---------------- menu
-            menu = Overlay("Menu", new Color(0f, 0f, 0f, 0.2f), new Color(0.02f, 0.01f, 0.03f, 0.9f));
+            menu = Overlay("Menu", new Color(0.04f, 0.02f, 0.06f, 0.4f));
             var mt = menu.transform;
-            var logo = UIKit.Node("Logo", mt);
-            UIKit.Place(logo, new Vector2(0.5f, 0.5f), new Vector2(0, 185), new Vector2(900, 200));
-            logo.localRotation = Quaternion.Euler(0, 0, 3f);
-            var title = UIKit.Title(logo, "ZOMBIE PILE", 170, UIKit.Lime);
-            UIKit.Stretch(title.rectTransform);
-            var stamp = UIKit.Image(logo, "Stamp", UIKit.Red, UIKit.Round);
-            UIKit.Place(stamp.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(330, -90), new Vector2(250, 70));
-            stamp.rectTransform.localRotation = Quaternion.Euler(0, 0, -12f);
-            var so = stamp.gameObject.AddComponent<Outline>(); so.effectColor = Color.white; so.effectDistance = new Vector2(4f, -4f);
-            var st = UIKit.Title(stamp.transform, "NOT FAKE!", 54, Color.white);
-            UIKit.Stretch(st.rectTransform);
-            stamp.gameObject.AddComponent<Pulse>();
-            var sub = UIKit.Text(mt, "THE GAME FROM THE ADS. FOR REAL.", 34, Color.white);
-            UIKit.Place(sub.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, 20), new Vector2(1100, 50));
-            var sub2 = UIKit.Text(mt, "Shoot the pile down before it climbs the wall!", 26, new Color(1f, 1f, 1f, 0.8f));
-            UIKit.Place(sub2.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, -22), new Vector2(1100, 40));
-            var play = UIKit.Button(mt, "PLAY", UIKit.Green, new Vector2(400, 124), () => { SoundBank.I.Play(SoundBank.I.click); Game.I.StartRun(); }, 72);
-            UIKit.Place((RectTransform)play.transform, new Vector2(0.5f, 0.5f), new Vector2(0, -130), new Vector2(400, 124));
-            play.gameObject.AddComponent<Pulse>().amount = 0.04f;
-            var bp = UIKit.Panel(mt, "Best", UIKit.Dark);
-            UIKit.Place(bp.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, -238), new Vector2(300, 52));
-            bestPill = bp.gameObject;
-            bestText = UIKit.Text(bp.transform, "", 30, UIKit.Gold);
-            UIKit.Stretch(bestText.rectTransform);
-            muteBtn = UIKit.Button(mt, Save.Data.muted ? "SOUND: OFF" : "SOUND: ON", UIKit.Gray, new Vector2(210, 64), () =>
+            var mf = UIKit.Image(mt, "Fade", new Color(0.04f, 0.02f, 0.06f, 0.85f), UIKit.Fade);
+            UIKit.Stretch(mf.rectTransform);
+            mf.rectTransform.anchorMax = new Vector2(1f, 0.6f);
+            Vignette(mt, 1f);
+            Pic(mt, "logo", Color.white, C, 230, 10, 820, 400).gameObject.AddComponent<Pulse>().amount = 0.015f;
+            Label(mt, "THE GAME FROM THE ADS. FOR REAL.", false, 34, Color.white, C, 0, 408, 1280);
+            var play = UIKit.SpriteButton(mt, "btn_green", "PLAY", 88, () => { SoundBank.I.Play(SoundBank.I.click); Game.I.StartRun(); });
+            UIKit.At((RectTransform)play.transform, C, 460, 462, 360, 124);
+            play.gameObject.AddComponent<Pulse>().amount = 0.035f;
+            bestPill = UIKit.Node("Best", mt).gameObject;
+            UIKit.Stretch((RectTransform)bestPill.transform);
+            Pic(bestPill.transform, "panel", Color.white, C, 500, 606, 280, 60);
+            Pic(bestPill.transform, "ic_trophy", Color.white, C, 514, 610, 52, 52);
+            bestText = Label(bestPill.transform, "", false, 30, UIKit.Gold, C, 570, 620, 200, TextAnchor.MiddleLeft);
+            var mute = UIKit.SpriteButton(mt, "round_dark", "", 0, () =>
             {
                 Save.Data.muted = !Save.Data.muted; Save.Write(); SoundBank.ApplyMute();
-                UIKit.SetLabel(muteBtn, Save.Data.muted ? "SOUND: OFF" : "SOUND: ON");
-            }, 28);
-            UIKit.Place((RectTransform)muteBtn.transform, new Vector2(1, 0), new Vector2(-24, 24), new Vector2(210, 64));
-
-            var ver = UIKit.Text(mt, "Zombie Pile " + Game.Version + " · " + Kit.Status, 16, new Color(1f, 1f, 1f, 0.45f), TextAnchor.LowerLeft, false);
-            UIKit.Place(ver.rectTransform, new Vector2(0, 0), new Vector2(16, 12), new Vector2(1000, 26));
+                muteIcon.sprite = UIKit.Spr(Save.Data.muted ? "ic_mute" : "ic_sound");
+            });
+            UIKit.At((RectTransform)mute.transform, BR, 1172, 612, 88, 88);
+            muteIcon = UIKit.Pic(mute.transform, Save.Data.muted ? "ic_mute" : "ic_sound", Color.white);
+            In(muteIcon.rectTransform, new Vector2(88, 88), 18, 12, 52, 52);
+            Label(mt, "Zombie Pile " + Game.Version + "   " + Kit.Status + "   |   models: Quaternius (CC0)   |   icons: game-icons.net by Lorc & Delapouite (CC BY 3.0)", false, 14,
+                new Color(1f, 1f, 1f, 0.5f), BL, 16, 698, 1100, TextAnchor.MiddleLeft, false);
 
             // ---------------- upgrades
-            upgrades = Overlay("Upgrades", new Color(0f, 0f, 0f, 0.5f), new Color(0.02f, 0.01f, 0.03f, 0.85f));
-            var ut = UIKit.Title(upgrades.transform, "CHOOSE AN UPGRADE", 80, UIKit.Gold);
-            UIKit.Place(ut.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, 250), new Vector2(1200, 90));
+            upgrades = Overlay("Upgrades", new Color(0.03f, 0.01f, 0.05f, 0.72f));
+            Pic(upgrades.transform, "ribbon", Color.white, C, 310, 34, 660, 100);
+            Label(upgrades.transform, "CHOOSE AN UPGRADE", true, 62, Color.white, C, 310, 44, 660);
             cardRow = UIKit.Node("Cards", upgrades.transform);
-            UIKit.Place(cardRow, new Vector2(0.5f, 0.5f), new Vector2(0, -30), new Vector2(1100, 380));
+            UIKit.At(cardRow, C, 150, 170, 980, 380);
             upgrades.SetActive(false);
 
             // ---------------- game over
-            over = Overlay("Over", new Color(0.25f, 0.02f, 0.02f, 0.45f), new Color(0.05f, 0f, 0f, 0.92f));
-            overTitle = UIKit.Title(over.transform, "OVERRUN!", 170, new Color(1f, 0.28f, 0.22f));
-            UIKit.Place(overTitle.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, 175), new Vector2(1200, 180));
-            overTitle.rectTransform.localRotation = Quaternion.Euler(0, 0, -3f);
-            var sp = UIKit.Panel(over.transform, "Stats", UIKit.Dark);
-            UIKit.Place(sp.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0, 10), new Vector2(560, 170));
-            overStats = UIKit.Text(sp.transform, "", 38, Color.white);
-            UIKit.Stretch(overStats.rectTransform);
-            var retry = UIKit.Button(over.transform, "TRY AGAIN", UIKit.Green, new Vector2(420, 120), () => { over.SetActive(false); Game.I.Retry(); }, 60);
-            UIKit.Place((RectTransform)retry.transform, new Vector2(0.5f, 0.5f), new Vector2(0, -170), new Vector2(420, 120));
-            retry.gameObject.AddComponent<Pulse>().amount = 0.04f;
+            over = Overlay("Over", new Color(0.18f, 0f, 0f, 0.7f));
+            var ot = over.transform;
+            Vignette(ot, 1f);
+            Label(ot, "OVERRUN!", true, 150, new Color(1f, 0.29f, 0.21f), C, 0, 40, 1280).GetComponent<Stroke>().width = 12f;
+            Pic(ot, "panel", Color.white, C, 420, 228, 440, 230);
+            Pic(ot, "zhead", Color.white, C, 446, 244, 60, 60);
+            Label(ot, "WAVE", false, 34, Color.white, C, 520, 256, 150, TextAnchor.MiddleLeft);
+            overWave = Label(ot, "1", true, 52, UIKit.Gold, C, 700, 250, 136, TextAnchor.MiddleRight);
+            Pic(ot, "ic_skull", Color.white, C, 446, 314, 60, 60);
+            Label(ot, "KILLS", false, 34, Color.white, C, 520, 326, 150, TextAnchor.MiddleLeft);
+            overKills = Label(ot, "0", true, 52, Color.white, C, 700, 320, 136, TextAnchor.MiddleRight);
+            Pic(ot, "ic_trophy", Color.white, C, 446, 384, 60, 60);
+            overBestLabel = Label(ot, "BEST", false, 34, Color.white, C, 520, 396, 150, TextAnchor.MiddleLeft);
+            overBest = Label(ot, "", true, 48, UIKit.Gold, C, 520, 390, 316, TextAnchor.MiddleRight);
+            var retry = UIKit.SpriteButton(ot, "btn_green", "TRY AGAIN", 72, () => { over.SetActive(false); Game.I.Retry(); });
+            UIKit.At((RectTransform)retry.transform, C, 440, 490, 400, 124);
+            retry.gameObject.AddComponent<Pulse>().amount = 0.035f;
             over.SetActive(false);
             hud.SetActive(false);
-        }
-
-        /// Full-screen overlay: a flat tint plus a dark fade rising from the bottom.
-        GameObject Overlay(string name, Color tint, Color bottom)
-        {
-            var img = UIKit.Image(root, name, tint, null, true);
-            UIKit.Stretch(img.rectTransform);
-            var f = UIKit.Image(img.transform, "Fade", bottom, UIKit.Fade);
-            UIKit.Stretch(f.rectTransform);
-            f.rectTransform.anchorMax = new Vector2(1f, 0.75f);
-            return img.gameObject;
         }
 
         // ------------------------------------------------------------------ API
         public void ShowMenu(int best)
         {
             menu.SetActive(true); hud.SetActive(false);
-            bestText.text = best > 0 ? "BEST: WAVE " + best : "";
+            bestText.text = "BEST: WAVE " + best;
             bestPill.SetActive(best > 0);
         }
 
         public void HideMenu() { menu.SetActive(false); hud.SetActive(true); }
-        public void SetWave(int n) { waveText.text = "WAVE " + n; }
-        public void SetLeft(int n) { leftText.text = n + (n == 1 ? " ZOMBIE LEFT" : " ZOMBIES LEFT"); }
+        public void SetWave(int n) { waveText.text = "WAVE " + n; waveShown = waveTarget = 0f; }
+        public void SetLeft(int n, int total) { leftText.text = n + " LEFT"; waveTarget = total > 0 ? 1f - (float)n / total : 0f; }
         public void SetKills(int n) { if (killText.text != n.ToString()) killPunch = 1f; killText.text = n.ToString(); }
         public void SetWall(float k) { wallTarget = k; }
         public void FlashDamage() { damageT = 1f; }
@@ -248,8 +257,9 @@ namespace ZombiePile
         public void Banner(string title, string sub)
         {
             bannerText.text = title; bannerSub.text = sub; bannerT = 2.2f;
-            bannerColor = title.Contains("CLEARED") ? UIKit.Lime : UIKit.Gold;
-            bannerText.transform.localScale = Vector3.one * 1.4f;
+            bannerColor = title.Contains("CLEARED") ? UIKit.Lime : Color.white;
+            banner.SetActive(true);
+            banner.transform.localScale = Vector3.one * 1.3f;
         }
 
         public void Popup(Vector3 world, string text, Color c, float size)
@@ -261,36 +271,28 @@ namespace ZombiePile
             p.t.gameObject.SetActive(true);
         }
 
-        public void ShowUpgrades(string[] titles, string[] descs, Color[] colors, Action<int> pick)
+        public void ShowUpgrades(string[] titles, string[] descs, Color[] colors, string[] icons, Action<int> pick)
         {
             for (int i = cardRow.childCount - 1; i >= 0; i--) Destroy(cardRow.GetChild(i).gameObject);
-            bool portrait = Screen.height > Screen.width;
+            // the row is 980 wide: on a narrow (portrait) screen it shrinks to fit
+            cardRow.localScale = Vector3.one * Mathf.Min(1f, (root.rect.width - 32f) / 980f);
+            var rowSize = new Vector2(980, 380);
+            var cardSize = new Vector2(300, 380);
             for (int i = 0; i < titles.Length; i++)
             {
                 int idx = i;
-                var size = portrait ? new Vector2(640, 160) : new Vector2(330, 350);
-                var card = UIKit.Button(cardRow, "", colors[i], size, () =>
-                {
-                    upgrades.SetActive(false);
-                    pick(idx);
-                });
-                var r = (RectTransform)card.transform;
-                if (portrait) UIKit.Place(r, new Vector2(0.5f, 0.5f), new Vector2(0, 180 - i * 180), size);
-                else UIKit.Place(r, new Vector2(0.5f, 0.5f), new Vector2((i - (titles.Length - 1) * 0.5f) * 365, 0), size);
-                var face = UIKit.Face(card).transform;
-                var t = UIKit.Title(face, titles[i], portrait ? 54 : 50, Color.white);
-                UIKit.Place(t.rectTransform, new Vector2(0.5f, 1f), new Vector2(0, portrait ? -12 : -26), new Vector2(size.x - 20, 70));
-                var box = UIKit.Image(face, "Desc", new Color(0f, 0f, 0f, 0.28f), UIKit.Round);
-                if (portrait) UIKit.Inset(box.rectTransform, 16, 14, 16, 84);
-                else UIKit.Inset(box.rectTransform, 16, 70, 16, 120);
-                var d = UIKit.Text(box.transform, descs[i], 26, Color.white);
+                var card = UIKit.SpriteButton(cardRow, "card", "", 0, () => { upgrades.SetActive(false); pick(idx); });
+                ((Image)card.targetGraphic).color = colors[i];
+                var r = In((RectTransform)card.transform, rowSize, 20 + i * 330 + (3 - titles.Length) * 165, 0, 300, 380);
+                In(UIKit.Image(r, "Badge", new Color(0f, 0f, 0f, 0.25f), UIKit.Circle).rectTransform, cardSize, 90, 28, 120, 120);
+                if (!string.IsNullOrEmpty(icons[i])) In(UIKit.Pic(r, icons[i], Color.white).rectTransform, cardSize, 95, 33, 110, 110);
+                In(UIKit.Title(r, titles[i], 44, Color.white).rectTransform, cardSize, 0, 162, 300, 44);
+                In(UIKit.Image(r, "Plate", new Color(0f, 0f, 0f, 0.28f), UIKit.Round).rectTransform, cardSize, 22, 222, 256, 86);
+                var d = UIKit.Text(r, descs[i], 25, Color.white);
                 d.horizontalOverflow = HorizontalWrapMode.Wrap;
-                UIKit.Inset(d.rectTransform, 12, 6, 12, 6);
-                if (!portrait)
-                {
-                    var tap = UIKit.Text(face, "TAP TO PICK", 22, new Color(1f, 1f, 1f, 0.85f));
-                    UIKit.Place(tap.rectTransform, new Vector2(0.5f, 0f), new Vector2(0, 24), new Vector2(300, 30));
-                }
+                d.GetComponent<Stroke>().width = 3f;
+                In(d.rectTransform, cardSize, 30, 226, 240, 78);
+                In(UIKit.Text(r, "TAP TO PICK", 20, new Color(1f, 1f, 1f, 0.9f)).rectTransform, cardSize, 0, 326, 300, 20);
             }
             upgrades.SetActive(true);
         }
@@ -298,25 +300,29 @@ namespace ZombiePile
         public void ShowGameOver(int wave, int kills, int best, bool newBest)
         {
             over.SetActive(true);
-            overTitle.text = "OVERRUN!";
-            overStats.text = "YOU HELD UNTIL WAVE " + wave + "\n" + kills + " ZOMBIES DOWN\n" + (newBest ? "<color=#FFD133>NEW BEST!</color>" : "<color=#FFD133>BEST: WAVE " + best + "</color>");
+            overWave.text = wave.ToString();
+            overKills.text = kills.ToString();
+            overBestLabel.gameObject.SetActive(!newBest);
+            overBest.text = newBest ? "NEW BEST!" : best.ToString();
+            overBest.alignment = newBest ? TextAnchor.MiddleLeft : TextAnchor.MiddleRight;
         }
 
+        // ------------------------------------------------------------------ per frame
         void Update()
         {
             float dt = Time.unscaledDeltaTime;
-            // crosshair follows the mouse on desktop
+            bool playing = Game.I != null && Game.I.Playing;
+
+            // crosshair follows the mouse on desktop and opens up while firing
             bool touch = Input.touchCount > 0 || Application.isMobilePlatform;
-            crosshair.gameObject.SetActive(hud.activeSelf && !touch && Game.I != null && Game.I.Playing);
+            crosshair.gameObject.SetActive(hud.activeSelf && !touch && playing);
             if (crosshair.gameObject.activeSelf)
             {
                 Vector2 local;
                 RectTransformUtility.ScreenPointToLocalPointInRectangle(root, Input.mousePosition, null, out local);
                 crosshair.anchoredPosition = local;
                 spread = Mathf.Lerp(spread, Gunner.I.Firing ? 1f : 0f, 1f - Mathf.Exp(-dt * 14f));
-                float g = 11f + spread * 9f;
-                ticks[0].anchoredPosition = new Vector2(0, g + 9); ticks[2].anchoredPosition = new Vector2(0, -g - 9);
-                ticks[1].anchoredPosition = new Vector2(g + 9, 0); ticks[3].anchoredPosition = new Vector2(-g - 9, 0);
+                crosshair.localScale = Vector3.one * (1f + spread * 0.25f);
                 Cursor.visible = false;
             }
             else Cursor.visible = true;
@@ -324,35 +330,44 @@ namespace ZombiePile
             if (Gunner.I != null)
             {
                 float ready = Gunner.I.BarrelReady;
-                barrelFill.fillAmount = 1f - ready;
                 bool on = ready >= 1f;
-                barrelFace.color = on ? UIKit.Red : UIKit.Darker(UIKit.Red, 0.35f);
-                barrelFace.transform.localScale = Vector3.one * (on ? 1f + Mathf.Sin(Time.time * 6f) * 0.03f : 0.96f);
+                barrelFill.fillAmount = 1f - ready;
+                barrelFace.color = on ? Color.white : new Color(0.75f, 0.7f, 0.72f);
                 barrelGlow.gameObject.SetActive(on);
                 if (on)
                 {
-                    float k = Mathf.Repeat(Time.time * 1.2f, 1f);
-                    barrelGlow.rectTransform.localScale = Vector3.one * (0.85f + k * 0.35f);
+                    float k = Mathf.Repeat(Time.unscaledTime * 1.2f, 1f);
+                    barrelGlow.rectTransform.localScale = Vector3.one * (0.9f + k * 0.3f);
                     barrelGlow.color = new Color(UIKit.Gold.r, UIKit.Gold.g, UIKit.Gold.b, 1f - k);
                 }
             }
+
             wallShown = Mathf.MoveTowards(wallShown, wallTarget, dt * 0.8f);
-            wallFill.rectTransform.anchorMax = new Vector2(Mathf.Max(0.03f, wallShown), 1f);
-            wallFill.color = wallShown > 0.5f ? Color.Lerp(UIKit.Gold, UIKit.Green, (wallShown - 0.5f) * 2f)
-                                              : Color.Lerp(UIKit.Red, UIKit.Gold, wallShown * 2f);
+            wallFill.rectTransform.anchorMax = new Vector2(Mathf.Max(0.04f, wallShown), 1f);
+            wallFill.color = wallShown > 0.5f ? Color.Lerp(UIKit.Gold, UIKit.Green, (wallShown - 0.5f) * 2f) : Color.Lerp(UIKit.Red, UIKit.Gold, wallShown * 2f);
             wallPct.text = Mathf.CeilToInt(wallShown * 100f) + "%";
+            waveShown = Mathf.MoveTowards(waveShown, waveTarget, dt * 1.5f);
+            waveFill.rectTransform.anchorMax = new Vector2(Mathf.Max(0.04f, waveShown), 1f);
 
             killPunch = Mathf.Max(0f, killPunch - dt * 6f);
-            killBox.localScale = Vector3.one * (1f + killPunch * 0.08f);
+            killText.transform.localScale = Vector3.one * (1f + killPunch * 0.18f);
 
             damageT = Mathf.Max(0f, damageT - dt * 2.5f);
             damage.color = new Color(0.9f, 0.1f, 0.05f, damageT * 0.6f);
 
-            bannerT -= dt;
-            float ba = Mathf.Clamp01(bannerT / 0.5f);
-            bannerText.color = new Color(bannerColor.r, bannerColor.g, bannerColor.b, ba);
-            bannerSub.color = new Color(1f, 1f, 1f, ba);
-            bannerText.transform.localScale = Vector3.Lerp(bannerText.transform.localScale, Vector3.one, 1f - Mathf.Exp(-dt * 10f));
+            if (banner.activeSelf)
+            {
+                bannerT -= dt;
+                float ba = Mathf.Clamp01(bannerT / 0.4f);
+                foreach (var g in banner.GetComponentsInChildren<Graphic>())
+                {
+                    var c = g == bannerText ? bannerColor : g == bannerSub ? UIKit.Gold : Color.white;
+                    c.a = ba;
+                    g.color = c;
+                }
+                banner.transform.localScale = Vector3.Lerp(banner.transform.localScale, Vector3.one, 1f - Mathf.Exp(-dt * 12f));
+                if (bannerT <= 0f) banner.SetActive(false);
+            }
 
             var cam = Camera.main;
             foreach (var p in pops)
@@ -368,6 +383,40 @@ namespace ZombiePile
                 p.t.transform.localScale = Vector3.one * p.size * pop;
                 var c = p.t.color; c.a = Mathf.Clamp01(p.life * 2f); p.t.color = c;
             }
+
+            HealthBars(cam);
+        }
+
+        /// Small health bars over wounded zombies (full-health ones stay clean).
+        void HealthBars(Camera cam)
+        {
+            int used = 0;
+            if (hud.activeSelf && cam != null)
+            {
+                foreach (var z in Zombie.Alive)
+                {
+                    if (z == null || z.Hp >= z.MaxHp || z.Head == null) continue;
+                    var sp = cam.WorldToScreenPoint(z.Head.position + Vector3.up * (z.IsBrute ? 0.75f : 0.5f));
+                    if (sp.z < 0f) continue;
+                    if (used == bars.Count)
+                    {
+                        var track = UIKit.Pic(barBox, "track", Color.white);
+                        var fill = UIKit.Pic(track.transform, "fill", Color.white);
+                        UIKit.Inset(fill.rectTransform, 2.5f, 2.5f, 2.5f, 2.5f);
+                        bars.Add(new Bar { r = track.rectTransform, fill = fill });
+                    }
+                    var b = bars[used++];
+                    if (!b.r.gameObject.activeSelf) b.r.gameObject.SetActive(true);
+                    Vector2 local;
+                    RectTransformUtility.ScreenPointToLocalPointInRectangle(barBox, sp, null, out local);
+                    b.r.anchoredPosition = local;
+                    b.r.sizeDelta = z.IsBrute ? new Vector2(90, 16) : new Vector2(46, 12);
+                    float k = Mathf.Clamp01(z.Hp / z.MaxHp);
+                    b.fill.rectTransform.anchorMax = new Vector2(Mathf.Max(0.08f, k), 1f);
+                    b.fill.color = k > 0.5f ? Color.Lerp(UIKit.Gold, UIKit.Lime, (k - 0.5f) * 2f) : Color.Lerp(UIKit.Red, UIKit.Gold, k * 2f);
+                }
+            }
+            for (int i = used; i < bars.Count; i++) if (bars[i].r.gameObject.activeSelf) bars[i].r.gameObject.SetActive(false);
         }
     }
 
@@ -382,7 +431,7 @@ namespace ZombiePile
         void Update()
         {
             t += Time.unscaledDeltaTime;
-            if (text != null) { var c = text.color; c.a = Mathf.Clamp01(1f - (t - delay)) * 0.8f; text.color = c; }
+            if (text != null) { var c = text.color; c.a = Mathf.Clamp01(1f - (t - delay)); text.color = c; }
         }
     }
 }

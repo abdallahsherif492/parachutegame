@@ -1,0 +1,96 @@
+<!doctype html><html><head><link rel="stylesheet" href="ui.css">
+<style>
+body { width: 1280px; height: 720px; position: relative; overflow: hidden; background: #000 url(../base.png) 0 0 / 1280px 720px; }
+.a { position: absolute; }
+.scr { position: absolute; inset: 0; }
+.ico { position: absolute; background-size: contain; background-repeat: no-repeat; background-position: center; }
+</style></head><body>
+<div id="root"></div>
+<script>
+const S = new URLSearchParams(location.search).get('s') || 'hud';
+const R = document.getElementById('root');
+const el = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); const n = t.content.firstChild; R.appendChild(n); return n; };
+const ico = (name, x, y, w, h) => el(`<div class="ico" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px;background-image:url(out/${name}.png)"></div>`);
+// text: x,y = box left/top, w = box width; align center unless given
+const txt = (s, cls, size, color, x, y, w, align = 'center', sw) => el(`<div class="t ${cls}" style="left:${x}px;top:${y}px;width:${w}px;text-align:${align};font-size:${size}px;color:${color};--sw:${sw ?? Math.max(4, size * 0.16)}px;--sd:${Math.max(2, size * 0.07)}px">${s}</div>`);
+
+if (S === 'hud') {
+  el(`<div class="a vignette" style="inset:0;opacity:.55"></div>`);
+  // top-left: wall health
+  el(`<div class="a panel" style="left:16px;top:14px;width:330px;height:80px"></div>`);
+  ico('ic_wall', 26, 20, 68, 68);
+  txt('WALL', 'bang', 30, '#fff', 104, 22, 120, 'left');
+  el(`<div class="a track" style="left:102px;top:52px;width:230px;height:32px"></div>`);
+  el(`<div class="a fill" style="left:107px;top:56px;width:${(230-10)*0.72}px;height:24px;filter:sepia(1) saturate(6) hue-rotate(40deg) brightness(1.05)"></div>`);
+  txt('72%', 'lil', 22, '#fff', 102, 56, 230, 'center', 5);
+  // top-centre: wave + progress
+  el(`<div class="a panel" style="left:430px;top:14px;width:420px;height:98px"></div>`);
+  txt('WAVE 3', 'bang', 48, '#ffc21f', 430, 22, 420);
+  el(`<div class="a track" style="left:452px;top:70px;width:330px;height:30px"></div>`);
+  el(`<div class="a fill" style="left:457px;top:73px;width:${(330-10)*0.4}px;height:24px;filter:sepia(1) saturate(5) hue-rotate(40deg) brightness(1.15)"></div>`);
+  txt('21 LEFT', 'lil', 21, '#fff', 452, 74, 330, 'center', 5);
+  ico('zhead', 770, 46, 76, 76);
+  // top-right: kills
+  el(`<div class="a panel" style="left:1054px;top:14px;width:210px;height:80px"></div>`);
+  ico('ic_skull', 1064, 20, 68, 68);
+  txt('142', 'bang', 60, '#fff', 1130, 22, 120, 'right');
+  // barrel button bottom-right
+  el(`<div class="a btn red round" style="left:1082px;top:522px;width:176px;height:176px"></div>`);
+  ico('barrel3d', 1110, 526, 120, 120);
+  txt('BARREL', 'bang', 34, '#fff', 1082, 640, 176);
+  el(`<div class="a keycap" style="left:1128px;top:486px;width:84px;height:38px"></div>`);
+  txt('SPACE', 'lil', 18, '#2b1d3a', 1128, 494, 84, 'center', 0);
+  // crosshair
+  ico('crosshair', 700, 250, 72, 72);
+  // popups + banner
+  txt('HEADSHOT!', 'bang', 44, '#ffd21f', 520, 330, 300);
+  txt('+3 COMBO', 'bang', 38, '#a8f04a', 690, 400, 300);
+  txt('HOLD THE MOUSE TO SHOOT &nbsp;·&nbsp; SPACE / RIGHT-CLICK = BARREL', 'lil', 22, '#fff', 0, 684, 1280);
+}
+if (S === 'banner') {
+  el(`<div class="a ribbon" style="left:370px;top:170px;width:540px;height:100px"><div class="tail l"></div><div class="tail r"></div><div class="band"></div></div>`);
+  txt('WAVE 4', 'bang', 76, '#fff', 370, 174, 540);
+  txt('BRUTES INCOMING!', 'bang', 40, '#ffc21f', 370, 286, 540);
+  ico('zbrute', 580, 330, 120, 120);
+}
+if (S === 'menu') {
+  el(`<div class="a" style="inset:0;background:linear-gradient(180deg,rgba(10,4,16,.35),rgba(10,4,16,.55) 55%,rgba(10,4,16,.9))"></div>`);
+  el(`<div class="a vignette" style="inset:0"></div>`);
+  ico('logo', 230, 10, 820, 400);
+  txt('THE GAME FROM THE ADS. FOR REAL.', 'lil', 34, '#fff', 0, 408, 1280);
+  el(`<div class="a btn green" style="left:460px;top:462px;width:360px;height:124px"></div>`);
+  txt('PLAY', 'bang', 88, '#fff', 460, 474, 360);
+  el(`<div class="a panel" style="left:500px;top:606px;width:280px;height:60px"></div>`);
+  ico('ic_trophy', 514, 610, 52, 52);
+  txt('BEST: WAVE 7', 'lil', 30, '#ffc21f', 570, 620, 200, 'left');
+  el(`<div class="a btn dark round" style="left:1172px;top:612px;width:88px;height:88px"></div>`);
+  ico('ic_sound', 1190, 624, 52, 52);
+  txt('v0.5', 'lil', 16, 'rgba(255,255,255,.5)', 16, 694, 200, 'left', 0);
+}
+if (S === 'up') {
+  el(`<div class="a" style="inset:0;background:rgba(8,3,14,.72)"></div>`);
+  el(`<div class="a ribbon" style="left:310px;top:34px;width:660px;height:100px"><div class="tail l"></div><div class="tail r"></div><div class="band"></div></div>`);
+  txt('CHOOSE AN UPGRADE', 'bang', 62, '#fff', 310, 44, 660);
+  const cards = [['RAPID FIRE', '+30% fire rate', '#ff9a1f', 'ic_rapid'], ['HEADHUNTER', 'Headshots do x1.5 damage', '#e0413a', 'ic_head'], ['CLUSTER BOMBS', 'Barrels split into 3 more blasts', '#8a52ff', 'ic_cluster']];
+  cards.forEach(([t, d, c, ic], i) => {
+    const x = 640 - 470 + i * 330, y = 170;
+    el(`<div class="a card" style="left:${x}px;top:${y}px;width:300px;height:380px;filter:none"><div style="position:absolute;inset:0 0 11px 0;border-radius:26px;background:${c};mix-blend-mode:multiply"></div></div>`);
+    el(`<div class="a" style="left:${x + 90}px;top:${y + 28}px;width:120px;height:120px;border-radius:50%;background:rgba(0,0,0,.25)"></div>`);
+    ico(ic, x + 95, y + 33, 110, 110);
+    txt(t, 'bang', 44, '#fff', x, y + 162, 300);
+    el(`<div class="a" style="left:${x + 22}px;top:${y + 222}px;width:256px;height:86px;border-radius:16px;background:rgba(0,0,0,.28)"></div>`);
+    el(`<div class="t lil" style="left:${x + 30}px;top:${y + 232}px;width:240px;height:66px;white-space:normal;display:flex;align-items:center;justify-content:center;text-align:center;font-size:25px;--sw:4px;--sd:2px">${d}</div>`);
+    txt('TAP TO PICK', 'lil', 20, 'rgba(255,255,255,.9)', x, y + 326, 300, 'center', 4);
+  });
+}
+if (S === 'over') {
+  el(`<div class="a" style="inset:0;background:radial-gradient(ellipse at center, rgba(90,0,0,.55), rgba(20,0,0,.92))"></div>`);
+  txt('OVERRUN!', 'bang', 150, '#ff4a36', 0, 40, 1280, 'center', 26);
+  el(`<div class="a panel" style="left:420px;top:228px;width:440px;height:230px"></div>`);
+  ico('zhead', 446, 244, 60, 60); txt('WAVE', 'lil', 34, '#fff', 520, 256, 150, 'left'); txt('7', 'bang', 52, '#ffc21f', 700, 250, 136, 'right');
+  ico('ic_skull', 446, 314, 60, 60); txt('KILLS', 'lil', 34, '#fff', 520, 326, 150, 'left'); txt('243', 'bang', 52, '#fff', 700, 320, 136, 'right');
+  ico('ic_trophy', 446, 384, 60, 60); txt('NEW BEST!', 'bang', 44, '#ffc21f', 520, 392, 316, 'left');
+  el(`<div class="a btn green" style="left:440px;top:490px;width:400px;height:124px"></div>`);
+  txt('TRY AGAIN', 'bang', 72, '#fff', 440, 510, 400);
+}
+</script></body></html>

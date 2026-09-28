@@ -1,0 +1,27 @@
+<!doctype html><html><head><link rel="stylesheet" href="ui.css">
+<style>
+body { background: var(--bg, transparent); margin: 0; }
+#logo { position: relative; width: 820px; height: 400px; }
+.word { position: absolute; left: 0; right: 0; text-align: center; font-family: Bangers; letter-spacing: .03em; line-height: 1; white-space: nowrap; }
+.word span { display: block; }
+/* back layer: thick ink stroke + deep extrusion */
+.back { color: var(--ink); -webkit-text-stroke: 26px var(--ink); paint-order: stroke fill;
+  text-shadow: 0 5px 0 var(--ink), 0 10px 0 var(--ink), 0 15px 0 var(--ink), 0 22px 8px rgba(0,0,0,.45); }
+/* middle layer: darker green rim that shows as a bevel under the face */
+.mid { color: #2f6a08; -webkit-text-stroke: 10px #2f6a08; paint-order: stroke fill; transform: translateY(7px); }
+.face { background: linear-gradient(180deg, #f0ff9e 0%, #b8f040 38%, #74c21c 70%, #4b9410 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.shine { color: transparent; -webkit-text-stroke: 3px rgba(255,255,255,.55); clip-path: inset(0 0 62% 0); }
+.l1 { top: 6px; font-size: 176px; }
+.l2 { top: 146px; font-size: 190px; left: -110px; }
+.drip { position: absolute; width: 22px; border-radius: 0 0 14px 14px; background: linear-gradient(180deg, #74c21c, #4b9410); border: 5px solid var(--ink); border-top: none; }
+.stamp { position: absolute; right: 26px; bottom: 50px; transform: rotate(-9deg); padding: 6px 22px 2px; border-radius: 14px;
+  background: linear-gradient(180deg, #ff5a44, #d0180e); border: 5px solid #fff; outline: 5px solid var(--ink);
+  box-shadow: 0 8px 0 var(--ink), 0 12px 14px rgba(0,0,0,.4); font-family: Bangers; font-size: 64px; color: #fff; letter-spacing: .04em;
+  -webkit-text-stroke: 7px var(--ink); paint-order: stroke fill; line-height: 1.05; }
+</style></head><body>
+<div id="logo" class="spr" data-name="logo">
+  <div class="word l1 back">ZOMBIE</div><div class="word l1 mid">ZOMBIE</div><div class="word l1 face">ZOMBIE</div><div class="word l1 shine">ZOMBIE</div>
+  <div class="word l2 back">PILE</div><div class="word l2 mid">PILE</div><div class="word l2 face">PILE</div><div class="word l2 shine">PILE</div>
+  <div class="stamp">NOT FAKE!</div>
+</div>
+</body></html>

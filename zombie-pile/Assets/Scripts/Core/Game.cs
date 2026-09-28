@@ -9,7 +9,7 @@ namespace ZombiePile
     public class Game : MonoBehaviour
     {
         public static Game I;
-        public const string Version = "v0.4";
+        public const string Version = "v0.5";
 
         public bool Playing { get; private set; }
         public int Wave { get; private set; }
@@ -23,7 +23,7 @@ namespace ZombiePile
         bool waveOver;
         const int MaxAlive = 85;
 
-        class Upgrade { public string title, desc; public Color color; public Action apply; public Func<bool> allowed; }
+        class Upgrade { public string title, desc, icon; public Color color; public Action apply; public Func<bool> allowed; }
         List<Upgrade> pool;
 
         void Awake() { I = this; }
@@ -37,8 +37,8 @@ namespace ZombiePile
             PlatformSDK.Init(() => PlatformSDK.LoadingStop());
             Hud.I.ShowMenu(Save.Data.bestWave);
             // zombies shambling toward the wall behind the menu
-            for (int i = 0; i < 14; i++)
-                Zombie.Spawn(new Vector3(UnityEngine.Random.Range(-4f, 4f), 1f, 6f + i * 1.4f), 1f, 3.5f, false);
+            for (int i = 0; i < 24; i++)
+                Zombie.Spawn(new Vector3(UnityEngine.Random.Range(-3f, 3f), 0.6f, 8f + i * 1.5f), 3f, 3.5f, false);
         }
 
         public void Delay(float seconds, Action a) { StartCoroutine(DelayCo(seconds, a)); }
@@ -68,7 +68,7 @@ namespace ZombiePile
             // hordes, not handfuls: dozens of fast, fragile zombies
             waveTotal = toSpawn = 36 + 16 * (n - 1);
             brutesLeft = n % 3 == 0 ? n / 3 : 0;
-            zHp = 1f + 0.45f * (n - 1);
+            zHp = 3f + 0.9f * (n - 1);                   // bullets to kill at base damage (a headshot does 2.5)
             zSpeed = Mathf.Min(6.5f, 4.4f + 0.2f * n);
             spawnEvery = Mathf.Max(0.25f, 0.55f - 0.03f * n);
             spawnT = 1.2f;
@@ -94,7 +94,7 @@ namespace ZombiePile
                 int burst = UnityEngine.Random.Range(3, 7);   // packs of runners
                 for (int i = 0; i < burst && toSpawn > 0; i++) SpawnOne();
             }
-            Hud.I.SetLeft(toSpawn + Zombie.Alive.Count);
+            Hud.I.SetLeft(toSpawn + Zombie.Alive.Count, waveTotal);
             if (!waveOver && toSpawn == 0 && Zombie.Alive.Count == 0)
             {
                 waveOver = true;
@@ -116,8 +116,9 @@ namespace ZombiePile
             bool brute = brutesLeft > 0 && spawnedThisWave > waveTotal * 0.4f && UnityEngine.Random.value < 0.25f;
             if (brute) brutesLeft--;
             if (toSpawn == 0 && brutesLeft > 0) { brute = true; brutesLeft--; toSpawn += brutesLeft; brutesLeft = 0; }
-            var pos = new Vector3(UnityEngine.Random.Range(-Arena.HalfWidth + 0.8f, Arena.HalfWidth - 0.8f), brute ? 2f : 1.1f,
-                Arena.SpawnZ + UnityEngine.Random.Range(-3f, 3f));
+            // beyond the fog at the far end of the street
+            var pos = new Vector3(UnityEngine.Random.Range(-Arena.HalfWidth + 0.8f, Arena.HalfWidth - 0.8f), brute ? 1.4f : 0.6f,
+                Arena.SpawnZ + UnityEngine.Random.Range(0f, 6f));
             Zombie.Spawn(pos, zHp, zSpeed, brute);
         }
 
@@ -173,16 +174,16 @@ namespace ZombiePile
             var g = Gunner.I;
             pool = new List<Upgrade>
             {
-                new Upgrade { title = "RAPID FIRE", desc = "+30% fire rate", color = new Color(1f, 0.6f, 0.2f), apply = () => g.fireRate *= 1.3f },
-                new Upgrade { title = "HOLLOW POINTS", desc = "+35% damage", color = new Color(0.9f, 0.3f, 0.3f), apply = () => g.damage *= 1.35f },
-                new Upgrade { title = "SPLIT SHOT", desc = "+1 bullet per shot", color = new Color(0.3f, 0.6f, 1f), apply = () => g.bullets++, allowed = () => g.bullets < 5 },
-                new Upgrade { title = "PIERCING", desc = "Bullets go through +1 zombie", color = new Color(0.6f, 0.4f, 1f), apply = () => g.pierce++, allowed = () => g.pierce < 4 },
-                new Upgrade { title = "HEADHUNTER", desc = "Headshots x1.5 damage", color = new Color(1f, 0.85f, 0.2f), apply = () => g.headMult *= 1.5f },
-                new Upgrade { title = "BIG BOOM", desc = "Barrels blast 30% wider", color = new Color(1f, 0.4f, 0.1f), apply = () => g.barrelRadius *= 1.3f },
-                new Upgrade { title = "QUICK THROW", desc = "Barrels recharge 30% faster", color = new Color(0.25f, 0.8f, 0.5f), apply = () => g.barrelCooldown *= 0.7f, allowed = () => g.barrelCooldown > 1.5f },
-                new Upgrade { title = "CLUSTER BOMBS", desc = "Barrels split into 3 more blasts", color = new Color(0.95f, 0.35f, 0.55f), apply = () => g.cluster = true, allowed = () => !g.cluster },
-                new Upgrade { title = "REPAIR", desc = "Fix the wall: +40 HP", color = new Color(0.55f, 0.6f, 0.65f), apply = () => { WallHp = Mathf.Min(WallMax, WallHp + 40f); Hud.I.SetWall(WallHp / WallMax); }, allowed = () => WallHp < WallMax - 10f },
-                new Upgrade { title = "SANDBAGS", desc = "+25 max wall HP (and fill it)", color = new Color(0.8f, 0.7f, 0.45f), apply = () => { WallMax += 25f; WallHp = WallMax; Hud.I.SetWall(1f); } },
+                new Upgrade { title = "RAPID FIRE", icon = "ic_rapid", desc = "+30% fire rate", color = new Color(1f, 0.6f, 0.2f), apply = () => g.fireRate *= 1.3f },
+                new Upgrade { title = "HOLLOW POINTS", icon = "ic_damage", desc = "+35% damage", color = new Color(0.9f, 0.3f, 0.3f), apply = () => g.damage *= 1.35f },
+                new Upgrade { title = "SPLIT SHOT", icon = "ic_split", desc = "+1 bullet per shot", color = new Color(0.3f, 0.6f, 1f), apply = () => g.bullets++, allowed = () => g.bullets < 5 },
+                new Upgrade { title = "PIERCING", icon = "ic_pierce", desc = "Bullets go through +1 zombie", color = new Color(0.6f, 0.4f, 1f), apply = () => g.pierce++, allowed = () => g.pierce < 4 },
+                new Upgrade { title = "HEADHUNTER", icon = "ic_head", desc = "Headshots do x1.5 damage", color = new Color(1f, 0.85f, 0.2f), apply = () => g.headMult *= 1.5f },
+                new Upgrade { title = "BIG BOOM", icon = "ic_boom", desc = "Barrels blast 30% wider", color = new Color(1f, 0.4f, 0.1f), apply = () => g.barrelRadius *= 1.3f },
+                new Upgrade { title = "QUICK THROW", icon = "ic_quick", desc = "Barrels recharge 30% faster", color = new Color(0.25f, 0.8f, 0.5f), apply = () => g.barrelCooldown *= 0.7f, allowed = () => g.barrelCooldown > 1.5f },
+                new Upgrade { title = "CLUSTER BOMBS", icon = "ic_cluster", desc = "Barrels split into 3 more blasts", color = new Color(0.95f, 0.35f, 0.55f), apply = () => g.cluster = true, allowed = () => !g.cluster },
+                new Upgrade { title = "REPAIR", icon = "ic_repair", desc = "Fix the wall: +40 HP", color = new Color(0.55f, 0.6f, 0.65f), apply = () => { WallHp = Mathf.Min(WallMax, WallHp + 40f); Hud.I.SetWall(WallHp / WallMax); }, allowed = () => WallHp < WallMax - 10f },
+                new Upgrade { title = "SANDBAGS", icon = "ic_sandbag", desc = "+25 max wall HP (and fill it)", color = new Color(0.8f, 0.7f, 0.45f), apply = () => { WallMax += 25f; WallHp = WallMax; Hud.I.SetWall(1f); } },
             };
         }
 
@@ -200,8 +201,9 @@ namespace ZombiePile
             var titles = new string[options.Count];
             var descs = new string[options.Count];
             var colors = new Color[options.Count];
-            for (int i = 0; i < options.Count; i++) { titles[i] = options[i].title; descs[i] = options[i].desc; colors[i] = options[i].color; }
-            Hud.I.ShowUpgrades(titles, descs, colors, pickIdx =>
+            var icons = new string[options.Count];
+            for (int i = 0; i < options.Count; i++) { titles[i] = options[i].title; descs[i] = options[i].desc; colors[i] = options[i].color; icons[i] = options[i].icon; }
+            Hud.I.ShowUpgrades(titles, descs, colors, icons, pickIdx =>
             {
                 options[pickIdx].apply();
                 SoundBank.I.Play(SoundBank.I.chime, 0.7f, 1.2f);

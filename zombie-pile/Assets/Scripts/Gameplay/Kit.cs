@@ -5,23 +5,25 @@ using UnityEngine;
 namespace ZombiePile
 {
     /// The Quaternius "Zombie Apocalypse Kit" (free, CC0) in Assets/Resources/ZombieKit/.
-    /// layout.json holds the street layout plus each model's reference size (measured from the glTF version),
-    /// so every FBX is fitted to the same size, pivot and facing no matter how it was imported.
+    /// The FBX files import at real size (metres) with the same orientation as the glTF versions, so a model
+    /// is placed as-is: its own import transform is kept and only the holder is moved, turned and scaled.
+    /// layout.json is written in glTF (right-handed) coordinates; Unity mirrors X on import, so layout
+    /// positions and yaws are mirrored with LayoutPos / LayoutYaw to look exactly like the design preview.
     public static class Kit
     {
         [Serializable] public class ModelMeta { public string name; public float[] size, min, center; }
         [Serializable] public class Prop { public string m; public float[] p; public float r; public float s = 1f; }
         [Serializable] public class LayoutData { public float wallHeight, wallFront, halfWidth; public Prop[] props; public ModelMeta[] models; }
 
-        /// rot = the full local rotation of the model (yaw on top of the FBX's own axis conversion, e.g. -90 on X
-        /// for Blender files). Overwriting that axis rotation laid every model on its back.
-        struct Fit { public float yaw, scale; public Vector3 offset; public Quaternion rot; }
+        /// Per-model correction, measured once: 'scale' only differs from 1 if the import scale is off,
+        /// 'yaw' is 180 only if a character turns out to face -Z (it should face +Z like the glTF).
+        struct Fix { public float scale, yaw; }
 
         static LayoutData layout;
         static bool loaded;
         static readonly Dictionary<string, ModelMeta> meta = new Dictionary<string, ModelMeta>();
         static readonly Dictionary<string, GameObject> prefabs = new Dictionary<string, GameObject>();
-        static readonly Dictionary<string, Fit> fits = new Dictionary<string, Fit>();
+        static readonly Dictionary<string, Fix> fixes = new Dictionary<string, Fix>();
 
         public static LayoutData Layout { get { Load(); return layout; } }
         public static bool Available { get { Load(); return layout != null && Prefab("Zombie_Basic") != null; } }
@@ -38,6 +40,9 @@ namespace ZombiePile
                 return "models ON";
             }
         }
+
+        public static Vector3 LayoutPos(Prop p) { return new Vector3(-p.p[0], p.p[1], p.p[2]); }
+        public static float LayoutYaw(Prop p) { return -p.r; }
 
         static void Load()
         {
@@ -63,102 +68,89 @@ namespace ZombiePile
             return go;
         }
 
-        /// World bounds of everything visible. Skinned meshes are baked first: their renderer bounds are not
-        /// valid right after Instantiate, which made characters come out giant or invisible.
-        static Bounds Measure(GameObject go)
+        /// World-space vertices of everything visible (skinned meshes baked in their current pose).
+        static List<Vector3> Vertices(GameObject go)
         {
-            var b = new Bounds(go.transform.position, Vector3.zero);
-            bool first = true;
+            var list = new List<Vector3>();
             foreach (var r in go.GetComponentsInChildren<Renderer>(true))
             {
                 if (!r.enabled || !r.gameObject.activeInHierarchy) continue;
                 var smr = r as SkinnedMeshRenderer;
+                Mesh mesh = null;
+                Matrix4x4 m;
+                bool temp = false;
                 if (smr != null)
                 {
                     if (smr.sharedMesh == null) continue;
-                    var baked = new Mesh();
-                    smr.BakeMesh(baked);   // vertices come out scaled but unrotated/untranslated
-                    var m = Matrix4x4.TRS(smr.transform.position, smr.transform.rotation, Vector3.one);
-                    foreach (var v in baked.vertices)
-                    {
-                        var p = m.MultiplyPoint3x4(v);
-                        if (first) { b = new Bounds(p, Vector3.zero); first = false; } else b.Encapsulate(p);
-                    }
-                    UnityEngine.Object.DestroyImmediate(baked);
+                    mesh = new Mesh(); temp = true;
+                    smr.BakeMesh(mesh);   // scaled, but not rotated/translated
+                    m = Matrix4x4.TRS(smr.transform.position, smr.transform.rotation, Vector3.one);
                 }
                 else
                 {
-                    if (first) { b = r.bounds; first = false; } else b.Encapsulate(r.bounds);
+                    var mf = r.GetComponent<MeshFilter>();
+                    if (mf == null || mf.sharedMesh == null) continue;
+                    mesh = mf.sharedMesh;
+                    m = r.transform.localToWorldMatrix;
                 }
+                var vs = mesh.vertices;
+                for (int i = 0; i < vs.Length; i++) list.Add(m.MultiplyPoint3x4(vs[i]));
+                if (temp) UnityEngine.Object.DestroyImmediate(mesh);
             }
+            return list;
+        }
+
+        static Bounds Measure(List<Vector3> vs)
+        {
+            if (vs.Count == 0) return new Bounds();
+            var b = new Bounds(vs[0], Vector3.zero);
+            for (int i = 1; i < vs.Count; i++) b.Encapsulate(vs[i]);
             return b;
         }
 
-        /// Finds the yaw (0/90/180/270), uniform scale and offset that make the imported model match its glTF reference.
-        static Fit GetFit(string name, GameObject prefab)
+        static Fix GetFix(string name, GameObject prefab)
         {
-            Fit f;
-            if (fits.TryGetValue(name, out f)) return f;
-            var baseRot = prefab.transform.localRotation;
-            f = new Fit { yaw = 0f, scale = 1f, offset = Vector3.zero, rot = baseRot };
+            Fix f;
+            if (fixes.TryGetValue(name, out f)) return f;
+            f = new Fix { scale = 1f, yaw = 0f };
             ModelMeta m;
-            if (!meta.TryGetValue(name, out m)) { fits[name] = f; return f; }
-            var E = new Vector3(m.size[0], m.size[1], m.size[2]);
-            var C = new Vector3(m.center[0], m.center[1], m.center[2]);
+            if (!meta.TryGetValue(name, out m)) { fixes[name] = f; return f; }
             var tmp = UnityEngine.Object.Instantiate(prefab);
             tmp.transform.position = Vector3.zero;
-            tmp.transform.rotation = baseRot;
             Prepare(tmp);
-            if (name.StartsWith("Zombie") || name.StartsWith("Characters"))
+            var vs = Vertices(tmp);
+            if (vs.Count == 0)
             {
-                // characters: scale by height (reference T-pose includes all weapons, so only height is reliable),
-                // and check the facing with the zombie run: the arms reach forward, so the hands must be at +z.
-                var bb = Measure(tmp);
-                f.scale = E.y / Mathf.Max(0.0001f, bb.size.y);
-                f.offset = new Vector3(0f, m.min[1] - bb.min.y * f.scale, 0f);
-                var an = Anim.From(tmp);
-                Transform hips = null, la = null, ra = null;
-                foreach (var t in tmp.GetComponentsInChildren<Transform>())
-                {
-                    if (t.name == "Hips") hips = t;
-                    else if (t.name == "LowerArm.L") la = t;
-                    else if (t.name == "LowerArm.R") ra = t;
-                }
-                if (an.anim != null && an.run != null && hips != null && la != null && ra != null)
-                {
-                    an.anim.Play(an.run);
-                    an.anim[an.run].time = an.anim[an.run].length * 0.3f;
-                    an.anim.Sample();
-                    var fwd = (la.position + ra.position) * 0.5f - hips.position;
-                    if (fwd.z < 0f) f.yaw = 180f;
-                }
-                f.rot = Quaternion.Euler(0f, f.yaw, 0f) * baseRot;
+                // mesh data not readable (Read/Write off): trust the import as it is
                 UnityEngine.Object.DestroyImmediate(tmp);
-                Debug.Log("ZombieKit fit " + name + ": scale " + f.scale.ToString("0.###") + ", yaw " + f.yaw + ", measured " + bb.size.ToString("0.00") + " -> height " + E.y.ToString("0.00") + "m");
-                fits[name] = f;
+                Debug.LogWarning("ZombieKit " + name + ": mesh not readable, placed without checks (reimport Assets/Resources/ZombieKit)");
+                fixes[name] = f;
                 return f;
             }
-            float best = float.MaxValue;
-            for (int i = 0; i < 4; i++)
+            var b = Measure(vs);
+            // the import should already be in metres: only correct it if it is clearly off
+            float ratio = m.size[1] / Mathf.Max(0.0001f, b.size.y);
+            if (m.size[1] > 0.2f && (ratio < 0.8f || ratio > 1.25f)) f.scale = ratio;
+            if (IsCharacter(name))
             {
-                tmp.transform.rotation = Quaternion.Euler(0f, i * 90f, 0f) * baseRot;
-                var b = Measure(tmp);
-                float k = E.y > 0.3f ? E.y / Mathf.Max(0.0001f, b.size.y)
-                                     : Mathf.Max(E.x, E.z) / Mathf.Max(0.0001f, Mathf.Max(b.size.x, b.size.z));
-                var s = b.size * k; var c = b.center * k;
-                float score = Mathf.Abs(s.x - E.x) + Mathf.Abs(s.z - E.z) + Mathf.Abs(c.x - C.x) + Mathf.Abs(c.z - C.z);
-                if (score < best - 0.001f)
+                // toes point forward: the lowest vertices sit in front of the shins
+                float h = b.size.y, y0 = b.min.y, feet = 0f, shin = 0f; int nf = 0, ns = 0;
+                foreach (var v in vs)
                 {
-                    best = score;
-                    f.yaw = i * 90f; f.scale = k; f.rot = tmp.transform.rotation;
-                    f.offset = new Vector3(C.x - c.x, m.min[1] - b.min.y * k, C.z - c.z);
+                    float k = (v.y - y0) / Mathf.Max(0.0001f, h);
+                    if (k < 0.06f) { feet += v.z; nf++; }
+                    else if (k > 0.15f && k < 0.25f) { shin += v.z; ns++; }
                 }
+                if (nf > 0 && ns > 0 && feet / nf - shin / ns < -0.02f) f.yaw = 180f;
             }
             UnityEngine.Object.DestroyImmediate(tmp);
-            fits[name] = f;
-            if (best > 1f) Debug.LogWarning("ZombieKit fit " + name + " is off by " + best.ToString("0.##") + "m");
+            if (f.scale != 1f || f.yaw != 0f)
+                Debug.LogWarning("ZombieKit " + name + ": corrected import (scale x" + f.scale.ToString("0.###") + ", yaw " + f.yaw + "), measured " + b.size.ToString("0.00"));
+            fixes[name] = f;
             return f;
         }
+
+        static bool IsCharacter(string name) { return name.StartsWith("Zombie") || name.StartsWith("Characters"); }
 
         // characters come with every weapon attached: keep only the rifle
         static readonly string[] Weapons = { "Axe", "Guitar", "Knife", "Pistol", "Shotgun", "SMG", "Spear", "WoodenBat_Barbed", "WoodenBat_Saw" };
@@ -169,34 +161,32 @@ namespace ZombiePile
                 if (Array.IndexOf(Weapons, t.name) >= 0) t.gameObject.SetActive(false);
         }
 
-        /// Places a kit model: 'holder' gets the layout transform, the model inside is fitted to the reference.
+        /// Places a kit model: 'holder' gets position, yaw and scale; the model inside keeps its import transform.
         public static GameObject Place(string name, Vector3 pos, float yawDeg, float scale, Transform parent, bool shadows = true)
         {
             var prefab = Prefab(name);
             if (prefab == null) return null;
-            var fit = GetFit(name, prefab);
+            var fix = GetFix(name, prefab);
             var holder = new GameObject(name);
             holder.transform.SetParent(parent, false);
             holder.transform.position = pos;
-            holder.transform.rotation = Quaternion.Euler(0f, yawDeg, 0f);
+            holder.transform.rotation = Quaternion.Euler(0f, yawDeg + fix.yaw, 0f);
+            holder.transform.localScale = Vector3.one * scale * fix.scale;
             var go = UnityEngine.Object.Instantiate(prefab, holder.transform);
             go.name = "Model";
             Prepare(go);
-            go.transform.localRotation = fit.rot;
-            go.transform.localScale = go.transform.localScale * fit.scale * scale;
-            go.transform.localPosition = fit.offset * scale;
             foreach (var r in go.GetComponentsInChildren<Renderer>(true))
             {
                 r.shadowCastingMode = shadows ? UnityEngine.Rendering.ShadowCastingMode.On : UnityEngine.Rendering.ShadowCastingMode.Off;
                 r.receiveShadows = true;
+                // bounds from the animated bones, so a zombie is never culled by stale import bounds
                 var smr = r as SkinnedMeshRenderer;
-                // bounds from the animated bones: the imported ones can be off (100x armature scale) and get the zombie culled
                 if (smr != null) smr.updateWhenOffscreen = true;
             }
             return holder;
         }
 
-        public static Bounds BoundsOf(GameObject go) { return Measure(go); }
+        public static Bounds BoundsOf(GameObject go) { return Measure(Vertices(go)); }
 
         public static float Height(string name)
         {

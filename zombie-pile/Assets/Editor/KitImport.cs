@@ -5,11 +5,16 @@ namespace ZombiePile.EditorTools
 {
     /// Import settings for the Quaternius "Zombie Apocalypse Kit" models in Assets/Resources/ZombieKit/:
     /// characters get Legacy animation (clips played by name, no Animator setup), props get none.
+    /// Also the UI sprites in Assets/Resources/UI/: full size, uncompressed, no mipmaps (they are 9-sliced in code).
     public class KitImport : AssetPostprocessor
     {
         string P { get { return assetPath.Replace('\\', '/'); } }
         bool InKit { get { return P.Contains("/Resources/ZombieKit/"); } }
         bool IsCharacter { get { return P.Contains("/Resources/ZombieKit/Characters/"); } }
+        bool IsUI { get { return P.Contains("/Resources/UI/"); } }
+
+        // bump to make Unity reimport everything this postprocessor touches
+        public override uint GetVersion() { return 2; }
 
         void OnPreprocessModel()
         {
@@ -19,6 +24,7 @@ namespace ZombiePile.EditorTools
             mi.importLights = false;
             mi.materialImportMode = ModelImporterMaterialImportMode.ImportViaMaterialDescription;
             mi.materialSearch = ModelImporterMaterialSearch.RecursiveUp;
+            mi.isReadable = true;   // Kit reads the vertices once per model (size/facing check), also in WebGL builds
             if (IsCharacter)
             {
                 mi.animationType = ModelImporterAnimationType.Legacy;
@@ -49,6 +55,19 @@ namespace ZombiePile.EditorTools
 
         void OnPreprocessTexture()
         {
+            if (IsUI)
+            {
+                var ui = (TextureImporter)assetImporter;
+                ui.textureType = TextureImporterType.Default;
+                ui.npotScale = TextureImporterNPOTScale.None;   // keep exact pixel sizes: the 9-slice borders depend on them
+                ui.mipmapEnabled = false;
+                ui.alphaIsTransparency = true;
+                ui.wrapMode = TextureWrapMode.Clamp;
+                ui.filterMode = FilterMode.Bilinear;
+                ui.maxTextureSize = 2048;
+                ui.textureCompression = TextureImporterCompression.Uncompressed;
+                return;
+            }
             if (!InKit) return;
             var ti = (TextureImporter)assetImporter;
             ti.filterMode = FilterMode.Point;          // the atlas is flat color swatches: keep them crisp

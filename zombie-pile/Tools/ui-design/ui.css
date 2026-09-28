@@ -1,0 +1,58 @@
+@font-face { font-family: Lilita; src: url(LilitaOne-Regular.ttf); }
+@font-face { font-family: Bangers; src: url(Bangers-Regular.ttf); }
+:root {
+  --ink: #140a1c;
+  --lime1: #d8ff72; --lime2: #8fdc2a; --lime3: #4f9a12; --limeLip: #2f6a08;
+  --red1: #ff7a5c; --red2: #ea3322; --redLip: #8c120c;
+  --gold1: #fff08a; --gold2: #ffc21f; --goldLip: #a25f04;
+  --dark1: #5b4a74; --dark2: #34284a; --darkLip: #1d1429;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Lilita, sans-serif; }
+
+/* ---------- sprites (each exported as a PNG at 2x) ---------- */
+.panel { position: relative; border-radius: 24px; border: 3px solid var(--ink);
+  background: linear-gradient(180deg, rgba(52,34,72,.93), rgba(26,16,38,.93));
+  box-shadow: inset 0 3px 0 rgba(255,255,255,.13), inset 0 -4px 0 rgba(0,0,0,.35); }
+
+.track { border-radius: 16px; border: 3px solid var(--ink); background: rgba(10,5,14,.82);
+  box-shadow: inset 0 4px 5px rgba(0,0,0,.7); }
+
+.fill { position: relative; border-radius: 12px; background: linear-gradient(180deg, #fff 0%, #e6e6e6 50%, #b8b8b8 100%);
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,.22); }
+.fill::after { content: ""; position: absolute; left: 6px; right: 6px; top: 3px; height: 34%; border-radius: 8px; background: rgba(255,255,255,.7); }
+
+.btn { position: relative; border-radius: 30px; border: 3px solid var(--ink); }
+.btn::before { content: ""; position: absolute; inset: 0 0 9px 0; border-radius: 27px 27px 22px 22px; background: linear-gradient(180deg, var(--c1), var(--c2)); box-shadow: inset 0 -3px 0 rgba(0,0,0,.12); }
+.btn::after { content: ""; position: absolute; left: 9px; right: 9px; top: 6px; height: 38%; border-radius: 22px 22px 14px 14px; background: linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,.12)); }
+.btn.green { background: var(--limeLip); --c1: var(--lime1); --c2: var(--lime3); }
+.btn.red { background: var(--redLip); --c1: var(--red1); --c2: var(--red2); }
+.btn.gold { background: var(--goldLip); --c1: var(--gold1); --c2: var(--gold2); }
+.btn.dark { background: var(--darkLip); --c1: var(--dark1); --c2: var(--dark2); }
+.btn.white { background: #7d7d7d; --c1: #ffffff; --c2: #cdcdcd; }
+.btn.round, .btn.round::before { border-radius: 50%; }
+.btn.round::after { border-radius: 50% 50% 40% 40%; left: 16%; right: 16%; top: 5%; height: 36%; }
+
+.card { position: relative; border-radius: 30px; border: 4px solid var(--ink); background: #6e6e6e; }
+.card::before { content: ""; position: absolute; inset: 0 0 11px 0; border-radius: 26px 26px 20px 20px; background: linear-gradient(180deg, #ffffff, #bdbdbd); box-shadow: inset 0 3px 0 rgba(255,255,255,.9), inset 0 -3px 0 rgba(0,0,0,.12); }
+.card::after { content: ""; position: absolute; inset: 8px 8px 19px 8px; border-radius: 20px; border: 3px solid rgba(255,255,255,.55); }
+
+.keycap { position: relative; border-radius: 10px; border: 3px solid var(--ink); background: #8a8196; }
+.keycap::before { content: ""; position: absolute; inset: 0 0 5px 0; border-radius: 7px; background: linear-gradient(180deg, #ffffff, #d9d3e2); }
+
+.ribbon { position: relative; }
+.ribbon .tail { position: absolute; top: 22px; width: 90px; height: 76px; background: var(--redLip); border: 3px solid var(--ink); }
+.ribbon .tail.l { left: 0; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 26% 50%); }
+.ribbon .tail.r { right: 0; clip-path: polygon(0 0, 100% 0, 74% 50%, 100% 100%, 0 100%); }
+.ribbon .tail::after { content: ""; position: absolute; inset: 0; }
+.ribbon .band { position: absolute; left: 44px; right: 44px; top: 0; height: 84px; border-radius: 10px; border: 4px solid var(--ink);
+  background: linear-gradient(180deg, var(--red1), var(--red2) 60%, #c21d12); box-shadow: inset 0 4px 0 rgba(255,255,255,.35), inset 0 -5px 0 rgba(0,0,0,.2); }
+
+.crosshair { position: relative; }
+.vignette { background: radial-gradient(ellipse at center, rgba(0,0,0,0) 45%, rgba(0,0,0,.72) 100%); }
+
+/* ---------- text that mimics Unity's Text + Outline effects ---------- */
+.t { position: absolute; white-space: nowrap; color: #fff; paint-order: stroke fill; -webkit-text-stroke: var(--sw, 6px) var(--ink);
+  text-shadow: 0 var(--sd, 4px) 0 rgba(0,0,0,.45); line-height: 1; }
+.bang { font-family: Bangers, sans-serif; letter-spacing: .02em; }
+.lil { font-family: Lilita, sans-serif; }

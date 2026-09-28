@@ -1,0 +1,53 @@
+<!doctype html><html><head><link rel="stylesheet" href="ui.css">
+<style>
+body { background: transparent; }
+.sheet { display: flex; flex-wrap: wrap; gap: 24px; padding: 24px; align-items: flex-start; width: 1400px; }
+.sheet > * { flex: none; }
+.ico svg { width: 100%; height: 100%; overflow: visible; }
+</style>
+<script src="icons.js"></script></head><body>
+<div class="sheet" id="sheet">
+  <div class="panel spr" data-name="panel" data-border="32" style="width:96px;height:96px"></div>
+  <div class="track spr" data-name="track" data-border="16" style="width:64px;height:32px"></div>
+  <div class="fill spr" data-name="fill" data-border="12" style="width:64px;height:24px"></div>
+  <div class="btn green spr" data-name="btn_green" data-border="36" style="width:128px;height:128px"></div>
+  <div class="btn red spr" data-name="btn_red" data-border="36" style="width:128px;height:128px"></div>
+  <div class="btn gold spr" data-name="btn_gold" data-border="36" style="width:128px;height:128px"></div>
+  <div class="btn dark spr" data-name="btn_dark" data-border="36" style="width:128px;height:128px"></div>
+  <div class="btn red round spr" data-name="round_red" style="width:180px;height:180px"></div>
+  <div class="btn dark round spr" data-name="round_dark" style="width:100px;height:100px"></div>
+  <div class="card spr" data-name="card" data-border="44" style="width:128px;height:128px"></div>
+  <div class="keycap spr" data-name="keycap" data-border="12" style="width:48px;height:40px"></div>
+  <div class="ribbon spr" data-name="ribbon" data-border="0,100,0,100" style="width:420px;height:100px">
+    <div class="tail l"></div><div class="tail r"></div><div class="band"></div></div>
+  <div class="vignette spr" data-name="vignette" style="width:256px;height:256px"></div>
+  <div class="crosshair spr" data-name="crosshair" style="width:72px;height:72px">
+    <svg viewBox="0 0 72 72" width="72" height="72">
+      <g fill="none" stroke-linecap="round">
+        <circle cx="36" cy="36" r="22" stroke="#140a1c" stroke-width="9" stroke-dasharray="24 10.56" transform="rotate(-24 36 36)"/>
+        <circle cx="36" cy="36" r="22" stroke="#fff" stroke-width="4" stroke-dasharray="24 10.56" transform="rotate(-24 36 36)"/>
+        <path d="M36 2v12M36 58v12M2 36h12M58 36h12" stroke="#140a1c" stroke-width="8"/>
+        <path d="M36 3v10M36 59v10M3 36h10M59 36h10" stroke="#fff" stroke-width="3.5"/>
+      </g>
+      <circle cx="36" cy="36" r="5" fill="#ff3b2f" stroke="#140a1c" stroke-width="2.5"/>
+    </svg></div>
+</div>
+<div class="sheet" id="icons"></div>
+<script>
+// icons: fill + thick ink outline drawn behind (paint-order), so they read on any background
+const IC = [
+  ['ic_skull','lorc_skull-crossed-bones','#f6f0de'], ['ic_wall','delapouite_brick-wall','#ff8a5b'], ['ic_trophy','lorc_trophy','#ffc21f'],
+  ['ic_sound','delapouite_speaker','#ffffff'], ['ic_mute','delapouite_speaker-off','#ffffff'],
+  ['ic_rapid','lorc_bullets','#ffffff'], ['ic_damage','lorc_supersonic-bullet','#ffffff'], ['ic_split','lorc_striking-arrows','#ffffff'],
+  ['ic_pierce','lorc_pierced-body','#ffffff'], ['ic_head','lorc_headshot','#ffffff'], ['ic_boom','lorc_mushroom-cloud','#ffffff'],
+  ['ic_quick','lorc_stopwatch','#ffffff'], ['ic_cluster','lorc_cluster-bomb','#ffffff'], ['ic_repair','lorc_spanner','#ffffff'],
+  ['ic_sandbag','delapouite_brick-pile','#ffffff'], ['ic_hazard','lorc_hazard-sign','#ffd21f'], ['ic_crown','lorc_crowned-skull','#f6f0de'],
+];
+const host = document.getElementById('icons');
+for (const [name, key, col] of IC) {
+  const d = document.createElement('div'); d.className = 'ico spr'; d.dataset.name = name; d.style.cssText = 'width:128px;height:128px;padding:10px';
+  d.innerHTML = `<svg viewBox="0 0 512 512"><path d="${ICONS[key]}" fill="${col}" stroke="#140a1c" stroke-width="44" stroke-linejoin="round" paint-order="stroke"/></svg>`;
+  host.appendChild(d);
+}
+</script>
+</body></html>

@@ -11,37 +11,37 @@ namespace ZombiePile
         public static float HalfWidth = 5.2f;      // the gate: zombies are funnelled into |x| < HalfWidth
         public static float SpawnZ = 27f;
         public const int IgnoreRaycast = 2;        // built-in layer: bullets pass through walls, bodies still collide
+        public const int Props = 1;                // built-in "TransparentFX": bullets hit these, zombies run through them
 
         readonly System.Collections.Generic.List<Transform> flames = new System.Collections.Generic.List<Transform>();
 
         public static Arena Build()
         {
+            Physics.IgnoreLayerCollision(Props, 0, true);
             var a = new GameObject("Arena").AddComponent<Arena>();
             if (Kit.Available) a.MakeFromKit(); else a.Make();
             return a;
         }
 
         /// The street built from the Zombie Apocalypse Kit models (layout.json), plus invisible colliders.
+        /// Nothing solid stands in the lane: the horde only meets the wall and each other.
         void MakeFromKit()
         {
             var L = Kit.Layout;
-            WallHeight = L.wallHeight; WallFront = L.wallFront; HalfWidth = L.halfWidth; SpawnZ = 30f;
+            WallHeight = L.wallHeight; WallFront = L.wallFront; HalfWidth = L.halfWidth; SpawnZ = 50f;
             var t = transform;
             foreach (var p in L.props)
             {
-                var pos = new Vector3(p.p[0], p.p[1], p.p[2]);
-                bool small = p.m.StartsWith("Blood") || p.m.StartsWith("Street") || p.m.StartsWith("TrafficCone");
-                var go = Kit.Place(p.m, pos, p.r, p.s <= 0f ? 1f : p.s, t, !small);
+                var pos = Kit.LayoutPos(p);
+                bool small = p.m.StartsWith("Blood") || p.m.StartsWith("Street");
+                var go = Kit.Place(p.m, pos, Kit.LayoutYaw(p), p.s <= 0f ? 1f : p.s, t, !small);
                 if (go == null) continue;
-                bool onRoad = p.p[1] < 0.1f && Mathf.Abs(p.p[0]) < HalfWidth && p.p[2] > WallFront + 0.5f;
-                if (!onRoad) continue;
-                if (p.m == "Barrel") { AddBox(go, 0); go.AddComponent<ExplosiveBarrel>(); }
-                else if (p.m.StartsWith("Vehicle") || p.m.StartsWith("TrafficBarrier") || p.m == "PlasticBarrier" || p.m == "Wheels_Stack" || p.m.StartsWith("TrashBag") || p.m == "FireHydrant")
-                    AddBox(go, IgnoreRaycast);
+                bool inLane = pos.y < 0.1f && Mathf.Abs(pos.x) < HalfWidth && pos.z > WallFront + 0.5f;
+                if (inLane && p.m == "Barrel") { AddBox(go, Props); go.AddComponent<ExplosiveBarrel>(); }
             }
 
             // ground under everything
-            var groundMat = new Material(Shader.Find("Standard")) { color = new Color(0.3f, 0.26f, 0.26f) };
+            var groundMat = new Material(Shader.Find("Standard")) { color = new Color(0.3f, 0.25f, 0.24f) };
             groundMat.SetFloat("_Glossiness", 0.05f);
             var g = GameObject.CreatePrimitive(PrimitiveType.Plane);
             g.name = "Ground";
@@ -59,6 +59,7 @@ namespace ZombiePile
             var rot = go.transform.rotation;
             go.transform.rotation = Quaternion.identity;
             var b = Kit.BoundsOf(go);
+            if (b.size.sqrMagnitude < 0.01f) b = new Bounds(go.transform.position + Vector3.up * 0.57f, new Vector3(0.7f, 1.15f, 0.7f));   // a drum
             var col = go.AddComponent<BoxCollider>();
             col.center = go.transform.InverseTransformPoint(b.center);
             col.size = new Vector3(Mathf.Max(0.3f, b.size.x), Mathf.Max(0.3f, b.size.y), Mathf.Max(0.3f, b.size.z));
@@ -86,8 +87,8 @@ namespace ZombiePile
                 side.transform.SetParent(t, false);
                 side.layer = IgnoreRaycast;
                 var sc = side.AddComponent<BoxCollider>();
-                sc.center = new Vector3(s * (HalfWidth + 2f), 6f, 30f);
-                sc.size = new Vector3(4f, 12f, 62f);
+                sc.center = new Vector3(s * (HalfWidth + 2f), 6f, 45f);
+                sc.size = new Vector3(4f, 12f, 92f);
             }
         }
 
@@ -144,8 +145,8 @@ namespace ZombiePile
                 side.transform.SetParent(t, false);
                 side.layer = IgnoreRaycast;
                 var sc = side.AddComponent<BoxCollider>();
-                sc.center = new Vector3(s * (HalfWidth + 2f), 6f, 30f);
-                sc.size = new Vector3(4f, 12f, 62f);
+                sc.center = new Vector3(s * (HalfWidth + 2f), 6f, 45f);
+                sc.size = new Vector3(4f, 12f, 92f);
                 for (int k = 0; k < 7; k++)
                 {
                     float h = 6f + ((k * 5 + (s > 0 ? 2 : 0)) % 4) * 2.5f;

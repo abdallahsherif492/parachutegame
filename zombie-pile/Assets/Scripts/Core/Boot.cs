@@ -61,8 +61,9 @@ namespace ZombiePile
                 RenderSettings.fog = true;
                 RenderSettings.fogMode = FogMode.Linear;
                 RenderSettings.fogColor = sky;
-                RenderSettings.fogStartDistance = 28f;
-                RenderSettings.fogEndDistance = 85f;
+                // the far end of the street (where the horde spawns) disappears into the haze
+                RenderSettings.fogStartDistance = 32f;
+                RenderSettings.fogEndDistance = 70f;
             }
 
             Save.Load();

@@ -16,10 +16,15 @@ namespace ZombiePile
         public bool IsAlive { get; private set; }
         public bool IsBrute { get; private set; }
         public float Hp { get; private set; }
+        public float MaxHp { get; private set; }
+        public Transform Head { get { return head; } }
         public Collider HeadCollider { get; private set; }
 
         Transform model, headBone;
         Kit.Anim kit;
+        Renderer[] skins;
+        MaterialPropertyBlock mpb;
+        float flash, modelScale = 1f;
         Rigidbody rb;
         BoxCollider body;
         Transform vis, head, legL, legR, armL, armR;
@@ -41,8 +46,8 @@ namespace ZombiePile
         void Init(float hp, float spd, bool brute)
         {
             IsBrute = brute;
-            float s = brute ? 1.9f : Random.Range(1.05f, 1.2f);
-            Hp = hp * (brute ? 12f : 1f);
+            float s = brute ? 1.55f : Random.Range(0.95f, 1.1f);
+            Hp = MaxHp = hp * (brute ? 10f : 1f);
             speed = spd * (brute ? 0.55f : Random.Range(0.8f, 1.25f));
             climb = brute ? 4f : Random.Range(4.6f, 5.6f);
             steerX = Random.Range(-1f, 1f);
@@ -62,28 +67,40 @@ namespace ZombiePile
             Alive.Add(this);
         }
 
-        /// A Quaternius zombie model, animated with its own clips; the physics box sits from the feet to the shoulders.
+        /// Measured on the kit's run cycle (model space, metres, facing +Z): neck height, head centre and radius.
+        /// These are big-headed chibi zombies, so the head is a large, fair target.
+        struct Shape { public string model; public float neck, headY, headZ, headR; }
+        static readonly Shape Basic = new Shape { model = "Zombie_Basic", neck = 0.82f, headY = 1.13f, headZ = 0.16f, headR = 0.3f };
+        static readonly Shape ArmZ = new Shape { model = "Zombie_Arm", neck = 1.0f, headY = 1.38f, headZ = 0.01f, headR = 0.28f };
+        static readonly Shape Chubby = new Shape { model = "Zombie_Chubby", neck = 1.3f, headY = 1.56f, headZ = 0.08f, headR = 0.25f };
+
+        /// A Quaternius zombie model at its real size (1.4-1.6 m), animated with its own clips.
+        /// The physics box runs from the feet to the neck; the head is a separate sphere for headshots.
         void KitLook(float s, bool brute)
         {
-            string type = brute ? "Zombie_Chubby" : (Random.value < 0.55f ? "Zombie_Basic" : "Zombie_Arm");
-            float hm = (brute ? 1.75f : 1.8f) * s;                        // model height
-            float boxH = hm - 0.36f * s;
-            body.size = new Vector3(brute ? 0.95f : 0.7f, boxH / s, brute ? 0.75f : 0.55f) * s;
+            var sh = brute ? Chubby : (Random.value < 0.55f ? Basic : ArmZ);
+            float boxH = sh.neck * s;
+            body.size = new Vector3((brute ? 0.8f : 0.5f) * s, boxH, 0.45f * s);
             body.center = Vector3.zero;
             baseScale = 1f;
-            var holder = Kit.Place(type, transform.position + Vector3.down * boxH * 0.5f, 180f, hm / Kit.Height(type), transform, true);
+            var holder = Kit.Place(sh.model, transform.position + Vector3.down * boxH * 0.5f, 180f, s, transform, true);
+            modelScale = holder.transform.localScale.x;
             model = holder.transform;
             vis = model;
             kit = Kit.Anim.From(holder);
+            if (kit.anim != null && kit.punch != null) kit.anim[kit.punch].wrapMode = WrapMode.Loop;   // pounding on the pile keeps going
             kit.Start(kit.run);
             foreach (var t in holder.GetComponentsInChildren<Transform>()) if (t.name == "Head") { headBone = t; break; }
+            skins = holder.GetComponentsInChildren<Renderer>();
+            mpb = new MaterialPropertyBlock();
 
+            // the model faces -Z (toward the wall), so "forward" in model space is -z here
             var headGo = new GameObject("Head");
             headGo.transform.SetParent(transform, false);
-            headGo.transform.localPosition = new Vector3(0, -boxH * 0.5f + hm - 0.24f * s, -0.05f * s);
+            headGo.transform.localPosition = new Vector3(0f, -boxH * 0.5f + sh.headY * s, -sh.headZ * s);
             head = headGo.transform;
             var hc = headGo.AddComponent<SphereCollider>();
-            hc.radius = 0.25f * s;
+            hc.radius = sh.headR * s;
             HeadCollider = hc;
         }
 
@@ -159,7 +176,7 @@ namespace ZombiePile
 
             // the top of the pile reached the parapet: over the wall it goes
             float feet = pos.y - body.size.y * 0.5f;
-            if (pos.z < Arena.WallFront + 1.3f && feet > Arena.WallHeight - 1.15f) StartBreach();
+            if (pos.z < Arena.WallFront + 1.3f && feet > Arena.WallHeight - 1.3f) StartBreach();
             touching = false;
         }
 
@@ -174,8 +191,9 @@ namespace ZombiePile
                 if (kit != null)
                 {
                     float hs = new Vector2(v.x, v.z).magnitude;
-                    if (v.y > 1.2f && kit.climb != null) kit.Play(kit.climb, 0.12f, 1.2f);
-                    else kit.Play(kit.run, 0.15f, Mathf.Clamp(hs / 4.5f, 0.75f, 1.6f));
+                    if (v.y > 0.8f && kit.climb != null) kit.Play(kit.climb, 0.12f, 1.1f);
+                    else if (hs < 0.9f && kit.punch != null) kit.Play(kit.punch, 0.2f, 0.9f);   // stuck against the pile: pound on it
+                    else kit.Play(kit.run, 0.2f, Mathf.Clamp(hs / 4.2f, 0.8f, 1.5f));
                     groanT -= dt;
                     if (groanT < 0f) { groanT = Random.Range(4f, 12f); if (Random.value < 0.35f) SoundBank.I.Groan(); }
                     goto afterAnim;
@@ -222,6 +240,20 @@ namespace ZombiePile
             {
                 punch = Mathf.Max(0f, punch - dt * 6f);
                 if (kit == null) vis.localScale = Vector3.one * baseScale * (1f + punch * 0.25f);
+                else if (IsAlive) model.localScale = Vector3.one * modelScale * (1f + punch * 0.08f);
+            }
+            if (flash > 0f && skins != null)
+            {
+                // hit flash: brighten the model for a moment (per-renderer, the material stays shared)
+                flash = Mathf.Max(0f, flash - dt * 9f);
+                var c = Color.Lerp(Color.white, new Color(2.6f, 2.2f, 2.2f), flash);
+                foreach (var r in skins)
+                {
+                    if (r == null) continue;
+                    r.GetPropertyBlock(mpb);
+                    mpb.SetColor("_Color", c);
+                    r.SetPropertyBlock(mpb);
+                }
             }
         }
 
@@ -241,6 +273,7 @@ namespace ZombiePile
             if (!IsAlive) { rb.AddForceAtPosition(dir.normalized * 1.5f, point, ForceMode.Impulse); return false; }
             Hp -= dmg;
             punch = 1f;
+            flash = 1f;
             Fx.I.Burst(point, headshot ? 10 : 5, new Color(0.35f, 0.75f, 0.25f), headshot ? 5f : 3f);
             rb.AddForce(dir.normalized * (IsBrute ? 0.4f : 0.8f), ForceMode.VelocityChange);
             if (Hp > 0f) return false;
@@ -295,6 +328,7 @@ namespace ZombiePile
             {
                 Hp -= dmg * (0.4f + 0.6f * k);
                 punch = 1f;
+                flash = 1f;
                 if (Hp <= 0f)
                 {
                     var dir = (transform.position - center).normalized;
