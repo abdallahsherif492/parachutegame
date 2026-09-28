@@ -95,7 +95,7 @@ namespace SkyDrop
         public static float ZoneScale { get { return 1f + Level(UpgradeId.Chute) * 0.06f; } }
 
         /// Max horizontal speed during free fall (m/s).
-        public static float FreefallSteer { get { return 12f + Level(UpgradeId.Wingsuit) * 1.1f; } }
+        public static float FreefallSteer { get { return 13f + Level(UpgradeId.Wingsuit) * 1.0f; } }
 
         /// Coin pickup radius (m).
         public static float MagnetRadius { get { return 1.8f + Level(UpgradeId.Magnet) * 0.55f; } }

@@ -208,11 +208,11 @@ namespace SkyDrop
         {
             var cfg = lv.cfg;
             int n = cfg.rings;
-            float yTop = lv.spawn.y - 70f;
-            float yBot = cfg.targetTop + 150f;
+            float yTop = lv.spawn.y - 60f;
+            float yBot = cfg.targetTop + 140f;
             float gapY = (yTop - yBot) / Mathf.Max(1, n - 1);
             float gapTime = gapY / 42f;
-            float maxStep = Mathf.Max(6f, 0.55f * 12f * gapTime);
+            float maxStep = Mathf.Max(5f, 0.6f * 13f * gapTime);
             Vector3 dir = tXZ.normalized;
             var perp = new Vector3(dir.z, 0f, -dir.x);
             float freq = R(1.2f, 2.4f);

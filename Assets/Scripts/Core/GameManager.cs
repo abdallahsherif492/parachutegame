@@ -14,6 +14,8 @@ namespace SkyDrop
         Transform worldRoot;
         Level level;
         Jumper jumper;
+        Transform shadow;       // landing marker: where you'd touch down right now
+        Material shadowMat;
         LevelConfig cfg;
         CameraRig cam;
         GameUI ui;
@@ -86,8 +88,12 @@ namespace SkyDrop
             cfg = daily ? Levels.MakeDaily(SaveSystem.Data.unlocked) : Levels.Make(index);
             level = LevelBuilder.Build(cfg, worldRoot);
             SpawnJumper();
+            if (shadowMat == null) shadowMat = Mat.UniqueClear(new Color(0f, 0f, 0f, 0.4f), 0.2f);
+            shadow = Shapes.Make("Shadow", MeshGen.Disc(20), shadowMat, level.root.transform, Vector3.zero, new Vector3(2.2f, 1f, 2.2f)).transform;
+            shadow.gameObject.SetActive(false);
             cam.SetMode(CamMode.Menu, true);
             State = GState.Menu;
+            lockedZone = Zones.Max.Length - 1;
             runCoins = 0;
             combo = 0;
             ringsHit = 0;
@@ -123,6 +129,7 @@ namespace SkyDrop
             State = GState.Freefall;
             stateTime = 0f;
             cam.SetMode(CamMode.Freefall);
+            ui.ShowBanner(cfg);
             prevPos = jumper.transform.position;
             tutorial = !SaveSystem.Data.tutorialDone && !cfg.daily && cfg.index == 0;
             tutStep = 0;
@@ -158,6 +165,7 @@ namespace SkyDrop
             float udt = Time.unscaledDeltaTime;
             UpdateTimeScale(udt);
             if (level == null || paused) return;
+            if (jumper != null) InputReader.PlayerScreen = cam.cam.WorldToScreenPoint(jumper.transform.position);
             InputReader.Update();
             float dt = Time.deltaTime;
             level.Tick(dt);
@@ -212,8 +220,12 @@ namespace SkyDrop
                     wind = level.wind * Economy.WindFactor,
                     rings = ringsHit,
                     ringsTotal = level.rings.Count,
-                    lockedZone = lockedZone
+                    lockedZone = lockedZone,
+                    opened = canopy,
+                    ringsNeeded = cfg.ringsNeeded,
+                    riskZone = cfg.riskZone
                 });
+                UpdateShadow(pos, alt);
             }
             // Fog opens up with altitude so the ground and target stay readable from high up.
             SkyEnv.SetFog(60f, Mathf.Max(650f, cam.transform.position.y * 1.25f + 350f));
@@ -304,6 +316,20 @@ namespace SkyDrop
             return (altitude - jumper.HMin) / Economy.ZoneScale;
         }
 
+        /// A dark disc on the ground right below the jumper, so you can see exactly where you'll land.
+        void UpdateShadow(Vector3 pos, float alt)
+        {
+            bool onTarget;
+            float surface = level.SurfaceHeight(pos, out onTarget);
+            bool show = alt < 260f;
+            if (shadow.gameObject.activeSelf != show) shadow.gameObject.SetActive(show);
+            if (!show) return;
+            shadow.position = new Vector3(pos.x, surface + 0.14f, pos.z);
+            float k = Mathf.Clamp01(alt / 260f);
+            shadow.localScale = Vector3.one * Mathf.Lerp(1.6f, 4f, k);
+            shadowMat.SetColor("_Color", onTarget ? new Color(0.1f, 0.35f, 0.1f, Mathf.Lerp(0.6f, 0.25f, k)) : new Color(0f, 0f, 0f, Mathf.Lerp(0.55f, 0.2f, k)));
+        }
+
         void SetY(float y)
         {
             var p = jumper.transform.position;
@@ -348,7 +374,8 @@ namespace SkyDrop
             Vector3 pos = jumper.transform.position;
             float dist = level.target.HorizontalDistance(pos);
             float r = level.target.radius;
-            int stars = !onTarget ? 0 : dist <= r * 0.25f ? 3 : dist <= r * 0.6f ? 2 : 1;
+            int stars = !onTarget ? 0 : dist <= r * 0.25f ? 3 : dist <= r * 0.6f ? 2 : 1;   // landing precision
+            if (shadow != null) shadow.gameObject.SetActive(false);
 
             State = GState.Landed;
             stateTime = 0f;
@@ -382,7 +409,7 @@ namespace SkyDrop
             else if (stars == 1)
             {
                 title = "GOOD LANDING";
-                sub = "Land closer to the center for more stars";
+                sub = "Land closer to the center for a bigger bonus";
                 col = new Color(0.55f, 0.8f, 1f);
                 SoundBank.I.Play(SoundBank.I.land);
             }
@@ -397,7 +424,7 @@ namespace SkyDrop
             }
             Fx.I.Burst(pos, new Color(0.85f, 0.8f, 0.7f), 14, 5f, 0.5f, 0.7f, false);
             cam.Shake(0.2f);
-            lastResult = BuildResult(false, stars, title, sub, col);
+            lastResult = BuildResult(false, onTarget, stars, title, sub, col);
         }
 
         // =============================================================================== checks
@@ -564,17 +591,24 @@ namespace SkyDrop
             Fx.I.Burst(pos, new Color(0.9f, 0.85f, 0.75f), 24, 12f, 0.5f, 0.8f, true);
             ui.Flash(new Color(1f, 0.2f, 0.2f), 0.45f);
             SlowMo(0.25f, 0.5f);
-            lastResult = BuildResult(true, 0, title, sub, new Color(1f, 0.3f, 0.3f));
+            if (shadow != null) shadow.gameObject.SetActive(false);
+            lastResult = BuildResult(true, false, 0, title, sub, new Color(1f, 0.3f, 0.3f));
         }
 
         // =============================================================================== results
 
-        ResultInfo BuildResult(bool crashed, int stars, string title, string sub, Color col)
+        /// precision: 3 bullseye, 2 inner ring, 1 outer ring, 0 off target.
+        /// Stars come from the level goals: land on target / enough rings / risky opening.
+        ResultInfo BuildResult(bool crashed, bool onTarget, int precision, string title, string sub, Color col)
         {
             var d = SaveSystem.Data;
-            bool cleared = !crashed && stars > 0;
-            int landingBonus = stars == 3 ? 40 : stars == 2 ? 20 : stars == 1 ? 10 : 0;
-            if (stars > 0) landingBonus += cfg.index * 2;
+            bool cleared = !crashed && onTarget;
+            bool ringsGoal = ringsHit >= cfg.ringsNeeded;
+            bool riskGoal = !crashed && lockedZone <= cfg.riskZone && multiplier > 1f;
+            int stars = cleared ? 1 + (ringsGoal ? 1 : 0) + (riskGoal ? 1 : 0) : 0;
+            int landingBonus = precision == 3 ? 40 : precision == 2 ? 20 : precision == 1 ? 10 : 0;
+            if (precision > 0) landingBonus += cfg.index * 2;
+            if (cleared && !ringsGoal && !riskGoal) sub = "Landed! Hit the other goals for more stars";
             float mult = cleared ? multiplier : 1f;
             int total = Mathf.RoundToInt((runCoins + landingBonus) * mult);
             if (cfg.daily) total *= 2;
@@ -593,6 +627,12 @@ namespace SkyDrop
                 daily = cfg.daily,
                 canDouble = true,
             };
+            r.goals[0] = cleared;
+            r.goals[1] = ringsGoal;
+            r.goals[2] = riskGoal;
+            r.goalText[0] = LevelConfig.LandGoal;
+            r.goalText[1] = "Rings  " + ringsHit + " / " + cfg.ringsNeeded;
+            r.goalText[2] = "Open at " + Zones.MultText(Zones.Mult[cfg.riskZone]) + "+" + (multiplier > 1f || !crashed ? "   (you: " + Zones.MultText(multiplier) + ")" : "");
 
             if (cleared && multiplier > d.bestMultiplier)
             {
@@ -620,7 +660,7 @@ namespace SkyDrop
                     r.hasNext = true;
                 }
             }
-            if (stars == 3) d.perfectLandings++;
+            if (precision == 3) d.perfectLandings++;
             d.tutorialDone = true;
             d.coins += total;
             r.total = total;
@@ -749,15 +789,15 @@ namespace SkyDrop
             switch (tutStep)
             {
                 case 0:
-                    ui.SetHint(Mobile ? "DRAG anywhere to steer" : "Steer with WASD / ARROWS (or drag the mouse)");
+                    ui.SetHint(Mobile ? "SLIDE your finger to steer" : "Move the MOUSE to steer (or WASD)");
                     if ((InputReader.UsedSteer && tutTimer > 1.5f) || tutTimer > 5f) { tutStep = 1; tutTimer = 0f; }
                     break;
                 case 1:
-                    ui.SetHint("Fly through the RINGS for speed + coins!");
+                    ui.SetHint("Fly through " + cfg.ringsNeeded + " RINGS - that's a star!");
                     if ((ringsHit > 0 && tutTimer > 1f) || tutTimer > 6f) { tutStep = 2; tutTimer = 0f; }
                     break;
                 case 2:
-                    ui.SetHint("Get above the TARGET. Open LOW = BIG bonus!");
+                    ui.SetHint("Get above the TARGET. Open LOW = BIG bonus + star!");
                     if (margin < 40f)
                     {
                         tutStep = 3;

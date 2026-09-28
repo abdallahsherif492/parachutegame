@@ -27,6 +27,14 @@ namespace SkyDrop
         public bool movingTarget, water, city;
         public float targetSpeed;
 
+        // The 3 goals of the level (one star each). Landing on the target is always goal #1.
+        public int ringsNeeded;
+        public int riskZone;          // open the chute in this zone or riskier (Zones index)
+
+        public string RingGoal { get { return "Fly through " + ringsNeeded + " rings"; } }
+        public string RiskGoal { get { return "Open the chute at " + Zones.MultText(Zones.Mult[riskZone]) + " or more"; } }
+        public const string LandGoal = "Land on the target";
+
         public WorldTheme Theme { get { return Levels.Themes[world]; } }
 
         public string Title
@@ -93,22 +101,25 @@ namespace SkyDrop
             c.city = c.world == 4;
             c.water = c.world == 2;
             c.height = Mathf.Min(430f + index * 13f + l * 40f, 1100f);
-            c.targetRadius = Mathf.Max(4.2f, Mathf.Lerp(11f, 5.5f, d) - l * 0.8f);
+            c.targetRadius = Mathf.Max(4f, Mathf.Lerp(9.5f, 5f, d) - l * 0.8f);
             c.targetDistance = Mathf.Lerp(25f, 110f, d) + l * 15f;
             c.targetTop = c.city ? 38f + c.local * 4f : (c.water ? 1.4f : 0.3f);
 
-            c.rings = 6 + Mathf.RoundToInt(d * 8f);
-            c.ringRadius = Mathf.Lerp(6.5f, 4.3f, d);
+            // About one ring per second of free fall.
+            c.rings = Mathf.Clamp(Mathf.RoundToInt((c.height - 200f) / 40f), 5, 24);
+            c.ringRadius = Mathf.Lerp(6f, 3.8f, d);
+            c.ringsNeeded = Mathf.Clamp(Mathf.CeilToInt(c.rings * Mathf.Lerp(0.6f, 0.85f, d)), 1, c.rings);
+            c.riskZone = index < 4 ? 4 : index < 20 ? 3 : 2;   // x2 -> x3 -> x5
             c.lateral = Mathf.Lerp(8f, 38f, d);
 
-            c.birdFlocks = index < 1 ? 0 : Mathf.RoundToInt(1 + d * 6f + l * 2f);
-            c.balloons = index < 3 ? 0 : 1 + Mathf.RoundToInt(d * 4f);
-            c.drones = index < 7 ? 0 : 1 + Mathf.RoundToInt(d * 4f);
-            c.helis = index < 14 ? 0 : 1 + Mathf.RoundToInt(d * 3f);
+            c.birdFlocks = index < 1 ? 0 : Mathf.RoundToInt(1 + d * 8f + l * 2f);
+            c.balloons = index < 2 ? 0 : 1 + Mathf.RoundToInt(d * 5f + l);
+            c.drones = index < 6 ? 0 : 1 + Mathf.RoundToInt(d * 5f);
+            c.helis = index < 12 ? 0 : 1 + Mathf.RoundToInt(d * 4f);
             c.storms = c.world >= 3 ? 2 + c.local / 3 : 0;
             c.towers = c.city ? 16 + c.local * 2 : 0;
 
-            c.wind = c.world == 0 ? l * 1.2f : Mathf.Lerp(1.5f, 5f, d) + (c.world == 3 ? 1.5f : 0f);
+            c.wind = c.world == 0 ? l * 2f : Mathf.Lerp(1.5f, 5f, d) + (c.world == 3 ? 1.5f : 0f);
             c.movingTarget = (c.world == 1 && c.local >= 5) || (c.world == 2 && c.local >= 3) || (c.world == 3 && c.local >= 7);
             c.targetSpeed = c.movingTarget ? 2.5f + c.local * 0.35f : 0f;
             return c;

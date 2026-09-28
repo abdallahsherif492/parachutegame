@@ -51,12 +51,14 @@ namespace SkyDrop
                     l = new Vector3(0f, 0.2f, 0f);
                     break;
                 case CamMode.Freefall:
-                    o = new Vector3(0f, 11f, -7.5f);
-                    l = new Vector3(0f, -14f, 6f);
+                    // Nearly straight down: rings rush up at you as circles you steer into.
+                    o = new Vector3(0f, 13f, -2.5f);
+                    l = new Vector3(0f, -22f, 2.5f);
                     break;
                 case CamMode.Canopy:
-                    o = new Vector3(0f, 9f, -10f);
-                    l = new Vector3(0f, -6f, 3.5f);
+                    // Still steep, so the landing marker and the pad are easy to line up.
+                    o = new Vector3(0f, 11f, -6f);
+                    l = new Vector3(0f, -9f, 2f);
                     break;
                 case CamMode.Landed:
                     float b = orbit * 0.35f;
@@ -100,7 +102,14 @@ namespace SkyDrop
             if (pos.y < 1.5f) pos.y = 1.5f;
             transform.position = pos;
             Vector3 look = basePos + lookOffset - pos;
-            if (look.sqrMagnitude > 0.001f) transform.rotation = Quaternion.LookRotation(look);
+            if (look.sqrMagnitude > 0.001f)
+            {
+                // Looking straight down, "up" on screen must be +Z (the direction W / swipe-up moves you).
+                Vector3 dir = look.normalized;
+                float steep = Mathf.Clamp01((-dir.y - 0.75f) / 0.2f);
+                Vector3 up = Vector3.Slerp(Vector3.up, Vector3.forward, steep);
+                transform.rotation = Quaternion.LookRotation(dir, up);
+            }
         }
     }
 }

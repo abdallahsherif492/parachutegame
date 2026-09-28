@@ -15,6 +15,8 @@ namespace SkyDrop
         public Vector3 wind;
         public int rings, ringsTotal;
         public int lockedZone;   // multiplier zone locked in when the chute opened
+        public bool opened;      // chute has been opened this run
+        public int ringsNeeded, riskZone;
     }
 
     public class ResultInfo
@@ -25,6 +27,8 @@ namespace SkyDrop
         public float multiplier;
         public bool cleared, newRecord, canDouble, daily, crashed, hasNext;
         public int dailyBonus;
+        public bool[] goals = new bool[3];
+        public string[] goalText = new string[3];
     }
 
     /// Every screen of the game, built in code: HUD, menu, shop panels and results.
@@ -38,21 +42,29 @@ namespace SkyDrop
         // HUD
         Text coinText, levelText, multText, multSub, comboText, hintText, altText, windText, ringText;
         Image hintBg, altMarker;
-        RectTransform altBar, windArrow, windGroup, multGroup, shieldRow, joyBase, joyKnob, coinPill, openHolder;
+        RectTransform altBar, windArrow, windGroup, multGroup, shieldRow, coinPill, openHolder;
         Button openButton;
         Text openLabel, openSub;
         Image openImg;
         float comboTimer, coinPunch;
         int lastZone = -1;
         readonly List<Image> shieldIcons = new List<Image>();
+        readonly Image[] goalIcons = new Image[3];
+        readonly Text[] goalTexts = new Text[3];
+        readonly bool[] goalDone = new bool[3];
+        CanvasGroup banner;
+        Text bannerTitle, bannerBody;
+        float bannerTime;
 
         // Menu
-        Text menuTitle, menuSub, menuCoins, bestText;
+        Text menuTitle, menuSub, menuCoins, bestText, menuGoals;
         GameObject upgradeBadge, dailyBadge, dailyJumpBadge;
         Button muteButton;
 
         // Results
-        Text resTitle, resSub, resRows, resValues, resTotal, resRecord;
+        Text resTitle, resSub, resBreakdown, resTotal;
+        readonly Image[] resGoalIcons = new Image[3];
+        readonly Text[] resGoalTexts = new Text[3];
         Image[] resStars = new Image[3];
         Button resDouble, resRetry, resNext, resUpgrade;
         ResultInfo current;
@@ -124,7 +136,18 @@ namespace SkyDrop
         {
             coinPill = CoinPill(hud, new Vector2(0f, 1f), new Vector2(20f, -20f), out coinText);
 
-            shieldRow = UIKit.Place(UIKit.Node("Shields", hud), new Vector2(0f, 1f), new Vector2(26f, -100f), new Vector2(200f, 40f));
+            // Level goals (one star each), always visible.
+            var goals = UIKit.Image(hud, "Goals", UIKit.Dark, UIKit.Round);
+            UIKit.Place(goals.rectTransform, new Vector2(0f, 1f), new Vector2(20f, -96f), new Vector2(390f, 128f));
+            for (int i = 0; i < 3; i++)
+            {
+                goalIcons[i] = UIKit.Image(goals.transform, "Star", new Color(1f, 1f, 1f, 0.25f), UIKit.Star);
+                UIKit.Place(goalIcons[i].rectTransform, new Vector2(0f, 1f), new Vector2(12f, -10f - i * 38f), new Vector2(32f, 32f));
+                goalTexts[i] = UIKit.Text(goals.transform, "", 23, Color.white, TextAnchor.MiddleLeft);
+                UIKit.Place(goalTexts[i].rectTransform, new Vector2(0f, 1f), new Vector2(54f, -10f - i * 38f), new Vector2(330f, 32f));
+            }
+
+            shieldRow = UIKit.Place(UIKit.Node("Shields", hud), new Vector2(0f, 1f), new Vector2(26f, -236f), new Vector2(200f, 40f));
             for (int i = 0; i < 3; i++)
             {
                 var s = UIKit.Image(shieldRow, "Shield", new Color(0.4f, 1f, 0.85f), UIKit.Circle);
@@ -208,11 +231,27 @@ namespace SkyDrop
             UIKit.Place(openSub.rectTransform, new Vector2(0.5f, 0.5f), new Vector2(0f, -38f), new Vector2(320f, 30f));
             openHolder.gameObject.AddComponent<Pulse>().enabled = false;
 
-            joyBase = UIKit.Image(hud, "JoyBase", new Color(1f, 1f, 1f, 0.12f), UIKit.Circle).rectTransform;
-            joyBase.sizeDelta = new Vector2(190f, 190f);
-            joyKnob = UIKit.Image(hud, "JoyKnob", new Color(1f, 1f, 1f, 0.35f), UIKit.Circle).rectTransform;
-            joyKnob.sizeDelta = new Vector2(84f, 84f);
-            joyBase.anchorMin = joyBase.anchorMax = joyKnob.anchorMin = joyKnob.anchorMax = Vector2.zero;
+            // Big "here is what to do" banner at the start of every jump.
+            var b = UIKit.Place(UIKit.Node("Banner", hud), new Vector2(0.5f, 0.5f), new Vector2(0f, 170f), new Vector2(760f, 250f));
+            banner = b.gameObject.AddComponent<CanvasGroup>();
+            banner.blocksRaycasts = false;
+            banner.interactable = false;
+            var bbg = UIKit.Image(b, "Bg", new Color(0.05f, 0.06f, 0.12f, 0.55f), UIKit.Round);
+            UIKit.Stretch(bbg.rectTransform);
+            bannerTitle = UIKit.Text(b, "", 64, UIKit.Gold);
+            UIKit.Place(bannerTitle.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -12f), new Vector2(760f, 70f));
+            bannerBody = UIKit.Text(b, "", 32, Color.white, TextAnchor.UpperCenter);
+            UIKit.Place(bannerBody.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -92f), new Vector2(760f, 150f));
+            bannerBody.lineSpacing = 1.2f;
+            banner.alpha = 0f;
+        }
+
+        /// Shows the level goals in the middle of the screen for a few seconds.
+        public void ShowBanner(LevelConfig cfg)
+        {
+            bannerTitle.text = cfg.Title;
+            bannerBody.text = "1. " + LevelConfig.LandGoal + "\n2. " + cfg.RingGoal + "\n3. " + cfg.RiskGoal;
+            bannerTime = 3.2f;
         }
 
         RectTransform CoinPill(Transform parent, Vector2 anchor, Vector2 pos, out Text text)
@@ -234,6 +273,9 @@ namespace SkyDrop
             if (on && cfg != null)
             {
                 levelText.text = cfg.Title + "  -  " + cfg.Theme.name.ToUpper();
+                goalTexts[0].text = LevelConfig.LandGoal;
+                goalTexts[2].text = "Open at " + Zones.MultText(Zones.Mult[cfg.riskZone]) + " or more";
+                for (int i = 0; i < 3; i++) goalDone[i] = false;
                 lastZone = -1;
                 comboText.text = "";
                 SetHint(null);
@@ -246,7 +288,16 @@ namespace SkyDrop
             coinText.text = h.coins.ToString();
             coinPunch = Mathf.MoveTowards(coinPunch, 0f, dt * 4f);
             coinPill.localScale = Vector3.one * (1f + coinPunch * 0.25f);
-            ringText.text = h.ringsTotal > 0 && h.freefall ? "RINGS " + h.rings + "/" + h.ringsTotal : "";
+            ringText.text = "";
+
+            // goals: rings count live, the risk goal lights up while you're in a qualifying zone
+            goalTexts[1].text = "Rings  " + Mathf.Min(h.rings, h.ringsNeeded) + " / " + h.ringsNeeded;
+            bool ringsOk = h.rings >= h.ringsNeeded;
+            bool riskOk = h.opened && h.lockedZone <= h.riskZone;
+            bool riskNow = !h.opened && h.freefall && h.canOpen && Zones.Of(h.margin) <= h.riskZone;
+            SetGoal(1, ringsOk, false);
+            SetGoal(2, riskOk, riskNow);
+            SetGoal(0, false, false);
 
             for (int i = 0; i < shieldIcons.Count; i++) shieldIcons[i].gameObject.SetActive(i < h.shields);
 
@@ -316,16 +367,21 @@ namespace SkyDrop
             if (comboTimer <= 0f) comboText.text = "";
             comboText.transform.localScale = Vector3.Lerp(comboText.transform.localScale, Vector3.one, 1f - Mathf.Exp(-dt * 10f));
 
-            bool joy = InputReader.Dragging;
-            joyBase.gameObject.SetActive(joy);
-            joyKnob.gameObject.SetActive(joy);
-            if (joy)
+            for (int i = 0; i < 3; i++)
+                goalIcons[i].transform.localScale = Vector3.Lerp(goalIcons[i].transform.localScale, Vector3.one, 1f - Mathf.Exp(-dt * 8f));
+        }
+
+        void SetGoal(int i, bool done, bool live)
+        {
+            if (done && !goalDone[i])
             {
-                float s = root.rect.width / Mathf.Max(1f, Screen.width);
-                joyBase.anchoredPosition = InputReader.DragOrigin * s;
-                Vector2 d = Vector2.ClampMagnitude(InputReader.DragPos - InputReader.DragOrigin, InputReader.JoystickRadius);
-                joyKnob.anchoredPosition = (InputReader.DragOrigin + d) * s;
+                goalIcons[i].transform.localScale = Vector3.one * 2f;
+                ScreenPopup("GOAL COMPLETE!", UIKit.Gold, 44, 40f);
+                if (SoundBank.I != null) SoundBank.I.Play(SoundBank.I.perfect, 0.7f, 1.2f);
             }
+            goalDone[i] = done;
+            goalIcons[i].color = done ? UIKit.Gold : live ? new Color(1f, 1f, 1f, 0.5f + Mathf.PingPong(Time.unscaledTime * 3f, 0.5f)) : new Color(1f, 1f, 1f, 0.25f);
+            goalTexts[i].color = done ? UIKit.Gold : Color.white;
         }
 
         public void CoinPunch() { coinPunch = 1f; }
@@ -417,6 +473,12 @@ namespace SkyDrop
                 flash.color = fc;
             }
             if (results.gameObject.activeSelf) AnimateResults(dt);
+            if (bannerTime > 0f)
+            {
+                bannerTime -= dt;
+                banner.alpha = Mathf.Clamp01(bannerTime / 0.5f) * Mathf.Clamp01((3.2f - bannerTime) / 0.2f);
+            }
+            else if (banner.alpha > 0f) banner.alpha = 0f;
         }
 
         // =============================================================================== menu
@@ -430,6 +492,8 @@ namespace SkyDrop
             menuTitle = UIKit.Text(menu, "SKY DROP", 104, UIKit.Gold);
             UIKit.Place(menuTitle.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -30f), new Vector2(900f, 120f));
             menuTitle.GetComponent<Outline>().effectDistance = new Vector2(4f, -4f);
+            menuGoals = UIKit.Text(menu, "", 26, new Color(1f, 1f, 1f, 0.9f));
+            UIKit.Place(menuGoals.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -196f), new Vector2(1100f, 36f));
             menuSub = UIKit.Text(menu, "", 36, Color.white);
             UIKit.Place(menuSub.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -150f), new Vector2(900f, 50f));
 
@@ -479,7 +543,11 @@ namespace SkyDrop
         {
             menu.gameObject.SetActive(on);
             if (!on) return;
-            if (cfg != null) menuSub.text = cfg.Title + "  -  " + cfg.Theme.name.ToUpper();
+            if (cfg != null)
+            {
+                menuSub.text = cfg.Title + "  -  " + cfg.Theme.name.ToUpper();
+                menuGoals.text = "GOALS:   " + LevelConfig.LandGoal + "   |   " + cfg.RingGoal + "   |   Open at " + Zones.MultText(Zones.Mult[cfg.riskZone]) + "+";
+            }
             RefreshMenu();
         }
 
@@ -713,7 +781,7 @@ namespace SkyDrop
             var dim = UIKit.Image(results, "Dim", new Color(0f, 0f, 0f, 0.45f), null, true);
             UIKit.Stretch(dim.rectTransform);
             var p = UIKit.Image(results, "Panel", new Color(0.12f, 0.13f, 0.22f, 0.96f), UIKit.Round, true).rectTransform;
-            UIKit.Place(p, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(860f, 640f));
+            UIKit.Place(p, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(860f, 690f));
 
             resTitle = UIKit.Text(p, "", 72, Color.white);
             UIKit.Place(resTitle.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -20f), new Vector2(860f, 84f));
@@ -724,16 +792,21 @@ namespace SkyDrop
                 resStars[i] = UIKit.Image(p, "Star", Color.white, UIKit.Star);
                 UIKit.Place(resStars[i].rectTransform, new Vector2(0.5f, 1f), new Vector2((i - 1) * 110f, i == 1 ? -150f : -165f), new Vector2(i == 1 ? 110f : 90f, i == 1 ? 110f : 90f));
             }
-            resRows = UIKit.Text(p, "", 30, Color.white, TextAnchor.UpperLeft, false);
-            UIKit.Place(resRows.rectTransform, new Vector2(0.5f, 1f), new Vector2(-120f, -285f), new Vector2(420f, 150f));
-            resValues = UIKit.Text(p, "", 30, Color.white, TextAnchor.UpperRight, false);
-            UIKit.Place(resValues.rectTransform, new Vector2(0.5f, 1f), new Vector2(150f, -285f), new Vector2(240f, 150f));
-            resRows.lineSpacing = 1.15f;
-            resValues.lineSpacing = 1.15f;
+            // the 3 goals, each with its star
+            for (int i = 0; i < 3; i++)
+            {
+                resGoalIcons[i] = UIKit.Image(p, "GoalStar", Color.white, UIKit.Star);
+                UIKit.Place(resGoalIcons[i].rectTransform, new Vector2(0.5f, 1f), new Vector2(-250f, -278f - i * 42f), new Vector2(36f, 36f));
+                resGoalTexts[i] = UIKit.Text(p, "", 28, Color.white, TextAnchor.MiddleLeft);
+                resGoalTexts[i].rectTransform.anchorMin = resGoalTexts[i].rectTransform.anchorMax = new Vector2(0.5f, 1f);
+                resGoalTexts[i].rectTransform.pivot = new Vector2(0f, 0.5f);
+                resGoalTexts[i].rectTransform.anchoredPosition = new Vector2(-220f, -296f - i * 42f);
+                resGoalTexts[i].rectTransform.sizeDelta = new Vector2(520f, 36f);
+            }
+            resBreakdown = UIKit.Text(p, "", 26, new Color(0.85f, 0.9f, 1f));
+            UIKit.Place(resBreakdown.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -415f), new Vector2(840f, 34f));
             resTotal = UIKit.Text(p, "", 58, UIKit.Gold);
-            UIKit.Place(resTotal.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -420f), new Vector2(800f, 70f));
-            resRecord = UIKit.Text(p, "", 28, new Color(1f, 0.45f, 0.6f));
-            UIKit.Place(resRecord.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -268f), new Vector2(800f, 30f));
+            UIKit.Place(resTotal.rectTransform, new Vector2(0.5f, 1f), new Vector2(0f, -452f), new Vector2(800f, 70f));
 
             resDouble = UIKit.Button(p, "x2 COINS  (AD)", UIKit.Purple, new Vector2(270f, 96f), () => GameManager.I.OnDoubleReward(), 28);
             UIKit.Place((RectTransform)resDouble.transform, new Vector2(0.5f, 0f), new Vector2(-280f, 30f), new Vector2(270f, 96f));
@@ -756,15 +829,19 @@ namespace SkyDrop
             resTitle.text = r.title;
             resTitle.color = r.titleColor;
             resSub.text = r.subtitle;
-            string rows = "Coins collected\n";
-            string vals = r.airCoins + "\n";
-            if (!r.crashed && r.landingBonus > 0) { rows += "Landing bonus\n"; vals += "+" + r.landingBonus + "\n"; }
-            if (r.multiplier > 1f && r.cleared) { rows += "Risk multiplier\n"; vals += Zones.MultText(r.multiplier) + "\n"; }
-            if (r.daily) { rows += "Daily jump bonus\n"; vals += "x2\n"; }
-            if (r.dailyBonus > 0) { rows += "First daily clear\n"; vals += "+" + r.dailyBonus + "\n"; }
-            resRows.text = rows;
-            resValues.text = vals;
-            resRecord.text = r.newRecord ? "NEW RISK RECORD!" : "";
+            for (int i = 0; i < 3; i++)
+            {
+                resGoalTexts[i].text = r.goalText[i];
+                resGoalTexts[i].color = r.goals[i] ? Color.white : new Color(1f, 1f, 1f, 0.45f);
+                resGoalIcons[i].color = r.goals[i] ? UIKit.Gold : new Color(0f, 0f, 0f, 0.35f);
+            }
+            string b = r.airCoins + " coins";
+            if (!r.crashed && r.landingBonus > 0) b += "  +  " + r.landingBonus + " landing";
+            if (r.multiplier > 1f && r.cleared) b += "   " + Zones.MultText(r.multiplier) + " risk";
+            if (r.daily) b += "   x2 daily";
+            if (r.dailyBonus > 0) b += "  +" + r.dailyBonus + " first clear";
+            if (r.newRecord) b += "   NEW RECORD!";
+            resBreakdown.text = b;
             shownTotal = 0f;
             resTime = 0f;
             for (int i = 0; i < 3; i++)
@@ -779,8 +856,7 @@ namespace SkyDrop
         {
             current.total = total;
             current.canDouble = !doubled && current.canDouble;
-            if (doubled) resRows.text += "Bonus ad reward\n";
-            if (doubled) resValues.text += "x2\n";
+            if (doubled) resBreakdown.text += "   x2 ad bonus";
             RefreshResultButtons();
         }
 

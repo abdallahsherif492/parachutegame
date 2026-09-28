@@ -159,7 +159,7 @@ namespace SkyDrop
                 input = Vector2.zero;
             }
             Vector3 want = new Vector3(input.x, 0f, input.y) * Economy.FreefallSteer;
-            float accel = input.sqrMagnitude > 0.01f ? 42f : 16f;
+            float accel = input.sqrMagnitude > 0.01f ? 75f : 38f;   // snappy: go where you point, stop when you let go
             hVel = Vector3.MoveTowards(hVel, want, accel * dt);
             float rate = vFall > Terminal ? 6f : 22f;
             vFall = Mathf.MoveTowards(vFall, Terminal, rate * dt);
@@ -205,7 +205,7 @@ namespace SkyDrop
 
             float control = deployed ? 1f : 0.35f;
             Vector3 want = new Vector3(input.x, 0f, input.y) * Economy.CanopySteer * control + wind * Economy.WindFactor;
-            hVel = Vector3.MoveTowards(hVel, want, (deployed ? 12f : 20f) * dt);
+            hVel = Vector3.MoveTowards(hVel, want, (deployed ? 20f : 20f) * dt);
             transform.position += (hVel + Vector3.down * vFall) * dt;
         }
 
