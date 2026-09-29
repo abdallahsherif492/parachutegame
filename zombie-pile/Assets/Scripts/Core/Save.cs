@@ -18,12 +18,13 @@ namespace ZombiePile
         public bool muted;
         public bool switchTip;                 // the "switch to the tower" tip was shown
         public string name;                    // shown to other players in co-op rooms
+        public long stamp;                     // when it was saved (unix seconds): the newer copy wins between this device and the account
         public int totalKills, plays;
     }
 
     public static class Save
     {
-        const string Key = "zombiepile_save_v2";
+        public const string Key = "zombiepile_save_v2";
         public static SaveData Data { get; private set; }
 
         public static void Load()
@@ -36,6 +37,11 @@ namespace ZombiePile
                 catch (Exception e) { Debug.LogWarning("Save corrupted, starting fresh: " + e.Message); }
             }
             Data = d ?? new SaveData();
+            Normalize();
+        }
+
+        static void Normalize()
+        {
             // arrays grow when new upgrades are added in later versions
             if (Data.up == null || Data.up.Length < Econ.UpCount)
             {
@@ -48,9 +54,22 @@ namespace ZombiePile
             Data.weapons |= 1;
         }
 
+        /// A copy from the player's CrazyGames account: taken when it is newer than ours.
+        public static bool MergeRemote(string json)
+        {
+            SaveData r;
+            try { r = JsonUtility.FromJson<SaveData>(json); } catch (Exception) { return false; }
+            if (r == null || Data == null || r.stamp <= Data.stamp) return false;
+            Data = r;
+            Normalize();
+            return true;
+        }
+
         public static void Write()
         {
-            if (Data != null) PlatformSDK.SaveString(Key, JsonUtility.ToJson(Data));
+            if (Data == null) return;
+            Data.stamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            PlatformSDK.SaveString(Key, JsonUtility.ToJson(Data));
         }
 
         public static int Stars(int level)

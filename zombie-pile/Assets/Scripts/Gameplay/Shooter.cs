@@ -51,7 +51,7 @@ namespace ZombiePile
         Camera cam;
         float fireT, barrelT, airT, aiT, kick;
         Zombie aiTarget;
-        string shownWeapon;
+        int shownWeapon = -1;
         readonly RaycastHit[] hits = new RaycastHit[32];
         static readonly HashSet<Zombie> seen = new HashSet<Zombie>();
         const int ShotMask = (1 << 0) | (1 << Arena.Props) | (1 << Zombie.Layer);
@@ -111,9 +111,9 @@ namespace ZombiePile
         public void RefreshWeapon()
         {
             var w = W;
-            if (shownWeapon == w.model) return;
-            shownWeapon = w.model;
-            gunR = Kit.ShowWeapon(model, w.model);
+            if (shownWeapon == w.id) return;
+            shownWeapon = w.id;
+            gunR = Kit.ShowWeapon(model, w.model, w.tint);
         }
 
         // ------------------------------------------------------------------ stats (weapon x upgrades x power-ups)

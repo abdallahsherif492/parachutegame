@@ -175,15 +175,22 @@ namespace ZombiePile
         static void Prepare(GameObject go) { ShowWeapon(go, "Rifle"); }
 
         /// Shows only the named weapon on a character model; returns its renderer (for the muzzle).
-        public static Renderer ShowWeapon(GameObject model, string weapon)
+        static MaterialPropertyBlock gunMpb;
+
+        public static Renderer ShowWeapon(GameObject model, string weapon, Color? tint = null)
         {
             Renderer found = null;
+            if (gunMpb == null) gunMpb = new MaterialPropertyBlock();
+            gunMpb.Clear();
+            gunMpb.SetColor("_Color", tint ?? Color.white);
             foreach (var t in model.GetComponentsInChildren<Transform>(true))
             {
                 if (Array.IndexOf(Weapons, t.name) < 0) continue;
                 bool on = t.name == weapon;
                 t.gameObject.SetActive(on);
-                if (on) found = t.GetComponentInChildren<Renderer>(true);
+                if (!on) continue;
+                found = t.GetComponentInChildren<Renderer>(true);
+                foreach (var r in t.GetComponentsInChildren<Renderer>(true)) r.SetPropertyBlock(gunMpb);
             }
             return found;
         }

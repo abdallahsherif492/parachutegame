@@ -10,7 +10,7 @@ namespace ZombiePile
     public class Game : MonoBehaviour
     {
         public static Game I;
-        public const string Version = "v0.7";
+        public const string Version = "v0.8";
 
         public bool Playing { get; private set; }
         public bool Endless { get; private set; }
@@ -37,10 +37,24 @@ namespace ZombiePile
             Shooter.BuildAll();
             Hud.Build();
             Screens.Build();
-            PlatformSDK.Init(() => PlatformSDK.LoadingStop());
             Net.RoomStarted += OnRoomStarted;
             Net.RoomClosed += OnRoomClosed;
+            PlatformSDK.Init(OnPlatformReady);
             ShowMenu();
+            booted = true;
+        }
+
+        bool booted;
+
+        /// The CrazyGames SDK is up (after the menu is already showing): the account save may have been newer,
+        /// and the page may have been opened from a friend's co-op invite link.
+        void OnPlatformReady()
+        {
+            PlatformSDK.LoadingStop();
+            if (!booted) return;
+            if (!Playing && Screens.I.OnMenu) ShowMenu();
+            string room = PlatformSDK.InviteRoom();
+            if (room.Length == 5 && !Net.InRoom && !Playing) Net.Join(room);
         }
 
         void OnDestroy() { Net.RoomStarted -= OnRoomStarted; Net.RoomClosed -= OnRoomClosed; }

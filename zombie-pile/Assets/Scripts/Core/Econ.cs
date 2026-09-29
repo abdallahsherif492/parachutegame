@@ -24,6 +24,7 @@ namespace ZombiePile
         public int bullets, pierce;
         public int price, unlockLevel;
         public float kick;                      // knockback on hit
+        public Color tint = Color.white;        // colour of the gun model (new guns reuse a kit model)
     }
 
     /// Numbers of the game in one place: upgrades, weapons, coin rewards. Damage and HP use x10 units
@@ -52,7 +53,19 @@ namespace ZombiePile
             new WeaponDef { id = 0, name = "SMG", model = "SMG", image = "w_smg", rate = 10f, damage = 10f, spread = 1.1f, headMult = 2f, bullets = 1, pierce = 0, kick = 0.08f },
             new WeaponDef { id = 1, name = "RIFLE", model = "Rifle", image = "w_rifle", rate = 6f, damage = 24f, spread = 0.35f, headMult = 2.2f, bullets = 1, pierce = 1, price = 300, unlockLevel = 4, kick = 0.15f },
             new WeaponDef { id = 2, name = "SHOTGUN", model = "Shotgun", image = "w_shotgun", rate = 1.7f, damage = 16f, spread = 6.5f, headMult = 1.8f, bullets = 7, pierce = 0, price = 900, unlockLevel = 8, kick = 0.3f },
+            new WeaponDef { id = 3, name = "MAGNUM", model = "Pistol", image = "w_magnum", rate = 2.4f, damage = 60f, spread = 0.05f, headMult = 3.2f, bullets = 1, pierce = 2, price = 700, unlockLevel = 6, kick = 0.4f, tint = new Color(1.5f, 1.2f, 0.6f) },
+            new WeaponDef { id = 4, name = "AUTO-12", model = "Shotgun", image = "w_auto12", rate = 3.4f, damage = 11f, spread = 7.5f, headMult = 1.8f, bullets = 6, pierce = 0, price = 2400, unlockLevel = 11, kick = 0.22f, tint = new Color(0.6f, 1f, 0.65f) },
+            new WeaponDef { id = 5, name = "MINIGUN", model = "SMG", image = "w_minigun", rate = 24f, damage = 7f, spread = 3.2f, headMult = 1.8f, bullets = 1, pierce = 0, price = 4500, unlockLevel = 14, kick = 0.04f, tint = new Color(0.55f, 0.7f, 1.15f) },
         };
+
+        /// The shop lists guns in the order they unlock (ids stay as they are: they are the save format).
+        public static readonly WeaponDef[] Shop = BuildShop();
+        static WeaponDef[] BuildShop()
+        {
+            var l = new System.Collections.Generic.List<WeaponDef>(Weapons);
+            l.Sort((a, b) => a.unlockLevel != b.unlockLevel ? a.unlockLevel.CompareTo(b.unlockLevel) : a.id.CompareTo(b.id));
+            return l.ToArray();
+        }
 
         /// The tower sniper's rifle.
         public static readonly WeaponDef Sniper = new WeaponDef { id = 10, name = "SNIPER", model = "Rifle", image = "w_rifle", rate = 1.8f, damage = 50f, spread = 0f, headMult = 3f, bullets = 1, pierce = 1, kick = 0.35f };

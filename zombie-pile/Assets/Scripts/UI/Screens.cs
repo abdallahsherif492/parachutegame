@@ -12,7 +12,7 @@ namespace ZombiePile
         RectTransform root;
         GameObject page;
         Text coinText;
-        int armoryTab;
+        int armoryTab, weaponPage;
 
         static readonly Vector2 BL = new Vector2(0f, 0f), BR = new Vector2(1f, 0f), C = new Vector2(0.5f, 0.5f), TL = new Vector2(0f, 1f);
         static readonly Color Orange = new Color(0.91f, 0.45f, 0.17f), Blue = new Color(0.18f, 0.53f, 0.91f), Green = new Color(0.31f, 0.6f, 0.07f);
@@ -39,6 +39,7 @@ namespace ZombiePile
         float toastT;
         string joinCode = "";
         string pageName = "";
+        public bool OnMenu { get { return pageName == "Menu"; } }
 
         void Update()
         {
@@ -68,7 +69,7 @@ namespace ZombiePile
 
         void OnLobbyChanged()
         {
-            if (page == null || (pageName != "Coop" && pageName != "Join" && pageName != "Lobby")) return;
+            if (page == null || (pageName != "Menu" && pageName != "Coop" && pageName != "Join" && pageName != "Lobby")) return;   // "Menu": a friend's invite link opened the game
             if (Net.InRoom && !Net.Started) Lobby();
             else if (pageName == "Lobby" && !Net.InRoom) Coop();
         }
@@ -196,7 +197,24 @@ namespace ZombiePile
 
             if (tab == 0)
             {
-                for (int i = 0; i < Econ.Weapons.Length; i++) WeaponCard(p, 170 + i * 320, 216, Econ.Weapons[i]);
+                int pages = (Econ.Shop.Length + 2) / 3;
+                weaponPage = Mathf.Clamp(weaponPage, 0, pages - 1);
+                for (int i = 0; i < 3; i++)
+                {
+                    int k = weaponPage * 3 + i;
+                    if (k < Econ.Shop.Length) WeaponCard(p, 170 + i * 320, 216, Econ.Shop[k]);
+                }
+                if (pages > 1)
+                {
+                    int next = (weaponPage + 1) % pages, prev = (weaponPage + pages - 1) % pages;
+                    var left = B(p, "round_dark", "", 0, 66, 262, 84, 84, () => { weaponPage = prev; Armory(0); });
+                    Hud.In(UIKit.Pic(left.transform, "ic_back", Color.white).rectTransform, new Vector2(84, 84), 14, 10, 56, 56);
+                    var right = B(p, "round_dark", "", 0, 1130, 262, 84, 84, () => { weaponPage = next; Armory(0); });
+                    var ri = UIKit.Pic(right.transform, "ic_back", Color.white);
+                    Hud.In(ri.rectTransform, new Vector2(84, 84), 14, 10, 56, 56);
+                    ri.rectTransform.localScale = new Vector3(-1f, 1f, 1f);
+                    L(p, (weaponPage + 1) + " / " + pages, false, 22, new Color(0.8f, 0.76f, 0.86f), 1130, 350, 84);
+                }
                 UpCard(p, 170, 404, Up.GunDamage, Orange);
                 UpCard(p, 490, 404, Up.GunRate, Orange);
                 UpCard(p, 810, 404, Up.GunBullets, Orange);

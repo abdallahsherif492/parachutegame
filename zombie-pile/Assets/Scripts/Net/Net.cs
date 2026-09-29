@@ -119,6 +119,7 @@ namespace ZombiePile
             Role = NetRole.Offline;
             RoomCode = ""; Started = false; YouHost = false; Players.Clear(); pending = null;
             LocalSlot = 1;
+            PlatformSDK.HideInvite();
             if (Host != null) { UnityEngine.Object.Destroy(Host); Host = null; }
             if (Client != null) { UnityEngine.Object.Destroy(Client); Client = null; }
             Zombie.KilledHook = null;
@@ -185,10 +186,12 @@ namespace ZombiePile
                     RoomCode = c.code ?? ""; YouSlot = c.you; YouHost = c.host; Started = c.started; Status = "";
                     Players.Clear();
                     if (c.players != null) Players.AddRange(c.players);
+                    if (YouHost && !Started && RoomCode.Length > 0) PlatformSDK.ShowInvite(RoomCode);
                     if (LobbyChanged != null) LobbyChanged();
                     break;
                 case "started":
                     Started = true;
+                    PlatformSDK.HideInvite();
                     Role = YouHost ? NetRole.Host : NetRole.Client;
                     LocalSlot = YouSlot;
                     if (YouHost) { Host = driver.gameObject.AddComponent<NetHost>(); }
