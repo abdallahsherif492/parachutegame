@@ -246,7 +246,7 @@ namespace ZombiePile
             go.transform.SetParent(parent, false);
             var w = go.AddComponent<WeatherFx>();
             I = w;
-            w.ps = go.GetComponent<ParticleSystem>();
+            w.ps = go.AddComponent<ParticleSystem>();
             w.psr = go.GetComponent<ParticleSystemRenderer>();
             w.ps.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
             return w;

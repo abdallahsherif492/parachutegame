@@ -324,7 +324,7 @@ namespace ZombiePile
         {
             var p = pops[nextPop];
             nextPop = (nextPop + 1) % pops.Count;
-            Start(p, world, text, c, size, 1f, 1.5f);
+            Launch(p, world, text, c, size, 1f, 1.5f);
         }
 
         /// A floating damage number (gold and bigger for headshots).
@@ -332,10 +332,10 @@ namespace ZombiePile
         {
             var p = numbers[nextNum];
             nextNum = (nextNum + 1) % numbers.Count;
-            Start(p, world + Random.insideUnitSphere * 0.25f, crit ? "CRIT " + amount : amount.ToString(), crit ? UIKit.Gold : Color.white, crit ? 1.15f : 0.8f, 0.7f, 1.1f);
+            Launch(p, world + Random.insideUnitSphere * 0.25f, crit ? "CRIT " + amount : amount.ToString(), crit ? UIKit.Gold : Color.white, crit ? 1.15f : 0.8f, 0.7f, 1.1f);
         }
 
-        void Start(Pop p, Vector3 world, string text, Color c, float size, float life, float rise)
+        void Launch(Pop p, Vector3 world, string text, Color c, float size, float life, float rise)
         {
             p.world = world; p.life = p.max = life; p.size = size; p.rise = rise;
             p.t.text = text; p.t.color = c;
