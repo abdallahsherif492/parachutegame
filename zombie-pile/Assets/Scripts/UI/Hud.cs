@@ -209,9 +209,9 @@ namespace ZombiePile
             // "they're climbing" warning above them
             warn = UIKit.Node("Warn", ht).gameObject;
             UIKit.Stretch((RectTransform)warn.transform);
-            var wp = Pic(warn.transform, "panel", new Color(1f, 0.75f, 0.75f), BL, 14, 516, 320, 60);
+            var wp = Pic(warn.transform, "panel", new Color(1f, 0.75f, 0.75f), BL, 14, 470, 320, 60);
             wp.gameObject.AddComponent<Pulse>().amount = 0.05f;
-            Label(warn.transform, "CLIMBERS! SWITCH TO A TOWER", false, 21, new Color(1f, 0.42f, 0.32f), BL, 20, 534, 308);
+            Label(warn.transform, "CLIMBERS! SWITCH TO A TOWER", false, 21, new Color(1f, 0.42f, 0.32f), BL, 20, 488, 308);
             warn.SetActive(false);
 
             crosshair = UIKit.Pic(Root, "crosshair", Color.white).rectTransform;
@@ -219,16 +219,18 @@ namespace ZombiePile
             hitmark = UIKit.Pic(crosshair, "hitmark", new Color(1f, 1f, 1f, 0f));
             hitmark.rectTransform.sizeDelta = new Vector2(52, 52);
 
-            // coach card: one short lesson at the bottom, between the shooters and the buttons (the street stays clear)
+            // coach card: one short lesson on the right, above the barrel button: the bottom centre is the player's
+            // own shooter and the middle is the street, so neither is covered
             hintBox = UIKit.Node("Hint", ht).gameObject;
             UIKit.Stretch((RectTransform)hintBox.transform);
             var hb = hintBox.transform;
-            Pic(hb, "panel", Color.white, TL, 352, 592, 576, 100);
-            hintTitle = Label(hb, "", true, 28, UIKit.Gold, TL, 372, 598, 420, TextAnchor.MiddleLeft);
+            Pic(hb, "panel", Color.white, TL, 934, 96, 336, 184);
+            hintTitle = Label(hb, "", true, 26, UIKit.Gold, TL, 950, 104, 304, TextAnchor.MiddleLeft);
             hintBody = UIKit.Text(hb, "", 19, Color.white, TextAnchor.UpperLeft);
-            UIKit.At(hintBody.rectTransform, TL, 372, 632, 540, 50);
+            hintBody.horizontalOverflow = HorizontalWrapMode.Wrap;
+            UIKit.At(hintBody.rectTransform, TL, 950, 140, 304, 96);
             hintSkip = UIKit.SpriteButton(hb, "btn_dark", "SKIP", 22, () => { if (Coach.I != null) Coach.I.SkipTutorial(); });
-            UIKit.At((RectTransform)hintSkip.transform, TL, 838, 600, 80, 34);
+            UIKit.At((RectTransform)hintSkip.transform, TL, 1172, 238, 84, 34);
             hintBox.SetActive(false);
 
             // announcements: a small ribbon that slides in on the left, away from the street
@@ -322,7 +324,7 @@ namespace ZombiePile
         /// The coach card. Body text is wrapped by hand (two lines of about 46 letters).
         public void ShowHint(string title, string body, bool skippable)
         {
-            hintTitle.text = title; hintBody.text = body;
+            hintTitle.text = title; hintBody.text = body.Replace('\n', ' ');
             hintSkip.gameObject.SetActive(skippable);
             hintBox.SetActive(true);
         }
