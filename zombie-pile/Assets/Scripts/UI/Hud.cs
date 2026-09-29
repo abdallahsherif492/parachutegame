@@ -263,6 +263,8 @@ namespace ZombiePile
         public void SetLevel(string s) { levelText.text = s; progShown = progTarget = 0f; }
         public void SetWall(float k) { wallTarget = k; }
         public void FlashDamage() { damageT = 1f; }
+        /// A softer red edge for the wall being chewed on.
+        public void ChipFlash(float k) { damageT = Mathf.Max(damageT, 0.25f + 0.35f * k); }
 
         public void SetProgress(int done, int total)
         {

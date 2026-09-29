@@ -24,7 +24,7 @@ namespace ZombiePile
         public static float RateBoost = 1f, DamageBoost = 1f;
         float rateT, damageT;
 
-        float comboT, attractT;
+        float comboT, attractT, chipAcc, chipT;
         int combo;
         bool climbWarned, attract;
 
@@ -92,7 +92,7 @@ namespace ZombiePile
             LevelNumber = n;
             WallMax = Econ.WallMax(Econ.Lvl(Up.WallHp));
             WallHp = WallMax;
-            RunCoins = 0; RunKills = 0; combo = 0;
+            RunCoins = 0; RunKills = 0; combo = 0; chipAcc = 0f;
             RateBoost = DamageBoost = 1f; rateT = damageT = 0f;
             climbWarned = false;
             Shooter.Wall.RefreshWeapon();
@@ -230,10 +230,19 @@ namespace ZombiePile
             Fx.I.Dust(at, big ? 1.6f : 0.8f);
         }
 
-        void Damage(float d)
+        /// Zombies clinging to the wall chew on it: collected here and applied in small steps.
+        public void WallChip(float dmg, Vector3 at)
+        {
+            if (!Playing || dmg <= 0f) return;
+            chipAcc += dmg * (1f + 0.06f * (LevelNumber - 1));
+            chipAt = at;
+        }
+        Vector3 chipAt;
+
+        void Damage(float d, bool flash = true)
         {
             WallHp -= d;
-            Hud.I.FlashDamage();
+            if (flash) Hud.I.FlashDamage();
             Hud.I.SetWall(Mathf.Max(0f, WallHp / WallMax));
             if (WallHp <= 0f) Lose();
         }
@@ -277,6 +286,22 @@ namespace ZombiePile
             }
             if (!Playing) return;
 
+            // wall chip damage: every half second, with dust and a thump so the wall visibly takes it
+            chipT += dt;
+            if (chipT >= 0.5f)
+            {
+                chipT = 0f;
+                if (chipAcc > 0.05f)
+                {
+                    float d = chipAcc; chipAcc = 0f;
+                    Damage(d, false);
+                    Hud.I.ChipFlash(Mathf.Clamp01(d / 3f));
+                    Fx.I.Dust(new Vector3(chipAt.x, Mathf.Min(chipAt.y, Arena.WallHeight - 1f), Arena.WallFront + 0.3f), 0.7f);
+                    SoundBank.I.Play(SoundBank.I.smash, Mathf.Clamp(0.12f + d * 0.08f, 0.1f, 0.4f), UnityEngine.Random.Range(0.8f, 1.1f));
+                    CameraRig.I.Shake(Mathf.Clamp(d * 0.04f, 0.02f, 0.25f));
+                }
+            }
+
             // field repair (armory upgrade)
             float rep = Econ.RepairRate(Econ.Lvl(Up.Repair));
             if (rep > 0f && WallHp < WallMax) { WallHp = Mathf.Min(WallMax, WallHp + rep * dt); Hud.I.SetWall(WallHp / WallMax); }
@@ -287,7 +312,7 @@ namespace ZombiePile
             if (Input.GetKeyDown(KeyCode.F)) Shooter.Wall.CallAirstrike();
 
             // zombies high on the wall while the player looks from the wall: point at the tower view
-            bool danger = Pile.MaxHeight > Arena.WallHeight * 0.45f;
+            bool danger = Zombie.HighestClimb > Arena.WallHeight * 0.45f;
             Hud.I.SetClimbWarning(danger && CameraRig.I.View == 0);
             if (danger && !climbWarned && !Save.Data.switchTip)
             {

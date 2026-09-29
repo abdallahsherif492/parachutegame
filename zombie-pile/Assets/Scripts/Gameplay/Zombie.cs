@@ -11,8 +11,18 @@ namespace ZombiePile
     public class Zombie : MonoBehaviour
     {
         public const int Layer = 8;
-        public const float BaseSpeed = 3.8f;
+        public const float BaseSpeed = 4.3f;
         public static readonly List<Zombie> Alive = new List<Zombie>();
+        public static readonly Dictionary<int, Zombie> ById = new Dictionary<int, Zombie>();
+        static int nextId = 1;
+
+        /// Set by the network host: called when a zombie dies (impulse, point, headshot, blastAt, blastForce).
+        public static System.Action<Zombie, Vector3, Vector3, bool, Vector3, float> KilledHook;
+
+        public int Id { get; private set; }
+        /// A puppet is the client-side copy of a zombie that the network host simulates: it only moves and
+        /// animates from snapshots and takes no decisions and no damage of its own.
+        public bool Puppet { get; private set; }
 
         public ZType Type { get; private set; }
         public float Hp { get; private set; }
@@ -26,11 +36,27 @@ namespace ZombiePile
         public Transform Head { get { return head; } }
         public float Step { get; private set; }
         public Vector3 Velocity { get; private set; }
-        public Vector3 Center { get { return transform.position + Vector3.up * bodyH * 0.55f; } }
+        public Vector3 Center { get { return bodyCol != null ? transform.TransformPoint(bodyCol.center) : transform.position + Vector3.up * bodyH * 0.55f; } }
+        public bool AtWall { get { return State == ZState.Pile && pileBottom; } }
+
+        /// Height of the tallest zombie on the wall face (host or client).
+        public static float HighestClimb
+        {
+            get
+            {
+                float m = 0f;
+                for (int i = 0; i < Alive.Count; i++)
+                {
+                    var z = Alive[i];
+                    if (z != null && (z.State == ZState.Pile || z.State == ZState.Climb)) m = Mathf.Max(m, z.transform.position.y);
+                }
+                return m;
+            }
+        }
         public bool Airborne { get { return State == ZState.Leap || State == ZState.Knock; } }
 
         GameObject holder;
-        Transform model, head, headBone, cone;
+        Transform model, head, headBone, hips, abdomen, cone;
         Kit.Anim kit;
         Renderer[] skins;
         MaterialPropertyBlock mpb;
@@ -41,6 +67,8 @@ namespace ZombiePile
         Vector3 from, spot, knockV;
         float dur;
         bool leapt, pileBottom;
+        Vector3 netPos;
+        ZState netState = ZState.Run;
 
         public static Zombie Spawn(ZType type, Vector3 pos, float hpScale, float speedScale)
         {
@@ -48,16 +76,45 @@ namespace ZombiePile
             go.layer = Layer;
             go.transform.position = pos;
             var z = go.AddComponent<Zombie>();
+            z.Id = nextId++;
             z.Init(type, hpScale, speedScale);
             return z;
         }
+
+        /// The client-side copy of host zombie 'id'.
+        public static Zombie SpawnPuppet(int id, ZType type, Vector3 pos)
+        {
+            var go = new GameObject(type.name + " (net)");
+            go.layer = Layer;
+            go.transform.position = pos;
+            var z = go.AddComponent<Zombie>();
+            z.Id = id;
+            z.Puppet = true;
+            z.netPos = pos;
+            z.Init(type, 1f, 1f);
+            return z;
+        }
+
+        /// Latest host state for a puppet.
+        public void PuppetSet(Vector3 pos, ZState st, float hpFrac, bool armored)
+        {
+            netPos = pos;
+            Hp = Mathf.Clamp01(hpFrac);
+            if (!armored && Armor > 0f) { Armor = 0f; PopCone(Vector3.up); }
+            if (st != netState) { netState = st; State = st; stateT = 0f; pileBottom = pos.y < 0.3f; PlayFor(st); }
+            else if (st == ZState.Pile && (pos.y < 0.3f) != pileBottom) { pileBottom = pos.y < 0.3f; PlayFor(st); }
+        }
+
+        /// A hit shown on a puppet (the damage itself happens on the host).
+        public void PuppetHit() { flash = 1f; punch = 1f; }
 
         void Init(ZType t, float hpScale, float speedScale)
         {
             Type = t;
             s = t.scale * (IsBrute ? 1f : Random.Range(0.94f, 1.08f));
             MaxHp = Hp = t.hp * hpScale;
-            if (t.ability == Ability.Cone) Armor = t.hp * 1.6f * hpScale;
+            if (t.ability == Ability.Cone) Armor = t.hp * 2f * hpScale;
+            if (Puppet) { MaxHp = 1f; Hp = 1f; if (t.ability == Ability.Cone) Armor = 1f; }
             speed = BaseSpeed * t.speed * speedScale * (IsBrute ? 1f : Random.Range(0.86f, 1.14f));
             laneX = Random.Range(-Arena.HalfWidth + 0.6f, Arena.HalfWidth - 0.6f);
             Step = t.step * s / t.scale;
@@ -81,7 +138,12 @@ namespace ZombiePile
             if (kit.anim != null && kit.punch != null) kit.anim[kit.punch].wrapMode = WrapMode.Loop;
             if (kit.anim != null && kit.hit != null) kit.anim[kit.hit].wrapMode = WrapMode.Once;
             kit.Start(kit.run);
-            foreach (var tr in holder.GetComponentsInChildren<Transform>()) if (tr.name == "Head") { headBone = tr; break; }
+            foreach (var tr in holder.GetComponentsInChildren<Transform>())
+            {
+                if (tr.name == "Head" && headBone == null) headBone = tr;
+                else if (tr.name == "Hips" && hips == null) hips = tr;
+                else if (tr.name == "Abdomen" && abdomen == null) abdomen = tr;
+            }
             skins = holder.GetComponentsInChildren<Renderer>();
             mpb = new MaterialPropertyBlock();
             ApplyTint(0f);
@@ -102,7 +164,33 @@ namespace ZombiePile
             IsAlive = true;
             State = ZState.Run;
             Alive.Add(this);
+            ById[Id] = this;
+            TrackHitboxes();
         }
+
+        /// The hit boxes follow the animated skeleton: while climbing, the model is lifted well above the
+        /// zombie's root, and boxes left at the root made shots pass right over it (worst on the skeleton
+        /// zombie, which has no head box to catch them). Called every frame after the animation.
+        void TrackHitboxes()
+        {
+            if (hips == null || bodyCol == null) return;
+            var up = Vector3.up;
+            var lo = hips.position - up * (0.28f * s);
+            Vector3 hi;
+            if (headBone != null && Type.hasHead) hi = headBone.position;
+            else if (abdomen != null) hi = abdomen.position + up * (0.4f * s);
+            else hi = hips.position + up * (0.5f * s);
+            var mid = (lo + hi) * 0.5f;
+            bodyCol.center = transform.InverseTransformPoint(mid);
+            bodyCol.height = Mathf.Max((hi - lo).magnitude + bodyCol.radius * 2f, bodyCol.radius * 2.1f);
+            if (head != null)
+            {
+                if (headBone != null && Type.hasHead) head.position = headBone.position + up * (Type.headUp * s);
+                else head.position = hi + up * (0.1f * s);
+            }
+        }
+
+        void LateUpdate() { if (IsAlive) TrackHitboxes(); }
 
         void AttachCone()
         {
@@ -132,7 +220,8 @@ namespace ZombiePile
             float dt = Time.deltaTime;
             stateT += dt;
             var before = transform.position;
-            switch (State)
+            if (Puppet) PuppetMove(dt);
+            else switch (State)
             {
                 case ZState.Run: Run(dt); break;
                 case ZState.Climb: Climb(dt); break;
@@ -158,6 +247,34 @@ namespace ZombiePile
             if (groanT < 0f) { groanT = Random.Range(5f, 14f); if (Random.value < 0.3f) SoundBank.I.Groan(); }
         }
 
+        void PuppetMove(float dt)
+        {
+            var p = transform.position;
+            if ((netPos - p).sqrMagnitude > 16f) p = netPos;
+            else p = Vector3.Lerp(p, netPos, 1f - Mathf.Exp(-dt * 16f));
+            transform.position = p;
+            if (State == ZState.Pile) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.Euler(Mathf.Sin(Id) * 8f - 4f, Mathf.Sin(Id * 1.7f) * 20f, 0f), dt * 4f);
+            else transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.identity, dt * 6f);
+        }
+
+        /// The animation for a state (used by the simulation and by puppets alike).
+        void PlayFor(ZState st)
+        {
+            switch (st)
+            {
+                case ZState.Run: kit.Play(kit.run, 0.2f, Mathf.Clamp(speed / BaseSpeed, 0.8f, 1.7f)); break;
+                case ZState.Climb: kit.Play(kit.climb ?? kit.run, 0.1f, 1.3f); break;
+                case ZState.Pile:
+                    // the ones at the bottom pound on the wall, the rest scramble on top of each other
+                    if (pileBottom && kit.punch != null) kit.Play(kit.punch, 0.2f, 0.9f);
+                    else kit.Play(kit.climb ?? kit.run, 0.2f, 0.7f);
+                    break;
+                case ZState.Leap: kit.Play(kit.jump ?? kit.climb ?? kit.run, 0.08f, 1f); break;
+                case ZState.Knock: kit.Play(kit.climb ?? kit.run, 0.05f, 1.5f); break;
+                case ZState.Breach: kit.Play(kit.climb ?? kit.run, 0.05f, 1.6f); break;
+            }
+        }
+
         void Run(float dt)
         {
             var p = transform.position;
@@ -180,7 +297,7 @@ namespace ZombiePile
             p.y = Mathf.MoveTowards(p.y, 0f, dt * 6f);
             transform.position = p;
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.identity, dt * 6f);
-            kit.Play(kit.run, 0.2f, Mathf.Clamp(speed / BaseSpeed, 0.8f, 1.7f));
+            PlayFor(ZState.Run);
 
             int c = Pile.ColAt(p.x);
             // leapers jump onto the heap from a distance once there is something to land on
@@ -204,7 +321,7 @@ namespace ZombiePile
             dur = 0.3f + 0.2f * spot.y + Random.Range(0f, 0.15f);
             stateT = 0f;
             State = ZState.Climb;
-            kit.Play(kit.climb ?? kit.run, 0.1f, 1.3f);
+            PlayFor(State);
         }
 
         void Climb(float dt)
@@ -228,15 +345,8 @@ namespace ZombiePile
             transform.rotation = Quaternion.Euler(Random.Range(-12f, 4f), Random.Range(-25f, 25f), Random.Range(-10f, 10f));
             // at the top of the wall: over it goes
             if (pileY >= Arena.WallHeight - 1.1f) { StartBreach(); return; }
-            PileAnim(pileY < 0.3f);
-        }
-
-        void PileAnim(bool bottom)
-        {
-            pileBottom = bottom;
-            // the ones at the bottom pound on the wall, the rest scramble on top of each other
-            if (bottom && kit.punch != null) kit.Play(kit.punch, 0.2f, Random.Range(0.8f, 1.1f));
-            else kit.Play(kit.climb ?? kit.run, 0.2f, Random.Range(0.5f, 0.8f));
+            pileBottom = pileY < 0.3f;
+            PlayFor(State);
         }
 
         /// Called by the pile when zombies below this one were shot away.
@@ -244,13 +354,15 @@ namespace ZombiePile
         {
             pileY = y;
             if (State != ZState.Pile) return;
-            if (bottom != pileBottom) PileAnim(bottom);
+            if (bottom != pileBottom) { pileBottom = bottom; PlayFor(State); }
         }
 
         void Cling(float dt)
         {
             pileYShown = Mathf.MoveTowards(pileYShown, pileY, dt * (pileYShown > pileY ? 7f : 3f));
             transform.position = new Vector3(spot.x, pileYShown, spot.z);
+            // everything clinging to the wall chews on it: the bottom row hardest, more of them, more damage
+            if (Game.I != null) Game.I.WallChip(Type.chip * (pileBottom ? 1f : 0.35f) * dt, transform.position + Vector3.up * bodyH * 0.5f);
             if (IsBrute && pileY < 0.5f)
             {
                 smashT -= dt;
@@ -269,7 +381,8 @@ namespace ZombiePile
             pileY = 0f; pileYShown = 0f;
             State = ZState.Pile;
             smashT = 1f;
-            kit.Play(kit.punch ?? kit.run, 0.2f, 0.7f);
+            pileBottom = true;
+            PlayFor(State);
             // the horde climbs up its back: a ramp under the middle columns
             int c = Pile.ColAt(transform.position.x);
             Pile.SetBase(c - 2, c + 2, Step);
@@ -285,7 +398,7 @@ namespace ZombiePile
             dur = 0.9f;
             stateT = 0f;
             State = ZState.Leap;
-            kit.Play(kit.jump ?? kit.climb, 0.08f, 1f);
+            PlayFor(State);
         }
 
         void Leap(float dt)
@@ -327,7 +440,7 @@ namespace ZombiePile
             knockV = v;
             stateT = 0f;
             State = ZState.Knock;
-            kit.Play(kit.climb ?? kit.run, 0.05f, 1.5f);
+            PlayFor(State);
         }
 
         void StartBreach()
@@ -341,7 +454,7 @@ namespace ZombiePile
             from = transform.position;
             stateT = 0f;
             State = ZState.Breach;
-            kit.Play(kit.climb ?? kit.run, 0.05f, 1.6f);
+            PlayFor(State);
         }
 
         void Breach(float dt)
@@ -368,7 +481,7 @@ namespace ZombiePile
         /// A bullet hit. 'dmg' already includes any headshot bonus. Returns true if it killed.
         public bool Hit(float dmg, Vector3 dir, Vector3 point, bool headshot, float kick)
         {
-            if (!IsAlive) return false;
+            if (!IsAlive || Puppet) return false;
             flash = 1f;
             punch = 1f;
             if (Armor > 0f)
@@ -389,7 +502,7 @@ namespace ZombiePile
         /// Explosions: damage with falloff; survivors are thrown off the pile or knocked back.
         public bool Blast(Vector3 center, float radius, float dmg, float force)
         {
-            if (!IsAlive) return false;
+            if (!IsAlive || Puppet) return false;
             var d = Center - center;
             float k = 1f - Mathf.Clamp01(d.magnitude / radius);
             if (Armor > 0f) { Armor = 0f; PopCone(d.normalized + Vector3.up); }
@@ -434,23 +547,39 @@ namespace ZombiePile
             col = -1;
             if (IsBoss) Pile.SetBase(0, Pile.Cols - 1, 0f);
             if (Game.I != null) Game.I.OnKill(this, point, headshot);
-            if (cone != null) PopCone(impulse + Vector3.up);
-            if (headshot && headBone != null)
-            {
-                headBone.localScale = Vector3.one * 0.01f;
-                Fx.I.Blood(head.position, Vector3.up, 22);
-            }
+            if (KilledHook != null) KilledHook(this, impulse, point, headshot, blastAt, blastForce);
             if (Type.ability == Ability.Explode && Game.I != null)
             {
                 var at = Center;
                 Game.I.Delay(0.08f, () => Boom.Explode(at, 3.4f, 80f, 11f, false));
             }
-            // the model becomes a ragdoll on its own; this object (colliders, script) goes away
+            BecomeCorpse(impulse, point, headshot, blastAt, blastForce);
+        }
+
+        /// A puppet dies when the host says so.
+        public void PuppetDie(Vector3 impulse, Vector3 point, bool headshot, Vector3 blastAt, float blastForce)
+        {
+            if (!IsAlive) return;
+            IsAlive = false;
+            Alive.Remove(this);
+            BecomeCorpse(impulse, point, headshot, blastAt, blastForce);
+        }
+
+        /// The model becomes a ragdoll on its own; this object (colliders, script) goes away.
+        void BecomeCorpse(Vector3 impulse, Vector3 point, bool headshot, Vector3 blastAt, float blastForce)
+        {
+            if (cone != null) PopCone(impulse + Vector3.up);
+            if (headshot && headBone != null && Type.hasHead)
+            {
+                headBone.localScale = Vector3.one * 0.01f;
+                Fx.I.Blood(head.position, Vector3.up, 22);
+            }
             flash = 0f;
             ApplyTint(0f);
             model.localScale = Vector3.one * s;
             model.SetParent(null, true);
-            Ragdoll.Make(holder, kit, s, Type.headR, headshot || !Type.hasHead, Velocity * 0.6f, impulse, point, blastAt, blastForce);
+            var v = Puppet ? Vector3.zero : Velocity * 0.6f;
+            Ragdoll.Make(holder, kit, s, Type.headR, headshot || !Type.hasHead, v, impulse, point, blastAt, blastForce);
             Destroy(gameObject);
         }
 
@@ -459,10 +588,11 @@ namespace ZombiePile
         {
             foreach (var z in FindObjectsByType<Zombie>(FindObjectsSortMode.None)) Destroy(z.gameObject);
             Alive.Clear();
+            ById.Clear();
             Pile.Clear();
             Ragdoll.ClearAll();
         }
 
-        void OnDestroy() { Alive.Remove(this); }
+        void OnDestroy() { Alive.Remove(this); Zombie z; if (ById.TryGetValue(Id, out z) && z == this) ById.Remove(Id); }
     }
 }
