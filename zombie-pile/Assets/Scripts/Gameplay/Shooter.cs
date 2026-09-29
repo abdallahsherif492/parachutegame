@@ -87,7 +87,9 @@ namespace ZombiePile
             // the soldier turns as a whole ('yaw'); the model inside keeps any facing correction from Kit
             s.yaw = new GameObject("Yaw").transform;
             s.yaw.SetParent(go.transform, false);
-            var holder = Kit.Place(modelName, pos, 0f, 1f, s.yaw, true);
+            var holder = Kit.Place(modelName, pos, 0f, 1f, s.yaw, true) ?? Kit.Place("Characters_Shaun", pos, 0f, 1f, s.yaw, true);
+            if (holder == null) holder = new GameObject("NoModel");     // models missing: the game still starts (see the Console)
+            holder.transform.SetParent(s.yaw, true);
             s.model = holder;
             s.kit = Kit.Anim.From(holder);
             s.kit.Start(s.kit.idle);

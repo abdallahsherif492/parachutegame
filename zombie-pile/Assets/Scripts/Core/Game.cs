@@ -410,6 +410,7 @@ namespace ZombiePile
         // ------------------------------------------------------------------ per frame
         void Update()
         {
+            if (Hud.I == null) return;      // Start failed earlier: the first error in the Console is the real one
             float dt = Time.deltaTime;
             comboT -= dt;
             if (rateT > 0f) { rateT -= dt; if (rateT <= 0f) RateBoost = 1f; }

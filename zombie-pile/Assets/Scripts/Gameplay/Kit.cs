@@ -64,6 +64,8 @@ namespace ZombiePile
             foreach (var m in layout.models) meta[m.name] = m;
         }
 
+        static readonly HashSet<string> warnedMissing = new HashSet<string>();
+
         public static GameObject Prefab(string name)
         {
             GameObject go;
@@ -190,7 +192,11 @@ namespace ZombiePile
         public static GameObject Place(string name, Vector3 pos, float yawDeg, float scale, Transform parent, bool shadows = true)
         {
             var prefab = Prefab(name);
-            if (prefab == null) return null;
+            if (prefab == null)
+            {
+                if (warnedMissing.Add(name)) Debug.LogWarning("ZombieKit: model '" + name + "' is missing from Assets/Resources/ZombieKit (pull the latest version and reimport)");
+                return null;
+            }
             var fix = GetFix(name, prefab);
             var holder = new GameObject(name);
             holder.transform.SetParent(parent, false);
@@ -229,7 +235,7 @@ namespace ZombiePile
 
             public static Anim From(GameObject model)
             {
-                var a = new Anim { anim = model.GetComponentInChildren<Animation>() };
+                var a = new Anim { anim = model != null ? model.GetComponentInChildren<Animation>() : null };
                 if (a.anim == null) return a;
                 foreach (AnimationState st in a.anim)
                 {
