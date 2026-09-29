@@ -320,6 +320,8 @@ namespace ZombiePile
             target.y = 0.2f;
             float power = 1f + 0.05f * Mathf.Min(lv - 1, 20);
             Toys.Launch(kind, from, target, true, power);
+            Stats.Add(Ev.Toy);
+            Coach.Tip(Coach.TipSquad, "YOUR BUDDIES HELP!", "The shooters you are not controlling throw things:\nLis fires a bazooka, Sam throws bombs, fire and more.", 8f);
             Game.Pop(from + Vector3.up * 1.1f, Toys.Names[(int)kind], Tint[(int)kind], 0.9f);
             t = Interval();
         }

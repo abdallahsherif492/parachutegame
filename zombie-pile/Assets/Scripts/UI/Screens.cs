@@ -13,6 +13,7 @@ namespace ZombiePile
         GameObject page;
         Text coinText;
         int armoryTab, weaponPage;
+        Econ.Suggestion bestBuy;
 
         static readonly Vector2 BL = new Vector2(0f, 0f), BR = new Vector2(1f, 0f), C = new Vector2(0.5f, 0.5f), TL = new Vector2(0f, 1f);
         static readonly Color Orange = new Color(0.91f, 0.45f, 0.17f), Blue = new Color(0.18f, 0.53f, 0.91f), Green = new Color(0.31f, 0.6f, 0.07f);
@@ -158,6 +159,7 @@ namespace ZombiePile
             Hud.In(UIKit.Pic(ar, "ic_upgrade", Color.white).rectTransform, esz, 8, 8, 60, 60);
             Hud.In(UIKit.Title(ar, "ARMORY", 34, Color.white, TextAnchor.MiddleLeft).rectTransform, esz, 70, 24, 118, 36);
 
+            MissionsPanel(p, 20, 246);
             P(p, "panel", 540, 604, 200, 52);
             P(p, "star_on", 552, 608, 44, 44);
             L(p, Save.TotalStars + " STARS", false, 24, UIKit.Gold, 600, 618, 130, TextAnchor.MiddleLeft);
@@ -178,6 +180,7 @@ namespace ZombiePile
         public void Armory(int tab)
         {
             armoryTab = tab;
+            bestBuy = Econ.BestBuy();
             var p = NewPage("Armory", new Color(0.03f, 0.01f, 0.05f, 0.86f));
             Ribbon(p, 390, 12, 500, "ARMORY", 62);
             var back = B(p, "round_dark", "", 0, 22, 18, 84, 84, () => Game.I.ShowMenu(), TL);
@@ -193,7 +196,10 @@ namespace ZombiePile
                 var br = (RectTransform)b.transform;
                 Hud.In(UIKit.Pic(br, icons[i], Color.white).rectTransform, new Vector2(250, 76), 14, 6, 58, 58);
                 Hud.In(UIKit.Title(br, names[i], 40, Color.white, TextAnchor.MiddleLeft).rectTransform, new Vector2(250, 76), 80, 14, 160, 40);
+                if (bestBuy != null && BuyTab(bestBuy) == i && tab != i) { var st = UIKit.Pic(br, "star_on", Color.white); Hud.In(st.rectTransform, new Vector2(250, 76), 206, -8, 40, 40); st.gameObject.AddComponent<Pulse>().amount = 0.1f; }
             }
+            if (bestBuy != null)
+                L(p, (bestBuy.affordable ? "BEST BUY:  " : "NEXT GOAL:  ") + bestBuy.name + (bestBuy.affordable ? "" : "  (" + bestBuy.cost.ToString("N0") + ")"), true, 26, bestBuy.affordable ? UIKit.Lime : UIKit.Gold, 20, 636, 400, TextAnchor.MiddleLeft);
 
             if (tab == 0)
             {
@@ -240,12 +246,20 @@ namespace ZombiePile
             else B(p, "btn_green", "FIGHT! LEVEL " + Save.Data.level, 54, 430, 612, 420, 96, () => Game.I.PlayLevel(Save.Data.level));
         }
 
+        /// Which armory tab holds a suggested purchase.
+        static int BuyTab(Econ.Suggestion s)
+        {
+            if (s.weapon) return 0;
+            switch (s.up) { case Up.GunDamage: case Up.GunRate: case Up.GunBullets: return 0; case Up.SniperDamage: case Up.SniperRate: case Up.SniperPierce: return 1; default: return 2; }
+        }
+
         void UpCard(Transform parent, float x, float y, Up u, Color color)
         {
             var d = Econ.Def(u);
             int lvl = Econ.Lvl(u);
             var g = Group(parent, "Up " + d.name);
             P(g, "panel", x, y, 300, 186);
+            if (bestBuy != null && !bestBuy.weapon && bestBuy.up == u) { var glow = P(g, "glow", x - 24, y - 24, 348, 234, new Color(0.66f, 0.94f, 0.29f, bestBuy.affordable ? 0.55f : 0.25f)); glow.preserveAspect = false; glow.transform.SetAsFirstSibling(); }
             P(g, "fill", x + 8, y + 8, 284, 48, color);
             L(g, d.name, true, 32, Color.white, x + 18, y + 16, 200, TextAnchor.MiddleLeft);
             P(g, "panel", x + 212, y + 14, 74, 36);
@@ -280,6 +294,7 @@ namespace ZombiePile
         {
             var g = Group(parent, "Weapon " + w.name);
             bool owned = Econ.Owns(w.id), equipped = owned && Save.Data.weapon == w.id, locked = !owned && Save.Data.level < w.unlockLevel;
+            if (bestBuy != null && bestBuy.weapon && bestBuy.weaponId == w.id) { var bg = P(g, "glow", x - 30, y - 30, 360, 230, new Color(1f, 0.85f, 0.25f, 0.6f)); bg.preserveAspect = false; bg.gameObject.AddComponent<Pulse>().amount = 0.03f; }
             if (equipped) { var glow = P(g, "glow", x - 30, y - 30, 360, 230, new Color(0.66f, 0.94f, 0.29f, 0.5f)); glow.preserveAspect = false; }
             P(g, "panel", x, y, 300, 170);
             P(g, w.image, x + 30, y + 6, 240, 110, locked ? new Color(0.2f, 0.2f, 0.25f) : Color.white);
@@ -434,7 +449,16 @@ namespace ZombiePile
             Hud.In(UIKit.Pic(dr, "ic_video", Color.white).rectTransform, new Vector2(250, 112), 16, 22, 60, 60);
             Hud.In(UIKit.Title(dr, "×2", 64, Color.white).rectTransform, new Vector2(250, 112), 80, 16, 150, 64);
             Hud.In(UIKit.Text(dr, "WATCH AD", 18, Color.white).rectTransform, new Vector2(250, 112), 80, 76, 150, 18);
-            B(p, "btn_green", "CONTINUE", 50, 650, 494, 250, 112, () => Game.I.AfterBreak(level, () => Armory(0)));
+            B(p, "btn_green", "CONTINUE", 50, 650, 494, 250, 112, () => Game.I.AfterBreak(level, () => Armory(0))).gameObject.AddComponent<Pulse>().amount = 0.03f;
+            string unlock = Econ.UnlocksAt(level + 1);
+            if (unlock.Length > 0) L(p, "NEW AT LEVEL " + (level + 1) + ":  " + unlock, true, 30, UIKit.Lime, 0, 462, 1280);
+            else
+            {
+                int nl = Econ.NextUnlockLevel(level + 1);
+                if (nl > 0) L(p, "NEXT UNLOCK, LEVEL " + nl + ":  " + Econ.UnlocksAt(nl), false, 24, new Color(0.85f, 0.8f, 0.95f), 0, 462, 1280);
+            }
+            BestBuyStrip(p, 70, 616, 560);
+            MissionStrip(p, 660, 616, 560);
         }
 
         public void Failed(int level, int coins)
@@ -445,7 +469,7 @@ namespace ZombiePile
             P(p, "panel", 420, 214, 440, 180);
             P(p, "zhead", 446, 228, 60, 60); L(p, "LEVEL", false, 34, Color.white, 520, 240, 150, TextAnchor.MiddleLeft); L(p, level.ToString(), true, 52, Color.white, 700, 234, 136, TextAnchor.MiddleRight);
             P(p, "coin", 446, 300, 64, 64); L(p, "COINS", false, 34, Color.white, 520, 314, 150, TextAnchor.MiddleLeft); L(p, "+" + coins, true, 60, UIKit.Gold, 660, 302, 176, TextAnchor.MiddleRight);
-            L(p, "Your coins are kept. Upgrade and try again!", false, 26, Color.white, 0, 412, 1280);
+            L(p, Save.Data.fails >= 2 ? "REINFORCEMENTS! Next try you start with extra wall armor." : "Your coins are kept. Upgrade and try again!", false, 26, Save.Data.fails >= 2 ? UIKit.Lime : Color.white, 0, 412, 1280);
             Coins(p);
             var arm = B(p, "btn_gold", "", 0, 380, 470, 250, 112, () => Armory(0));
             var ar = (RectTransform)arm.transform;
@@ -453,7 +477,22 @@ namespace ZombiePile
             Hud.In(UIKit.Title(ar, "ARMORY", 46, Color.white).rectTransform, new Vector2(250, 112), 82, 26, 160, 46);
             if (Net.IsClient) B(p, "btn_dark", "WAITING...", 44, 650, 470, 250, 112, null);
             else if (Net.IsHost) B(p, "btn_green", "RETRY", 60, 650, 470, 250, 112, () => Game.I.PlayCoop());
-            else B(p, "btn_green", "RETRY", 60, 650, 470, 250, 112, () => Game.I.PlayLevel(level));
+            else B(p, "btn_green", "RETRY", 60, 650, 470, 250, 112, () => Game.I.PlayLevel(level)).gameObject.AddComponent<Pulse>().amount = 0.03f;
+            BestBuyStrip(p, 40, 600, 560);
+            if (!Net.IsOnline)
+            {
+                var boost = B(p, "btn_gold", "", 0, 620, 594, 620, 84, () =>
+                {
+                    PlatformSDK.Rewarded(() => AudioListener.pause = true,
+                        () => { AudioListener.pause = false; Game.I.BoostNext(); Game.I.PlayLevel(level); },
+                        () => AudioListener.pause = false);
+                });
+                var brr = (RectTransform)boost.transform;
+                var bsz = new Vector2(620, 84);
+                Hud.In(UIKit.Pic(brr, "ic_video", Color.white).rectTransform, bsz, 16, 12, 60, 60);
+                Hud.In(UIKit.Title(brr, "RETRY WITH BOOST", 38, Color.white, TextAnchor.MiddleLeft).rectTransform, bsz, 92, 8, 500, 40);
+                Hud.In(UIKit.Text(brr, "WATCH AD:  +40% WALL  |  RAPID FIRE", 19, Color.white, TextAnchor.MiddleLeft).rectTransform, bsz, 92, 50, 500, 22);
+            }
         }
 
         public void EndlessOver(int wave, int best, int coins, bool newBest)
@@ -472,9 +511,139 @@ namespace ZombiePile
             var ar = (RectTransform)arm.transform;
             Hud.In(UIKit.Pic(ar, "ic_upgrade", Color.white).rectTransform, new Vector2(250, 112), 16, 16, 64, 64);
             Hud.In(UIKit.Title(ar, "ARMORY", 46, Color.white).rectTransform, new Vector2(250, 112), 82, 26, 160, 46);
-            B(p, "btn_blue", "RETRY", 60, 650, 478, 250, 112, () => Game.I.PlayEndless());
+            B(p, "btn_blue", "RETRY", 60, 650, 478, 250, 112, () => Game.I.PlayEndless()).gameObject.AddComponent<Pulse>().amount = 0.03f;
             var back = B(p, "round_dark", "", 0, 22, 18, 84, 84, () => Game.I.ShowMenu(), TL);
             Hud.In(UIKit.Pic(back.transform, "ic_back", Color.white).rectTransform, new Vector2(84, 84), 14, 10, 56, 56);
+            BestBuyStrip(p, 70, 618, 560);
+            MissionStrip(p, 660, 618, 560);
+        }
+
+
+        // ------------------------------------------------------------------ how to play (first launch)
+        static readonly string[] HowTitles = { "DEFEND NEW HAVEN", "SHOOT THE HORDE", "USE EVERYTHING", "GET STRONGER" };
+
+        public void HowTo(int page, Action done)
+        {
+            bool mob = Application.isMobilePlatform;
+            string[][] body =
+            {
+                new[] { "Zombies pile on each other to climb your wall.", "Every one that gets over hurts the wall.", "If the wall bar reaches zero, the city falls!" },
+                mob ? new[] { "Touch and hold on the zombies to fire.", "Aim at heads: headshots do double damage.", "Shoot the ones clinging to the wall first!" }
+                    : new[] { "Hold the mouse on the zombies to fire.", "Aim at heads: headshots do double damage.", "Shoot the ones clinging to the wall first!" },
+                mob ? new[] { "Tap BARREL to throw an explosive barrel.", "Tap a portrait to switch between 3 shooters.", "The others help with rockets, bombs and fire." }
+                    : new[] { "SPACE: throw an explosive barrel at a crowd.", "1 / 2 / 3: switch between your 3 shooters.", "The others help with rockets, bombs and fire." },
+                new[] { "Every kill drops coins. Spend them in the ARMORY:", "damage, fire rate, new guns, a tougher wall.", "Do missions, earn stars, play with friends!" }
+            };
+            string[] icons = { "ic_wall", "ic_crosshair", "barrel3d", "ic_upgrade" };
+            var p = NewPage("HowTo", new Color(0.03f, 0.01f, 0.05f, 0.92f));
+            Hud.Vignette(p, 1f);
+            Ribbon(p, 340, 22, 600, "HOW TO PLAY", 62);
+            P(p, "panel", 290, 136, 700, 420);
+            if (page == 1) { P(p, icons[1], 500, 150, 130, 130); P(p, "ic_head", 650, 150, 130, 130); }
+            else if (page == 2) { P(p, icons[2], 500, 150, 130, 130); P(p, "ic_switch", 650, 150, 130, 130); }
+            else P(p, icons[page], 560, 150, 150, 150);
+            L(p, HowTitles[page], true, 60, UIKit.Gold, 290, 306, 700);
+            for (int i = 0; i < 3; i++) L(p, body[page][i], false, 26, Color.white, 300, 388 + i * 40, 680);
+            for (int i = 0; i < HowTitles.Length; i++) P(p, i == page ? "star_on" : "star_off", 587 + i * 32, 520, 28, 28);
+            bool last = page == HowTitles.Length - 1;
+            B(p, "btn_dark", "SKIP", 36, 50, 616, 200, 78, () => { HideAll(); if (done != null) done(); });
+            var next = B(p, "btn_green", last ? "LET'S GO!" : "NEXT", 56, 480, 588, 320, 104, () => { if (last) { HideAll(); if (done != null) done(); } else HowTo(page + 1, done); });
+            next.gameObject.AddComponent<Pulse>().amount = 0.03f;
+        }
+
+        // ------------------------------------------------------------------ daily reward
+        public void Daily()
+        {
+            var p = NewPage("Daily", new Color(0.03f, 0.01f, 0.05f, 0.9f));
+            Hud.Vignette(p, 1f);
+            Ribbon(p, 340, 22, 600, "DAILY REWARD", 62);
+            int day = DailyReward.StreakToday;
+            L(p, day <= 1 ? "Come back every day: the reward grows!" : day + " DAYS IN A ROW!", false, 30, Color.white, 0, 130, 1280);
+            for (int i = 0; i < 7; i++)
+            {
+                float x = 112 + i * 150;
+                bool now = i + 1 == day, past = i + 1 < day;
+                if (now) { var g = P(p, "glow", x - 24, 180, 184, 250, new Color(1f, 0.85f, 0.25f, 0.8f)); g.preserveAspect = false; g.gameObject.AddComponent<Pulse>().amount = 0.04f; }
+                var box = P(p, "panel", x, 200, 136, 210, past ? new Color(0.6f, 0.6f, 0.65f) : Color.white);
+                L(p, "DAY " + (i + 1), true, 30, now ? UIKit.Gold : Color.white, x, 210, 136);
+                P(p, past ? "star_on" : "coin", x + 30, 262, 76, 76);
+                L(p, past ? "TAKEN" : DailyReward.RewardFor(i + 1).ToString(), true, past ? 28 : 40, past ? new Color(0.8f, 0.8f, 0.85f) : UIKit.Gold, x, 350, 136);
+            }
+            int coins = DailyReward.RewardFor(day);
+            B(p, "btn_green", "CLAIM +" + coins, 46, 330, 466, 340, 104, () =>
+            {
+                DailyReward.Claim(false);
+                SoundBank.I.Play(SoundBank.I.buy, 0.9f);
+                Menu();
+            });
+            var dbl = B(p, "btn_gold", "", 0, 700, 466, 300, 104, () =>
+            {
+                PlatformSDK.Rewarded(() => AudioListener.pause = true,
+                    () => { AudioListener.pause = false; DailyReward.Claim(true); SoundBank.I.Play(SoundBank.I.buy, 0.9f); Menu(); },
+                    () => AudioListener.pause = false);
+            });
+            var dr = (RectTransform)dbl.transform;
+            Hud.In(UIKit.Pic(dr, "ic_video", Color.white).rectTransform, new Vector2(300, 104), 14, 20, 60, 60);
+            Hud.In(UIKit.Title(dr, "×2", 60, Color.white).rectTransform, new Vector2(300, 104), 84, 10, 90, 60);
+            Hud.In(UIKit.Text(dr, "WATCH AD", 18, Color.white).rectTransform, new Vector2(300, 104), 84, 68, 190, 20);
+            Hud.In(UIKit.Title(dr, "+" + coins * 2, 40, UIKit.Gold).rectTransform, new Vector2(300, 104), 170, 20, 120, 44);
+        }
+
+        // ------------------------------------------------------------------ retention strips: what to do next
+        /// "BEST BUY": the next purchase, one tap. Rebuilds itself after buying.
+        void BestBuyStrip(Transform page, float x, float y, float w)
+        {
+            var old = page.Find("BestBuy");
+            if (old != null) Destroy(old.gameObject);
+            var sug = Econ.BestBuy();
+            if (sug == null) return;
+            var g = Group(page, "BestBuy");
+            P(g, "panel", x, y, w, 72);
+            P(g, sug.weapon ? Econ.Weapons[sug.weaponId].image : Econ.Def(sug.up).icon, x + 10, y + 6, 62, 60);
+            L(g, sug.affordable ? "BEST BUY" : "NEXT GOAL", false, 16, UIKit.Gold, x + 80, y + 6, w - 240, TextAnchor.MiddleLeft);
+            L(g, sug.name, true, 30, Color.white, x + 80, y + 26, w - 240, TextAnchor.MiddleLeft);
+            var b = B(g, sug.affordable ? "btn_green" : "btn_dark", "", 0, x + w - 156, y + 8, 146, 56, () =>
+            {
+                if (Econ.BuySuggestion(sug)) { SoundBank.I.Play(SoundBank.I.buy, 0.9f); if (sug.weapon) Shooter.Wall.RefreshWeapon(); BestBuyStrip(page, x, y, w); }
+                else { SoundBank.I.Play(SoundBank.I.click, 0.6f, 0.6f); Toast("NOT ENOUGH COINS YET"); }
+            });
+            var br = (RectTransform)b.transform;
+            Hud.In(UIKit.Pic(br, "coin", Color.white).rectTransform, new Vector2(146, 56), 8, 9, 36, 36);
+            Hud.In(UIKit.Title(br, sug.cost.ToString("N0"), 30, sug.affordable ? Color.white : new Color(1f, 0.55f, 0.48f)).rectTransform, new Vector2(146, 56), 44, 8, 96, 36);
+            if (sug.affordable) g.GetChild(g.childCount - 1).gameObject.AddComponent<Pulse>().amount = 0.03f;
+        }
+
+        /// The mission closest to done.
+        void MissionStrip(Transform page, float x, float y, float w)
+        {
+            int m = Missions.Closest();
+            var g = Group(page, "MissionStrip");
+            P(g, "panel", x, y, w, 72);
+            P(g, "ic_trophy", x + 10, y + 8, 56, 56);
+            L(g, "MISSION", false, 16, UIKit.Gold, x + 76, y + 6, w - 90, TextAnchor.MiddleLeft);
+            L(g, Missions.Text(m), true, 26, Color.white, x + 76, y + 24, w - 90, TextAnchor.MiddleLeft);
+            var track = Hud.Pic(g, "track", Color.white, C, x + 76, y + 54, w - 250, 12);
+            var fill = Hud.FillIn(track, UIKit.Gold, 2f);
+            fill.rectTransform.anchorMax = new Vector2(Mathf.Max(0.04f, (float)Missions.Progress(m) / Missions.Target(m)), 1f);
+            L(g, Missions.Progress(m) + " / " + Missions.Target(m) + "   +" + Missions.Reward(m), false, 16, Color.white, x + w - 166, y + 48, 156, TextAnchor.MiddleRight);
+        }
+
+        /// The three missions, on the menu.
+        void MissionsPanel(Transform p, float x, float y)
+        {
+            P(p, "panel", x, y, 304, 232);
+            L(p, "MISSIONS", true, 28, UIKit.Gold, x + 14, y + 6, 276, TextAnchor.MiddleLeft);
+            for (int i = 0; i < Missions.Slots; i++)
+            {
+                float ry = y + 44 + i * 62;
+                L(p, Missions.Text(i), false, 16, Color.white, x + 14, ry, 280, TextAnchor.MiddleLeft);
+                var track = Hud.Pic(p, "track", Color.white, C, x + 14, ry + 26, 150, 14);
+                var fill = Hud.FillIn(track, UIKit.Gold, 2f);
+                fill.rectTransform.anchorMax = new Vector2(Mathf.Max(0.04f, (float)Missions.Progress(i) / Missions.Target(i)), 1f);
+                L(p, Missions.Progress(i) + "/" + Missions.Target(i), false, 15, Color.white, x + 168, ry + 22, 56, TextAnchor.MiddleLeft);
+                P(p, "coin", x + 232, ry + 20, 24, 24);
+                L(p, "+" + Missions.Reward(i), true, 20, UIKit.Gold, x + 258, ry + 20, 40, TextAnchor.MiddleLeft);
+            }
         }
 
         // ------------------------------------------------------------------ new zombie card

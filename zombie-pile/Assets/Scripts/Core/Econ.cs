@@ -108,6 +108,53 @@ namespace ZombiePile
             return true;
         }
 
+        // ------------------------------------------------------------------ what to buy next
+        public class Suggestion { public bool weapon; public Up up; public int weaponId; public string name; public int cost; public bool affordable; }
+
+        static readonly Up[] BuyOrder = { Up.GunDamage, Up.WallHp, Up.GunRate, Up.Repair, Up.SniperDamage, Up.BarrelPower, Up.GunBullets, Up.SniperPierce, Up.SniperRate, Up.BarrelReload, Up.CoinBonus, Up.Airstrike };
+
+        /// The best next purchase: a gun that just became affordable, else the first upgrade in a sensible order
+        /// that the coins cover, else the cheapest thing on the list (so the player always has a next goal).
+        public static Suggestion BestBuy()
+        {
+            var coins = Save.Data.coins;
+            foreach (var w in Shop)
+                if (!Owns(w.id) && Save.Data.level >= w.unlockLevel && coins >= w.price)
+                    return new Suggestion { weapon = true, weaponId = w.id, name = w.name, cost = w.price, affordable = true };
+            Suggestion cheapest = null;
+            foreach (var u in BuyOrder)
+            {
+                if (Maxed(u) || !Unlocked(u)) continue;
+                int c = Cost(u);
+                if (c <= coins) return new Suggestion { up = u, name = Def(u).name, cost = c, affordable = true };
+                if (cheapest == null || c < cheapest.cost) cheapest = new Suggestion { up = u, name = Def(u).name, cost = c };
+            }
+            return cheapest;
+        }
+
+        public static bool BuySuggestion(Suggestion s)
+        {
+            return s != null && (s.weapon ? BuyWeapon(s.weaponId) : Buy(s.up));
+        }
+
+        /// What becomes available when the player reaches this level ("" when nothing).
+        public static string UnlocksAt(int level)
+        {
+            var names = new System.Collections.Generic.List<string>();
+            foreach (var u in Ups) if (u.unlockLevel == level && level > 1) names.Add(u.name);
+            foreach (var w in Weapons) if (w.unlockLevel == level && level > 1) names.Add(w.name);
+            var z = ZType.NewAt(level);
+            if (z != null && level > 1) names.Add(z.name);
+            return string.Join(" + ", names.ToArray());
+        }
+
+        /// The next level after 'level' that unlocks something, or 0.
+        public static int NextUnlockLevel(int level)
+        {
+            for (int l = level + 1; l <= level + 30; l++) if (UnlocksAt(l).Length > 0) return l;
+            return 0;
+        }
+
         // ------------------------------------------------------------------ stat formulas
         public static float GunDamageMult(int l) { return 1f + 0.18f * l; }
         public static float GunRateMult(int l) { return 1f + 0.09f * l; }

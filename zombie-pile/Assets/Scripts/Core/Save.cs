@@ -18,6 +18,14 @@ namespace ZombiePile
         public bool muted;
         public bool switchTip;                 // the "switch to the tower" tip was shown
         public string name;                    // shown to other players in co-op rooms
+        public bool tutorialDone;              // the HOW TO PLAY pages were seen
+        public int tut;                        // step of the in-level tutorial (5 = finished)
+        public int tips;                       // bit per one-time tip already shown
+        public int[] mSlot = new int[0];       // the three missions: definition ids
+        public int[] mProg = new int[0];       // and their progress
+        public int mDone;                      // missions finished so far
+        public int lastDay, streak;            // daily reward: last day claimed (days since 1970) and the run of days
+        public int fails, failLevel;           // losses in a row on failLevel (a little help comes after two)
         public long stamp;                     // when it was saved (unix seconds): the newer copy wins between this device and the account
         public int totalKills, plays;
     }
@@ -52,6 +60,8 @@ namespace ZombiePile
             if (Data.stars == null) Data.stars = new int[0];
             if (Data.level < 1) Data.level = 1;
             Data.weapons |= 1;
+            if (!Data.tutorialDone && (Data.plays > 0 || Data.level > 1)) { Data.tutorialDone = true; Data.tut = 5; }   // saves from before the tutorial existed
+            Missions.Ensure();
         }
 
         /// A copy from the player's CrazyGames account: taken when it is newer than ours.

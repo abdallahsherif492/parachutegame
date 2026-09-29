@@ -82,6 +82,7 @@ namespace ZombiePile
             View = view;
             switchT = instant ? SwitchTime : 0f;
             if (!instant && SoundBank.I != null) SoundBank.I.Play(SoundBank.I.whoosh, 0.7f);
+            if (!instant) Stats.Add(Ev.Switch);
             Shooter.SetLocal(view);
         }
 

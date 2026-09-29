@@ -285,6 +285,7 @@ namespace ZombiePile
         void Shoot(Ray aim, bool manual)
         {
             kick = 1f;
+            if (manual) Stats.Add(Ev.Shot);
             Fx.I.MuzzleFlash(muzzle.position, IsTower ? 0.7f : 0.45f);
             if (IsTower) SoundBank.I.Play(SoundBank.I.sniper, manual ? 0.55f : 0.3f, Random.Range(0.95f, 1.05f));
             else SoundBank.I.Play(Bullets > 3 ? SoundBank.I.boom : SoundBank.I.shot, manual ? (Bullets > 3 ? 0.25f : 0.33f) : 0.16f, Random.Range(0.9f, 1.1f));
@@ -359,7 +360,7 @@ namespace ZombiePile
         public void ThrowBarrelAt(Vector3 aim, PlayerStats st)
         {
             if (Game.I == null || !Game.I.Playing) return;
-            if (Net.IsClient) { Net.PressBarrel(); return; }
+            if (Net.IsClient) { Net.PressBarrel(); Stats.Add(Ev.Barrel); return; }
             if (barrelT > 0f) return;
             int l = st != null ? st.barrelPow : Econ.Lvl(Up.BarrelPower);
             barrelMax = barrelT = Econ.BarrelCooldown(st != null ? st.barrelReload : Econ.Lvl(Up.BarrelReload));
@@ -367,6 +368,7 @@ namespace ZombiePile
             aim.z = Mathf.Max(aim.z, Arena.WallFront + 0.8f);
             var from = muzzle.position + Vector3.up * 0.4f;
             ThrownBarrel.Throw(from, aim, Econ.BarrelRadius(l), Econ.BarrelDamage(l), true);
+            Stats.Add(Ev.Barrel);
             if (Net.IsHost) Net.Host.BarrelThrown(from, aim);
         }
 
@@ -380,6 +382,7 @@ namespace ZombiePile
             if (lv <= 0 || airT > 0f) return;
             airMax = airT = Econ.AirstrikeCooldown(lv);
             Airstrike.Call(aim);
+            Stats.Add(Ev.Air);
             Game.Say("AIRSTRIKE!", "", 1.1f);
             if (Net.IsHost) Net.Host.Airstrike(aim);
         }

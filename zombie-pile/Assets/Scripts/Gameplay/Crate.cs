@@ -21,6 +21,7 @@ namespace ZombiePile
             var c = go.AddComponent<Crate>();
             c.target = landAt;
             c.visual = visualOnly;
+            if (!visualOnly) Coach.Tip(Coach.TipCrate, "SUPPLY CRATE!", "Shoot the crate to open it: coins and a power-up\n(rapid fire, double damage, reload or wall repair).");
             Kit.Place("Chest_Special", go.transform.position, Random.Range(-30f, 30f), 1.7f, go.transform, true);
             var box = go.AddComponent<BoxCollider>();
             box.size = new Vector3(1.6f, 1.0f, 1.2f);
@@ -98,6 +99,7 @@ namespace ZombiePile
         {
             if (open || visual) return;
             open = true;
+            Stats.Add(Ev.Crate);
             var at = transform.position + Vector3.up * 0.6f;
             Fx.I.Burst(at, 20, new Color(1f, 0.8f, 0.2f), 7f, 0.16f);
             SoundBank.I.Play(SoundBank.I.coin, 0.9f, 0.9f);

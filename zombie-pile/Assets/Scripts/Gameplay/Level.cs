@@ -37,11 +37,12 @@ namespace ZombiePile
             beats.Clear();
             int total = endless ? Mathf.Min(170, 24 + 9 * n) : Mathf.Min(170, 22 + 8 * n);
             bool boss = ZType.IsBossLevel(n);
+            float slow = endless ? 1f : n <= 2 ? 1.7f : n <= 4 ? 1.25f : 1f;    // the first levels breathe: room to learn the controls
             int a = Mathf.RoundToInt(total * 0.3f), b = Mathf.RoundToInt(total * 0.45f), c = total - a - b;
-            beats.Add(new Beat { count = a, interval = 0.8f, delay = 1.2f, packMin = 1, packMax = 3 });
-            beats.Add(new Beat { banner = "HORDE INCOMING!", sub = "Here they come!", count = b, interval = 0.3f, delay = 2f, packMin = 2, packMax = 5 });
+            beats.Add(new Beat { count = a, interval = 0.8f * slow, delay = 1.2f, packMin = 1, packMax = 3 });
+            beats.Add(new Beat { banner = "HORDE INCOMING!", sub = "Here they come!", count = b, interval = 0.3f * slow, delay = 2f, packMin = 2, packMax = 5 });
             beats.Add(new Beat { count = 0, delay = 4.5f, crate = n >= 2 || endless });
-            beats.Add(new Beat { banner = boss ? "BOSS INCOMING!" : "FINAL WAVE!", sub = boss ? ZType.Boss.name : "Hold the wall!", count = c, interval = 0.4f, delay = 2f, packMin = 2, packMax = 4, boss = boss });
+            beats.Add(new Beat { banner = boss ? "BOSS INCOMING!" : "FINAL WAVE!", sub = boss ? ZType.Boss.name : "Hold the wall!", count = c, interval = 0.4f * slow, delay = 2f, packMin = 2, packMax = 4, boss = boss });
             Total = total + (boss ? 1 : 0);
             Resolved = 0;
             beat = 0; spawnedInBeat = 0; timer = 0f; bannerShown = false;

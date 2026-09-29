@@ -36,6 +36,7 @@ namespace ZombiePile
             gameObject.AddComponent<Level>();
             Shooter.BuildAll();
             Hud.Build();
+            Coach.Build();
             Screens.Build();
             Net.RoomStarted += OnRoomStarted;
             Net.RoomClosed += OnRoomClosed;
@@ -116,6 +117,7 @@ namespace ZombiePile
             Arena.I.SetTheme(Theme.ForLevel(Save.Data.level));
             Survivors.I.Reset();
             Screens.I.Menu();
+            if (Save.Data.tutorialDone && !Net.IsOnline && DailyReward.Due) { DailyReward.Asked(); Screens.I.Daily(); }
             // the horde shambling up the street behind the menu (topped up as they climb over)
             attract = true;
             for (int i = 0; i < 22; i++) AttractZombie(6f + i * 1.9f);
@@ -124,6 +126,11 @@ namespace ZombiePile
         /// Campaign level n (shows the NEW ZOMBIE / BOSS card first when there is something new).
         public void PlayLevel(int n)
         {
+            if (!Save.Data.tutorialDone)
+            {
+                Screens.I.HowTo(0, () => { Save.Data.tutorialDone = true; Save.Write(); PlayLevel(n); });
+                return;
+            }
             var intro = ZType.NewAt(n);
             if (intro != null && (Save.Data.seen & (1 << intro.id)) == 0)
             {
@@ -135,7 +142,19 @@ namespace ZombiePile
             Begin(n, false);
         }
 
-        public void PlayEndless() { Begin(1, true); }
+        public void PlayEndless()
+        {
+            if (!Save.Data.tutorialDone)
+            {
+                Screens.I.HowTo(0, () => { Save.Data.tutorialDone = true; Save.Write(); Begin(1, true); });
+                return;
+            }
+            Begin(1, true);
+        }
+
+        bool boostNext;
+        /// A watched ad: the next campaign attempt starts with a tougher wall and rapid fire.
+        public void BoostNext() { boostNext = true; }
 
         void AttractZombie(float z)
         {
@@ -163,6 +182,11 @@ namespace ZombiePile
             Shooter.Wall.RefreshWeapon();
             Shooter.Wall.ResetCooldowns();
             Squad.ResetAll();
+            bool mercy = !endless && Save.Data.failLevel == n && Save.Data.fails >= 2;
+            if (mercy || boostNext) { WallMax *= boostNext ? 1.4f : 1.3f; WallHp = WallMax; }
+            if (boostNext || (mercy && Save.Data.fails >= 3)) { RateBoost = 2f; rateT = boostNext ? 20f : 12f; }
+            string help = boostNext ? "BOOST ACTIVE" : mercy ? "REINFORCEMENTS" : null;
+            boostNext = false;
             Time.timeScale = 1f;
             Playing = false;
             Level.I.Stop();
@@ -171,6 +195,7 @@ namespace ZombiePile
             Hud.I.SetWall(1f);
             Save.Data.plays++;
             // establishing shot over the camp: what we are protecting, and where the horde comes from
+            if (help != null) Delay(2.4f, () => Say(help + "!", "Extra wall armor this run", 2.4f));
             Hud.I.ShowStory(endless ? "WAVE " + n : "LEVEL " + n, theme.name, endless ? "Endless. They will not stop." : theme.line);
             SoundBank.I.Play(SoundBank.I.horn, 0.6f);
             if (Net.IsHost) Net.Host.LevelBegin(n, endless);
@@ -243,6 +268,7 @@ namespace ZombiePile
             Hud.I.Banner(endless ? "WAVE " + n : "LEVEL " + n, endless ? "ENDLESS MODE" : "Hold the wall!", 2f);
             if (!Net.IsClient) Level.I.Begin(n, endless);
             Playing = true;
+            Coach.I.BeginLevel(n, endless);
             PlatformSDK.GameplayStart();
         }
 
@@ -280,6 +306,9 @@ namespace ZombiePile
             Save.Data.coins += bonus;
             RunCoins += bonus;
             Save.SetStars(LevelNumber, stars);
+            Save.Data.fails = 0;
+            Stats.Add(Ev.Clear);
+            if (stars == 3) Stats.Add(Ev.Star3);
             Survivors.I.SetMood(Survivors.Mood.Cheer);
             if (LevelNumber >= Save.Data.level) Save.Data.level = LevelNumber + 1;
             Save.Write();
@@ -313,6 +342,12 @@ namespace ZombiePile
             bool best = false;
             if (Endless && LevelNumber > Save.Data.bestWave) { Save.Data.bestWave = LevelNumber; best = true; }
             Save.Write();
+            if (!Endless)
+            {
+                Save.Data.fails = Save.Data.failLevel == LevelNumber ? Save.Data.fails + 1 : 1;
+                Save.Data.failLevel = LevelNumber;
+                Save.Write();
+            }
             int n = LevelNumber, coins = RunCoins;
             if (Net.IsHost) Net.Host.Fail(n, coins, Endless, Save.Data.bestWave, best);
             if (Endless) Delay(3.6f, () => Screens.I.EndlessOver(n, Save.Data.bestWave, coins, best));
@@ -342,10 +377,15 @@ namespace ZombiePile
             if (!Playing) return;
             RunKills++;
             Save.Data.totalKills++;
+            Stats.Add(Ev.Kill);
+            if (headshot) Stats.Add(Ev.Head);
+            if (z.IsBoss) Stats.Add(Ev.Boss);
             int coins = Mathf.Max(1, Mathf.RoundToInt(z.Type.coins * (1f + 0.08f * (LevelNumber - 1)) * Econ.CoinMult));
             AddCoins(coins, at);
             combo = comboT > 0f ? combo + 1 : 1;
             comboT = 0.8f;
+            if (combo == 3) Coach.Tip(Coach.TipCombo, "COMBO!", "Kill zombies in quick succession to chain combos.\nCombos count for missions too.");
+            if (combo == 5) Stats.Add(Ev.Combo);
             if (z.IsBoss) { Pop(at + Vector3.up, "BOSS DOWN!", new Color(1f, 0.4f, 0.3f), 1.8f); CameraRig.I.Shake(1f); }
             else if (z.IsBrute) Pop(at, "BRUTE DOWN!", new Color(1f, 0.45f, 0.3f), 1.4f);
             else if (z.Airborne) Pop(at, "AIR SHOT!", new Color(0.55f, 0.9f, 1f), 1.2f);
@@ -404,6 +444,7 @@ namespace ZombiePile
             RunCoins += amount;
             Hud.I.CoinBurst(at, amount);
             if (Net.IsHost) Net.Host.Coins(at, amount);
+            Stats.Add(Ev.Coins, amount);
         }
 
         public void GivePowerUp(PowerUp p)
@@ -455,6 +496,7 @@ namespace ZombiePile
                     float d = chipAcc; chipAcc = 0f;
                     Damage(d, false);
                     Hud.I.ChipFlash(Mathf.Clamp01(d / 3f));
+                    if (d > 0.6f) Coach.Tip(Coach.TipChip, "THEY CHEW THE WALL!", "Zombies clinging to the wall damage it slowly.\nShoot those first, or switch to a tower.");
                     if (Net.IsHost) Net.Host.Chip(chipAt, d);
                     Fx.I.Dust(new Vector3(chipAt.x, Mathf.Min(chipAt.y, Arena.WallHeight - 1f), Arena.WallFront + 0.3f), 0.7f);
                     SoundBank.I.Play(SoundBank.I.smash, Mathf.Clamp(0.12f + d * 0.08f, 0.1f, 0.4f), UnityEngine.Random.Range(0.8f, 1.1f));

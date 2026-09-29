@@ -22,7 +22,11 @@ namespace ZombiePile
         Image wallFill, progFill, bossFill, boostFill, barrelFill, barrelFace, barrelGlow, airFill, airFace, damage, hitmark;
         readonly Image[] portraits = new Image[3];
         readonly RectTransform[] portraitRects = new RectTransform[3];
-        GameObject story;
+        GameObject story, hintBox;
+        Text hintTitle, hintBody;
+        Image hilite;
+        Button hintSkip;
+        int hiliteWhat;
         Text storyTitle, storyPlace, storyLine;
         float storyT;
         float bannerT, bannerIn, damageT, hitT, wallShown = 1f, wallTarget = 1f, progShown, progTarget, spread, coinPunch;
@@ -123,6 +127,12 @@ namespace ZombiePile
             barBox = UIKit.Node("HealthBars", ht);
             UIKit.Stretch(barBox);
 
+            // the tutorial's pointer: a pulsing glow behind whatever it is talking about (behind, so it never hides it)
+            hilite = UIKit.Pic(ht, "glow", new Color(1f, 0.85f, 0.25f, 0.85f));
+            hilite.preserveAspect = false;
+            hilite.gameObject.AddComponent<Pulse>().amount = 0.05f;
+            hilite.gameObject.SetActive(false);
+
             // everything sits in the top-left corner so the street (the middle of the screen) stays clear:
             // level + progress, wall health, power-up timer, boss bar, announcements
             Pic(ht, "panel", Color.white, TL, 12, 10, 300, 66);
@@ -204,14 +214,22 @@ namespace ZombiePile
             Label(warn.transform, "CLIMBERS! SWITCH TO A TOWER", false, 21, new Color(1f, 0.42f, 0.32f), BL, 20, 534, 308);
             warn.SetActive(false);
 
-            var hint = Label(ht, Application.isMobilePlatform ? "HOLD TO SHOOT   |   TAP A PORTRAIT TO SWITCH SHOOTER" :
-                "HOLD MOUSE: SHOOT   |   1 / 2 / 3 OR TAB: SWITCH SHOOTER   |   SPACE: BARREL", false, 21, Color.white, BC, 0, 690, 1280);
-            hint.gameObject.AddComponent<FadeAfter>().delay = 10f;
-
             crosshair = UIKit.Pic(Root, "crosshair", Color.white).rectTransform;
             crosshair.sizeDelta = new Vector2(72, 72);
             hitmark = UIKit.Pic(crosshair, "hitmark", new Color(1f, 1f, 1f, 0f));
             hitmark.rectTransform.sizeDelta = new Vector2(52, 52);
+
+            // coach card: one short lesson at the bottom, between the shooters and the buttons (the street stays clear)
+            hintBox = UIKit.Node("Hint", ht).gameObject;
+            UIKit.Stretch((RectTransform)hintBox.transform);
+            var hb = hintBox.transform;
+            Pic(hb, "panel", Color.white, TL, 352, 592, 576, 100);
+            hintTitle = Label(hb, "", true, 28, UIKit.Gold, TL, 372, 598, 420, TextAnchor.MiddleLeft);
+            hintBody = UIKit.Text(hb, "", 19, Color.white, TextAnchor.UpperLeft);
+            UIKit.At(hintBody.rectTransform, TL, 372, 632, 540, 50);
+            hintSkip = UIKit.SpriteButton(hb, "btn_dark", "SKIP", 22, () => { if (Coach.I != null) Coach.I.SkipTutorial(); });
+            UIKit.At((RectTransform)hintSkip.transform, TL, 838, 600, 80, 34);
+            hintBox.SetActive(false);
 
             // announcements: a small ribbon that slides in on the left, away from the street
             banner = UIKit.Node("Banner", Root).gameObject;
@@ -274,7 +292,7 @@ namespace ZombiePile
         public void Show(bool on)
         {
             hud.SetActive(on);
-            if (!on) { banner.SetActive(false); foreach (var b in bars) b.r.gameObject.SetActive(false); }
+            if (!on) { banner.SetActive(false); hintBox.SetActive(false); hilite.gameObject.SetActive(false); foreach (var b in bars) b.r.gameObject.SetActive(false); }
             coinsShown = -1;
         }
 
@@ -300,6 +318,31 @@ namespace ZombiePile
         public void HideStory() { storyHide = true; }
         bool storyHide;
         float storyHideAt;
+
+        /// The coach card. Body text is wrapped by hand (two lines of about 46 letters).
+        public void ShowHint(string title, string body, bool skippable)
+        {
+            hintTitle.text = title; hintBody.text = body;
+            hintSkip.gameObject.SetActive(skippable);
+            hintBox.SetActive(true);
+        }
+
+        public void HideHint() { hintBox.SetActive(false); }
+        public bool HintShown { get { return hintBox.activeSelf; } }
+
+        /// 0 none, 1 wall bar, 2 barrel button, 3 the three portraits, 4 airstrike button.
+        public void Highlight(int what)
+        {
+            hiliteWhat = what;
+            hilite.gameObject.SetActive(what != 0);
+            switch (what)
+            {
+                case 1: UIKit.At(hilite.rectTransform, TL, -8, 60, 340, 100); break;
+                case 2: UIKit.At(hilite.rectTransform, BR, 1044, 484, 250, 250); break;
+                case 3: UIKit.At(hilite.rectTransform, BL, -14, 566, 372, 154); break;
+                case 4: UIKit.At(hilite.rectTransform, BR, 916, 544, 184, 184); break;
+            }
+        }
 
         public void SetClimbWarning(bool on) { if (warn.activeSelf != on) warn.SetActive(on); }
 
