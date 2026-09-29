@@ -45,6 +45,8 @@ namespace ZombiePile
         public void SetNetAim(Vector3 aim, bool firing) { AimPoint = aim; Firing = firing; }
 
         Transform yaw, muzzle;
+        public Transform YawTransform { get { return yaw; } }
+        public Vector3 MuzzlePos { get { return muzzle.position; } }
         GameObject model;
         Renderer gunR;
         Kit.Anim kit;
@@ -63,6 +65,7 @@ namespace ZombiePile
             Slots[1] = Make(1, "Shaun", "Characters_Shaun", new Vector3(0f, Arena.WallHeight, Arena.WallFront - 1.3f));
             Slots[2] = Make(2, "Sam", "Characters_Sam", right);
             SetLocal(1);
+            foreach (var sh in Slots) Squad.Attach(sh);
         }
 
         /// The player moves to a slot: it is theirs now, the others go back to the AI (or stay remote).

@@ -162,6 +162,7 @@ namespace ZombiePile
             climbWarned = false;
             Shooter.Wall.RefreshWeapon();
             Shooter.Wall.ResetCooldowns();
+            Squad.ResetAll();
             Time.timeScale = 1f;
             Playing = false;
             Level.I.Stop();

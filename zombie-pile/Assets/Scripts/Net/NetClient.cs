@@ -110,6 +110,7 @@ namespace ZombiePile
                 case 'X': if (f.Length >= 6) Boom.Fx_(V(f, 1), W.ToF(f[4]), f[5] == "1"); break;
                 case 'B': if (f.Length >= 7) { var from = V(f, 1); ThrownBarrel.Throw(from, V(f, 4), 0f, 0f, false); SoundBank.I.Play(SoundBank.I.throwS, 0.5f); } break;
                 case 'A': Airstrike.CallFxOnly(); break;
+                case 'Q': if (f.Length >= 8) Toys.Launch((Toy)Mathf.Clamp(W.ToInt(f[1]), 0, 7), V(f, 2), V(f, 5), false); break;
                 case 'M':   // another player's shot: muzzle flash, tracer, sound (ours we already showed)
                 {
                     if (f.Length < 9) return;

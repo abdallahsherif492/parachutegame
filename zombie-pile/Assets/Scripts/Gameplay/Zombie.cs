@@ -64,6 +64,7 @@ namespace ZombiePile
         MaterialPropertyBlock mpb;
         CapsuleCollider bodyCol;
         SphereCollider headCol;
+        float slowT, slowF = 1f, burnT, burnDps, burnFxT;
         float s, bodyH, speed, laneX, flash, punch, groanT, smashT, stateT, pileY, pileYShown;
         int col = -1;
         Vector3 from, spot, knockV;
@@ -224,6 +225,7 @@ namespace ZombiePile
         {
             float dt = Time.deltaTime;
             stateT += dt;
+            if (!Puppet) { Status(dt); if (!IsAlive) return; }
             var before = transform.position;
             if (Puppet) PuppetMove(dt);
             else switch (State)
@@ -352,7 +354,7 @@ namespace ZombiePile
             }
             laneX = Mathf.Clamp(laneX + push * dt * 0.8f, -Arena.HalfWidth + 0.5f, Arena.HalfWidth - 0.5f);
             p.x = Mathf.MoveTowards(p.x, laneX, dt * 1.6f);
-            p.z -= speed * dt;
+            p.z -= speed * slowF * dt;
             p.y = Mathf.MoveTowards(p.y, 0f, dt * 6f);
             transform.position = p;
             transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.identity, dt * 6f);
@@ -577,6 +579,34 @@ namespace ZombiePile
             float m = IsBrute ? 0.3f : 1f;
             Dislodge(away * (3f + 5f * k) * m + Vector3.up * (4f + 4f * k) * m);
             return false;
+        }
+
+        /// Frost and water: the zombie runs at 'factor' of its speed for 'dur' seconds.
+        public void Slow(float factor, float dur)
+        {
+            if (Puppet || !IsAlive) return;
+            slowF = slowT > 0f ? Mathf.Min(slowF, factor) : factor;
+            slowT = Mathf.Max(slowT, dur);
+        }
+
+        /// Fire: 'dps' damage per second for 'dur' seconds (armour does not help against it).
+        public void Burn(float dps, float dur)
+        {
+            if (Puppet || !IsAlive) return;
+            burnDps = Mathf.Max(burnT > 0f ? burnDps : 0f, dps);
+            burnT = Mathf.Max(burnT, dur);
+        }
+
+        void Status(float dt)
+        {
+            if (slowT > 0f) { slowT -= dt; if (slowT <= 0f) slowF = 1f; }
+            if (burnT <= 0f) return;
+            burnT -= dt;
+            burnFxT -= dt;
+            if (burnFxT <= 0f) { burnFxT = 0.2f; Fx.I.Burst(Center + Vector3.up * 0.3f, 2, new Color(1f, 0.55f, 0.15f), 1.6f, 0.09f); }
+            Hp -= burnDps * dt;
+            flash = Mathf.Max(flash, 0.3f);
+            if (Hp <= 0f) Die(Vector3.up * 2f, Center, false, Vector3.zero, 0f);
         }
 
         void PopCone(Vector3 dir)

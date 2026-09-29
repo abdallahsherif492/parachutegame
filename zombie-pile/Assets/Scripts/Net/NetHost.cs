@@ -134,6 +134,7 @@ namespace ZombiePile
         public void Banner(string title, string sub, float dur) { E('N', W.Clean(title) + "|" + W.Clean(sub) + "|" + W.I(Mathf.RoundToInt(dur * 10f))); }
         public void CrateDrop(Vector3 at) { E('R', V(at)); }
         public void CrateOpen(Vector3 at) { E('O', V(at)); }
+        public void Toy(int kind, Vector3 from, Vector3 to) { E('Q', W.I(kind) + "|" + V(from) + "|" + V(to)); }
         public void Mood(int mood) { E('Y', W.I(mood)); }
         public void Chip(Vector3 at, float d) { E('T', V(at) + "|" + W.I(Mathf.RoundToInt(d * 10f))); }
         public void LevelBegin(int level, bool endless) { E('L', W.I(level) + "|" + (endless ? "1" : "0")); }
