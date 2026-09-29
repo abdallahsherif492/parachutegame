@@ -13,7 +13,16 @@ namespace ZombiePile
     {
         [Serializable] public class ModelMeta { public string name; public float[] size, min, center; }
         [Serializable] public class Prop { public string m; public float[] p; public float r; public float s = 1f; }
-        [Serializable] public class LayoutData { public float wallHeight, wallFront, halfWidth; public float[] tower; public Prop[] props; public ModelMeta[] models; }
+        [Serializable] public class Bldg { public float x, z, w, d, h, t; public int s; }
+        [Serializable] public class Fire { public float x, y, z, s; }
+        [Serializable] public class Surv { public string m; public float[] p; public float r; public string a; }
+        [Serializable] public class LayoutData
+        {
+            public float wallHeight, wallFront, halfWidth;
+            public float[] tower, camp;
+            public Prop[] props; public Surv[] survivors; public Bldg[] city; public Fire[] fires;
+            public ModelMeta[] models;
+        }
 
         /// Per-model correction, measured once: 'scale' only differs from 1 if the import scale is off,
         /// 'yaw' is 180 only if a character turns out to face -Z (it should face +Z like the glTF).
@@ -215,7 +224,7 @@ namespace ZombiePile
         public class Anim
         {
             public Animation anim;
-            public string run, climb, death, punch, idle, hit, jump;
+            public string run, climb, death, punch, idle, hit, jump, wave, duck, calm, yes;
             string current;
 
             public static Anim From(GameObject model)
@@ -231,9 +240,13 @@ namespace ZombiePile
                     else if (n.EndsWith("jump_idle")) a.climb = st.name;
                     else if (n.EndsWith("death")) a.death = st.name;
                     else if (n.EndsWith("punch") || (a.punch == null && n.EndsWith("run_attack"))) a.punch = st.name;
-                    else if (n.EndsWith("idle_gun") || (a.idle == null && n.EndsWith("idle"))) a.idle = st.name;
+                    else if (n.EndsWith("idle_gun")) a.idle = st.name;
+                    else if (n.EndsWith("idle")) { a.calm = st.name; if (a.idle == null) a.idle = st.name; }
                     else if (n.EndsWith("hitreact")) a.hit = st.name;
                     else if (n.EndsWith("jump")) a.jump = st.name;
+                    else if (n.EndsWith("wave")) a.wave = st.name;
+                    else if (n.EndsWith("duck")) a.duck = st.name;
+                    else if (n.EndsWith("yes")) a.yes = st.name;
                 }
                 a.anim.cullingType = AnimationCullingType.AlwaysAnimate;
                 return a;

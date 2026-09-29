@@ -10,7 +10,7 @@ namespace ZombiePile
     public class Game : MonoBehaviour
     {
         public static Game I;
-        public const string Version = "v0.6.1";
+        public const string Version = "v0.7";
 
         public bool Playing { get; private set; }
         public bool Endless { get; private set; }
@@ -34,11 +34,56 @@ namespace ZombiePile
         {
             Arena.Build();
             gameObject.AddComponent<Level>();
-            Shooter.BuildBoth();
+            Shooter.BuildAll();
             Hud.Build();
             Screens.Build();
             PlatformSDK.Init(() => PlatformSDK.LoadingStop());
+            Net.RoomStarted += OnRoomStarted;
+            Net.RoomClosed += OnRoomClosed;
             ShowMenu();
+        }
+
+        void OnDestroy() { Net.RoomStarted -= OnRoomStarted; Net.RoomClosed -= OnRoomClosed; }
+
+        // ------------------------------------------------------------------ co-op
+        void OnRoomStarted(bool host)
+        {
+            attract = false;
+            Zombie.KillAll();
+            Screens.I.HideAll();
+            if (host) PlayCoop();
+            else Screens.I.Waiting("WAITING FOR THE HOST...");
+        }
+
+        void OnRoomClosed(string why)
+        {
+            Playing = false;
+            Time.timeScale = 1f;
+            Level.I.Stop();
+            ShowMenu();
+            Screens.I.Toast(why);
+        }
+
+        /// The host starts (or continues) the co-op run: everybody plays the host's current campaign level.
+        public void PlayCoop() { Begin(Save.Data.level, false); }
+
+        // ------------------------------------------------------------------ shown here and, from the host, on every screen
+        public static void Say(string title, string sub, float dur)
+        {
+            if (Hud.I != null) Hud.I.Banner(title, sub, dur);
+            if (Net.IsHost) Net.Host.Banner(title, sub, dur);
+        }
+
+        public static void Pop(Vector3 at, string text, Color c, float size)
+        {
+            if (Hud.I != null) Hud.I.Popup(at, text, c, size);
+            if (Net.IsHost) Net.Host.Popup(at, text, c, size);
+        }
+
+        public static void Dmg(Vector3 at, int amount, bool crit)
+        {
+            if (Hud.I != null) Hud.I.Damage(at, amount, crit);
+            if (Net.IsHost) Net.Host.Damage(at, amount, crit);
         }
 
         public void Delay(float seconds, Action a) { StartCoroutine(DelayCo(seconds, a)); }
@@ -50,9 +95,12 @@ namespace ZombiePile
             Playing = false;
             Level.I.Stop();
             Time.timeScale = 1f;
+            if (Net.IsOnline || Net.InRoom) Net.Leave();
             Zombie.KillAll();
             Hud.I.Show(false);
-            CameraRig.I.SetView(0, true);
+            CameraRig.I.SetView(1, true);
+            Arena.I.SetTheme(Theme.ForLevel(Save.Data.level));
+            Survivors.I.Reset();
             Screens.I.Menu();
             // the horde shambling up the street behind the menu (topped up as they climb over)
             attract = true;
@@ -90,6 +138,9 @@ namespace ZombiePile
             foreach (var c in FindObjectsByType<Crate>(FindObjectsSortMode.None)) Destroy(c.gameObject);
             Endless = endless;
             LevelNumber = n;
+            var theme = Theme.All[Theme.ForLevel(n)];
+            Arena.I.SetTheme(Theme.ForLevel(n));
+            Survivors.I.Reset();
             WallMax = Econ.WallMax(Econ.Lvl(Up.WallHp));
             WallHp = WallMax;
             RunCoins = 0; RunKills = 0; combo = 0; chipAcc = 0f;
@@ -98,14 +149,84 @@ namespace ZombiePile
             Shooter.Wall.RefreshWeapon();
             Shooter.Wall.ResetCooldowns();
             Time.timeScale = 1f;
-            CameraRig.I.SetView(0, true);
-            Hud.I.Show(true);
+            Playing = false;
+            Level.I.Stop();
+            Hud.I.Show(false);
             Hud.I.SetLevel(endless ? "WAVE " + n : "LEVEL " + n);
             Hud.I.SetWall(1f);
-            Hud.I.Banner(endless ? "WAVE " + n : "LEVEL " + n, endless ? "ENDLESS MODE" : "Hold the wall!", 2f);
-            SoundBank.I.Play(SoundBank.I.horn, 0.7f);
             Save.Data.plays++;
-            Level.I.Begin(n, endless);
+            // establishing shot over the camp: what we are protecting, and where the horde comes from
+            Hud.I.ShowStory(endless ? "WAVE " + n : "LEVEL " + n, theme.name, endless ? "Endless. They will not stop." : theme.line);
+            SoundBank.I.Play(SoundBank.I.horn, 0.6f);
+            if (Net.IsHost) Net.Host.LevelBegin(n, endless);
+            CameraRig.I.PlayIntro(Net.IsOnline ? Net.LocalSlot : 1, () => StartPlaying(n, endless));
+        }
+
+        /// A co-op guest: the host began a level.
+        public void ClientBegin(int n, bool endless) { Screens.I.HideAll(); Begin(n, endless); }
+
+        /// A co-op guest: the host moved on to the next endless wave.
+        public void ClientWave(int n)
+        {
+            LevelNumber = n;
+            Arena.I.SetTheme(Theme.ForLevel(n));
+            Hud.I.SetLevel("WAVE " + n);
+            Hud.I.Banner("WAVE " + n, ZType.IsBossLevel(n) ? "Boss wave!" : "", 1.6f);
+        }
+
+        /// A co-op guest: the wall is standing at the end. The host worked out stars and the level bonus.
+        public void ClientLevelClear(int stars, int kills, int bonus, int runCoins)
+        {
+            if (!Playing) return;
+            Playing = false;
+            Save.Data.coins += bonus;
+            RunCoins += bonus;
+            RunKills = kills;
+            Save.Write();
+            SoundBank.I.Play(SoundBank.I.fanfare, 0.9f);
+            StartCoroutine(SlowMo());
+            int n = LevelNumber, coins = RunCoins;
+            Delay(1.3f, () => Screens.I.Complete(n, stars, kills, coins));
+        }
+
+        /// A co-op guest: the wall fell.
+        public void ClientLose(int level, int coins, bool endless, int best, bool newBest)
+        {
+            if (!Playing) return;
+            Playing = false;
+            SoundBank.I.Play(SoundBank.I.lose, 0.9f);
+            Hud.I.Show(false);
+            CameraRig.I.ShowCamp();
+            Hud.I.Banner("NEW HAVEN HAS FALLEN...", "", 3.5f);
+            if (endless && newBest) Save.Data.bestWave = Mathf.Max(Save.Data.bestWave, best);
+            Save.Write();
+            int c = RunCoins;
+            if (endless) Delay(3.6f, () => Screens.I.EndlessOver(level, Save.Data.bestWave, c, newBest));
+            else Delay(3.6f, () => Screens.I.Failed(level, c));
+        }
+
+        /// A co-op guest: numbers from the host's snapshot.
+        public void NetWall(float hp, float max, int kills, int coins)
+        {
+            WallHp = hp; WallMax = Mathf.Max(1f, max); RunKills = kills;
+            Hud.I.SetWall(Mathf.Clamp01(hp / WallMax));
+        }
+
+        public void AddCoinsClient(int amount, Vector3 at)
+        {
+            if (amount <= 0) return;
+            Save.Data.coins += amount;
+            RunCoins += amount;
+            Hud.I.CoinBurst(at, amount);
+        }
+
+        /// The swoop is over: the fight begins.
+        public void StartPlaying(int n, bool endless)
+        {
+            Hud.I.HideStory();
+            Hud.I.Show(true);
+            Hud.I.Banner(endless ? "WAVE " + n : "LEVEL " + n, endless ? "ENDLESS MODE" : "Hold the wall!", 2f);
+            if (!Net.IsClient) Level.I.Begin(n, endless);
             Playing = true;
             PlatformSDK.GameplayStart();
         }
@@ -117,7 +238,7 @@ namespace ZombiePile
             {
                 // next wave after a short breather; the wall gets a little patch-up
                 int reward = 10 + 5 * LevelNumber;
-                Hud.I.Banner("WAVE " + LevelNumber + " CLEARED!", "+" + reward + " coins", 2f);
+                Say("WAVE " + LevelNumber + " CLEARED!", "+" + reward + " coins", 2f);
                 SoundBank.I.Play(SoundBank.I.chime, 0.8f);
                 AddCoins(reward, Arena.TowerSpot);
                 WallHp = Mathf.Min(WallMax, WallHp + WallMax * 0.15f);
@@ -127,8 +248,10 @@ namespace ZombiePile
                 {
                     if (!Playing || !Endless) return;
                     LevelNumber = next;
+                    Arena.I.SetTheme(Theme.ForLevel(next));
                     Hud.I.SetLevel("WAVE " + next);
-                    Hud.I.Banner("WAVE " + next, ZType.IsBossLevel(next) ? "Boss wave!" : "", 1.6f);
+                    Say("WAVE " + next, ZType.IsBossLevel(next) ? "Boss wave!" : "", 1.6f);
+                    if (Net.IsHost) Net.Host.WaveBegin(next);
                     Level.I.Begin(next, true);
                 });
                 return;
@@ -142,11 +265,13 @@ namespace ZombiePile
             Save.Data.coins += bonus;
             RunCoins += bonus;
             Save.SetStars(LevelNumber, stars);
+            Survivors.I.SetMood(Survivors.Mood.Cheer);
             if (LevelNumber >= Save.Data.level) Save.Data.level = LevelNumber + 1;
             Save.Write();
             SoundBank.I.Play(SoundBank.I.fanfare, 0.9f);
             StartCoroutine(SlowMo());
             int n = LevelNumber;
+            if (Net.IsHost) Net.Host.LevelClear(stars, RunKills, bonus, RunCoins);
             Delay(1.3f, () => Screens.I.Complete(n, stars, RunKills, RunCoins));
         }
 
@@ -164,12 +289,19 @@ namespace ZombiePile
             Level.I.Stop();
             PlatformSDK.GameplayStop();
             SoundBank.I.Play(SoundBank.I.lose, 0.9f);
+            // the wall falls: the camera goes back over the camp and the horde pours in
+            Hud.I.Show(false);
+            CameraRig.I.ShowCamp();
+            Zombie.OverrunAll();
+            Survivors.I.Scatter();
+            Hud.I.Banner("NEW HAVEN HAS FALLEN...", "", 3.5f);
             bool best = false;
             if (Endless && LevelNumber > Save.Data.bestWave) { Save.Data.bestWave = LevelNumber; best = true; }
             Save.Write();
             int n = LevelNumber, coins = RunCoins;
-            if (Endless) Delay(1.2f, () => Screens.I.EndlessOver(n, Save.Data.bestWave, coins, best));
-            else Delay(1.2f, () => Screens.I.Failed(n, coins));
+            if (Net.IsHost) Net.Host.Fail(n, coins, Endless, Save.Data.bestWave, best);
+            if (Endless) Delay(3.6f, () => Screens.I.EndlessOver(n, Save.Data.bestWave, coins, best));
+            else Delay(3.6f, () => Screens.I.Failed(n, coins));
         }
 
         /// x2 coins for watching an ad on the results screen.
@@ -199,14 +331,14 @@ namespace ZombiePile
             AddCoins(coins, at);
             combo = comboT > 0f ? combo + 1 : 1;
             comboT = 0.8f;
-            if (z.IsBoss) { Hud.I.Popup(at + Vector3.up, "BOSS DOWN!", new Color(1f, 0.4f, 0.3f), 1.8f); CameraRig.I.Shake(1f); }
-            else if (z.IsBrute) Hud.I.Popup(at, "BRUTE DOWN!", new Color(1f, 0.45f, 0.3f), 1.4f);
-            else if (z.Airborne) Hud.I.Popup(at, "AIR SHOT!", new Color(0.55f, 0.9f, 1f), 1.2f);
-            else if (headshot) Hud.I.Popup(at, "HEADSHOT!", new Color(1f, 0.85f, 0.25f), 1.1f);
+            if (z.IsBoss) { Pop(at + Vector3.up, "BOSS DOWN!", new Color(1f, 0.4f, 0.3f), 1.8f); CameraRig.I.Shake(1f); }
+            else if (z.IsBrute) Pop(at, "BRUTE DOWN!", new Color(1f, 0.45f, 0.3f), 1.4f);
+            else if (z.Airborne) Pop(at, "AIR SHOT!", new Color(0.55f, 0.9f, 1f), 1.2f);
+            else if (headshot) Pop(at, "HEADSHOT!", new Color(1f, 0.85f, 0.25f), 1.1f);
             if (combo >= 3)
             {
                 string c = combo >= 10 ? "MASSACRE x" + combo : combo >= 6 ? "RAMPAGE x" + combo : "COMBO x" + combo;
-                Hud.I.Popup(at + Vector3.up * 1.2f, c, new Color(0.6f, 1f, 0.4f), 1f + Mathf.Min(combo, 12) * 0.04f);
+                Pop(at + Vector3.up * 1.2f, c, new Color(0.6f, 1f, 0.4f), 1f + Mathf.Min(combo, 12) * 0.04f);
             }
         }
 
@@ -215,9 +347,10 @@ namespace ZombiePile
             if (Level.I != null) Level.I.OnResolved(z);
             if (!Playing) return;
             Damage(z.Type.wallDamage);
+            Survivors.I.Flinch();
             SoundBank.I.Play(SoundBank.I.breach, 0.9f);
             CameraRig.I.Shake(0.6f);
-            Hud.I.Popup(new Vector3(z.transform.position.x, Arena.WallHeight + 1.2f, Arena.WallFront), "OVER THE WALL!", new Color(1f, 0.3f, 0.25f), 1.3f);
+            Pop(new Vector3(z.transform.position.x, Arena.WallHeight + 1.2f, Arena.WallFront), "OVER THE WALL!", new Color(1f, 0.3f, 0.25f), 1.3f);
         }
 
         /// Brutes and the boss pounding on the wall.
@@ -244,6 +377,8 @@ namespace ZombiePile
             WallHp -= d;
             if (flash) Hud.I.FlashDamage();
             Hud.I.SetWall(Mathf.Max(0f, WallHp / WallMax));
+            float k = WallHp / WallMax;
+            Survivors.I.SetMood(k < 0.35f ? Survivors.Mood.Panic : Survivors.Mood.Calm);
             if (WallHp <= 0f) Lose();
         }
 
@@ -253,19 +388,20 @@ namespace ZombiePile
             Save.Data.coins += amount;
             RunCoins += amount;
             Hud.I.CoinBurst(at, amount);
+            if (Net.IsHost) Net.Host.Coins(at, amount);
         }
 
         public void GivePowerUp(PowerUp p)
         {
             switch (p)
             {
-                case PowerUp.RapidFire: RateBoost = 2f; rateT = 8f; Hud.I.Banner("RAPID FIRE!", "8 seconds", 1.4f); break;
-                case PowerUp.DoubleDamage: DamageBoost = 2f; damageT = 8f; Hud.I.Banner("DOUBLE DAMAGE!", "8 seconds", 1.4f); break;
-                case PowerUp.Reload: Shooter.Wall.ResetCooldowns(); Hud.I.Banner("RELOADED!", "Barrel and airstrike ready", 1.4f); break;
+                case PowerUp.RapidFire: RateBoost = 2f; rateT = 8f; Say("RAPID FIRE!", "8 seconds", 1.4f); break;
+                case PowerUp.DoubleDamage: DamageBoost = 2f; damageT = 8f; Say("DOUBLE DAMAGE!", "8 seconds", 1.4f); break;
+                case PowerUp.Reload: Shooter.Wall.ResetCooldowns(); Say("RELOADED!", "Barrel and airstrike ready", 1.4f); break;
                 case PowerUp.Repair:
                     WallHp = Mathf.Min(WallMax, WallHp + WallMax * 0.25f);
                     Hud.I.SetWall(WallHp / WallMax);
-                    Hud.I.Banner("WALL REPAIRED!", "+25%", 1.4f);
+                    Say("WALL REPAIRED!", "+25%", 1.4f);
                     break;
             }
             SoundBank.I.Play(SoundBank.I.buy, 0.8f);
@@ -286,6 +422,13 @@ namespace ZombiePile
             }
             if (!Playing) return;
 
+            if (!Net.IsClient) HostUpdate(dt);
+            Inputs();
+        }
+
+        /// Chip damage and field repair: the simulation, so only offline and on the host.
+        void HostUpdate(float dt)
+        {
             // wall chip damage: every half second, with dust and a thump so the wall visibly takes it
             chipT += dt;
             if (chipT >= 0.5f)
@@ -296,6 +439,7 @@ namespace ZombiePile
                     float d = chipAcc; chipAcc = 0f;
                     Damage(d, false);
                     Hud.I.ChipFlash(Mathf.Clamp01(d / 3f));
+                    if (Net.IsHost) Net.Host.Chip(chipAt, d);
                     Fx.I.Dust(new Vector3(chipAt.x, Mathf.Min(chipAt.y, Arena.WallHeight - 1f), Arena.WallFront + 0.3f), 0.7f);
                     SoundBank.I.Play(SoundBank.I.smash, Mathf.Clamp(0.12f + d * 0.08f, 0.1f, 0.4f), UnityEngine.Random.Range(0.8f, 1.1f));
                     CameraRig.I.Shake(Mathf.Clamp(d * 0.04f, 0.02f, 0.25f));
@@ -306,19 +450,26 @@ namespace ZombiePile
             float rep = Econ.RepairRate(Econ.Lvl(Up.Repair));
             if (rep > 0f && WallHp < WallMax) { WallHp = Mathf.Min(WallMax, WallHp + rep * dt); Hud.I.SetWall(WallHp / WallMax); }
 
+        }
+
+        void Inputs()
+        {
             // switch shooters, throw a barrel, call an airstrike
             if (Input.GetKeyDown(KeyCode.Tab) || Input.GetKeyDown(KeyCode.Q)) CameraRig.I.Toggle();
+            if (Input.GetKeyDown(KeyCode.Alpha1)) CameraRig.I.Go(0);
+            if (Input.GetKeyDown(KeyCode.Alpha2)) CameraRig.I.Go(1);
+            if (Input.GetKeyDown(KeyCode.Alpha3)) CameraRig.I.Go(2);
             if (Input.GetKeyDown(KeyCode.Space) || Input.GetKeyDown(KeyCode.E) || Input.GetMouseButtonDown(1)) Shooter.Wall.ThrowBarrel();
             if (Input.GetKeyDown(KeyCode.F)) Shooter.Wall.CallAirstrike();
 
             // zombies high on the wall while the player looks from the wall: point at the tower view
             bool danger = Zombie.HighestClimb > Arena.WallHeight * 0.45f;
-            Hud.I.SetClimbWarning(danger && CameraRig.I.View == 0);
+            Hud.I.SetClimbWarning(danger && CameraRig.I.View == 1);
             if (danger && !climbWarned && !Save.Data.switchTip)
             {
                 climbWarned = true;
                 Save.Data.switchTip = true;
-                Hud.I.Banner("THEY'RE CLIMBING!", "Press TAB to switch to Lis on the tower", 3f);
+                Hud.I.Banner("THEY'RE CLIMBING!", "Switch to a tower (1 or 3): snipers see the wall", 3f);
             }
         }
     }

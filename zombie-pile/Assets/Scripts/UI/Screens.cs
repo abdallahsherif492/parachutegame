@@ -30,23 +30,61 @@ namespace ZombiePile
             scaler.matchWidthOrHeight = 0.5f;
             go.AddComponent<GraphicRaycaster>();
             I.root = (RectTransform)go.transform;
+            Net.LobbyChanged += I.OnLobbyChanged;
         }
+
+        void OnDestroy() { Net.LobbyChanged -= OnLobbyChanged; }
+
+        Text statusText, codeText, toast;
+        float toastT;
+        string joinCode = "";
+        string pageName = "";
 
         void Update()
         {
             if (coinText != null && Save.Data != null) coinText.text = Save.Data.coins.ToString("N0");
+            if (statusText != null) statusText.text = Net.Status;
+            if (pageName == "Join") TypeCode();
+            if (toast != null && toastT > 0f)
+            {
+                toastT -= Time.unscaledDeltaTime;
+                var c = toast.color; c.a = Mathf.Clamp01(toastT / 0.6f); toast.color = c;
+                if (toastT <= 0f) toast.gameObject.SetActive(false);
+            }
+        }
+
+        /// A short message over whatever page is showing (a dropped connection, the host leaving...).
+        public void Toast(string text)
+        {
+            if (toast == null)
+            {
+                toast = UIKit.Title(root, "", 34, UIKit.Gold);
+                UIKit.At(toast.rectTransform, C, 240, 620, 800, 40);
+            }
+            toast.text = text; toastT = 4f;
+            toast.gameObject.SetActive(true);
+            toast.transform.SetAsLastSibling();
+        }
+
+        void OnLobbyChanged()
+        {
+            if (page == null || (pageName != "Coop" && pageName != "Join" && pageName != "Lobby")) return;
+            if (Net.InRoom && !Net.Started) Lobby();
+            else if (pageName == "Lobby" && !Net.InRoom) Coop();
         }
 
         public void HideAll()
         {
             if (page != null) Destroy(page);
             page = null;
-            coinText = null;
+            coinText = null; statusText = null; codeText = null;
+            pageName = "";
         }
 
         Transform NewPage(string name, Color tint)
         {
             HideAll();
+            pageName = name;
             var img = UIKit.Image(root, name, tint, null, true);
             UIKit.Stretch(img.rectTransform);
             page = img.gameObject;
@@ -101,16 +139,23 @@ namespace ZombiePile
             Hud.In(UIKit.Title(pr, "PLAY", 76, Color.white).rectTransform, new Vector2(400, 134), 0, 14, 400, 76);
             Hud.In(UIKit.Text(pr, "LEVEL " + lvl, 22, Color.white).rectTransform, new Vector2(400, 134), 0, 91, 400, 22);
 
-            var endless = B(p, "btn_blue", "", 0, 440, 492, 194, 92, () => Game.I.PlayEndless());
+            var endless = B(p, "btn_blue", "", 0, 330, 492, 190, 92, () => Game.I.PlayEndless());
             var er = (RectTransform)endless.transform;
-            Hud.In(UIKit.Pic(er, "ic_infinity", Color.white).rectTransform, new Vector2(194, 92), 12, 14, 64, 48);
-            Hud.In(UIKit.Title(er, "ENDLESS", 34, Color.white, TextAnchor.MiddleLeft).rectTransform, new Vector2(194, 92), 76, 12, 116, 34);
-            Hud.In(UIKit.Text(er, Save.Data.bestWave > 0 ? "BEST: WAVE " + Save.Data.bestWave : "NO LIMITS", 16, Color.white, TextAnchor.MiddleLeft).rectTransform, new Vector2(194, 92), 76, 52, 116, 18);
+            var esz = new Vector2(190, 92);
+            Hud.In(UIKit.Pic(er, "ic_infinity", Color.white).rectTransform, esz, 10, 14, 60, 44);
+            Hud.In(UIKit.Title(er, "ENDLESS", 30, Color.white, TextAnchor.MiddleLeft).rectTransform, esz, 72, 12, 116, 32);
+            Hud.In(UIKit.Text(er, Save.Data.bestWave > 0 ? "BEST: WAVE " + Save.Data.bestWave : "NO LIMITS", 15, Color.white, TextAnchor.MiddleLeft).rectTransform, esz, 72, 50, 116, 18);
 
-            var arm = B(p, "btn_gold", "", 0, 646, 492, 194, 92, () => Armory(0));
+            var coop = B(p, "btn_red", "", 0, 545, 492, 190, 92, () => { Net.Status = ""; Coop(); });
+            var cr = (RectTransform)coop.transform;
+            Hud.In(UIKit.Pic(cr, "ic_swords", Color.white).rectTransform, esz, 10, 8, 60, 60);
+            Hud.In(UIKit.Title(cr, "CO-OP", 36, Color.white, TextAnchor.MiddleLeft).rectTransform, esz, 72, 12, 116, 36);
+            Hud.In(UIKit.Text(cr, "2-3 PLAYERS", 15, Color.white, TextAnchor.MiddleLeft).rectTransform, esz, 72, 52, 116, 18);
+
+            var arm = B(p, "btn_gold", "", 0, 760, 492, 190, 92, () => Armory(0));
             var ar = (RectTransform)arm.transform;
-            Hud.In(UIKit.Pic(ar, "ic_upgrade", Color.white).rectTransform, new Vector2(194, 92), 10, 8, 64, 64);
-            Hud.In(UIKit.Title(ar, "ARMORY", 38, Color.white, TextAnchor.MiddleLeft).rectTransform, new Vector2(194, 92), 76, 22, 116, 38);
+            Hud.In(UIKit.Pic(ar, "ic_upgrade", Color.white).rectTransform, esz, 8, 8, 60, 60);
+            Hud.In(UIKit.Title(ar, "ARMORY", 34, Color.white, TextAnchor.MiddleLeft).rectTransform, esz, 70, 24, 118, 36);
 
             P(p, "panel", 540, 604, 200, 52);
             P(p, "star_on", 552, 608, 44, 44);
@@ -172,7 +217,9 @@ namespace ZombiePile
                 UpCard(p, 490, 414, Up.CoinBonus, Green);
                 UpCard(p, 810, 414, Up.Repair, Green);
             }
-            B(p, "btn_green", "FIGHT! LEVEL " + Save.Data.level, 54, 430, 612, 420, 96, () => Game.I.PlayLevel(Save.Data.level));
+            if (Net.IsClient) B(p, "btn_dark", "WAITING FOR THE HOST...", 36, 430, 612, 420, 96, null);
+            else if (Net.IsHost) B(p, "btn_green", "FIGHT! LEVEL " + Save.Data.level, 54, 430, 612, 420, 96, () => Game.I.PlayCoop());
+            else B(p, "btn_green", "FIGHT! LEVEL " + Save.Data.level, 54, 430, 612, 420, 96, () => Game.I.PlayLevel(Save.Data.level));
         }
 
         void UpCard(Transform parent, float x, float y, Up u, Color color)
@@ -245,6 +292,104 @@ namespace ZombiePile
             L(g, "ON THE TOWER", false, 20, new Color(0.56f, 0.85f, 1f), x + 130, y + 126, 154, TextAnchor.MiddleRight);
         }
 
+        // ------------------------------------------------------------------ co-op
+        public void Coop()
+        {
+            var p = NewPage("Coop", new Color(0.03f, 0.01f, 0.05f, 0.86f));
+            joinCode = "";
+            Ribbon(p, 390, 12, 500, "CO-OP", 62);
+            var back = B(p, "round_dark", "", 0, 22, 18, 84, 84, () => { Net.Leave(); Game.I.ShowMenu(); }, TL);
+            Hud.In(UIKit.Pic(back.transform, "ic_back", Color.white).rectTransform, new Vector2(84, 84), 14, 10, 56, 56);
+            L(p, "2 OR 3 PLAYERS DEFEND ONE WALL: EACH HOLDS A TOWER OR THE WALL", false, 26, Color.white, 0, 132, 1280);
+            B(p, "btn_green", "QUICK MATCH", 56, 440, 190, 400, 112, () => Net.Quick());
+            B(p, "btn_blue", "CREATE ROOM", 50, 440, 322, 400, 100, () => Net.Create());
+            B(p, "btn_gold", "JOIN WITH CODE", 46, 440, 442, 400, 100, () => JoinCodePage());
+            statusText = L(p, Net.Status, false, 28, new Color(1f, 0.7f, 0.5f), 0, 566, 1280);
+            L(p, "You will play with the level and upgrades you have. Coins are shared with everyone.", false, 20, new Color(1f, 1f, 1f, 0.7f), 0, 640, 1280, TextAnchor.MiddleCenter, false);
+        }
+
+        const string CodeChars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+        void JoinCodePage()
+        {
+            var p = NewPage("Join", new Color(0.03f, 0.01f, 0.05f, 0.86f));
+            Ribbon(p, 390, 12, 500, "JOIN A ROOM", 56);
+            var back = B(p, "round_dark", "", 0, 22, 18, 84, 84, () => Coop(), TL);
+            Hud.In(UIKit.Pic(back.transform, "ic_back", Color.white).rectTransform, new Vector2(84, 84), 14, 10, 56, 56);
+            P(p, "panel", 440, 130, 400, 90);
+            codeText = L(p, "", true, 72, UIKit.Gold, 440, 140, 400);
+            RefreshCode();
+            for (int i = 0; i < CodeChars.Length; i++)
+            {
+                char ch = CodeChars[i];
+                B(p, "btn_dark", ch.ToString(), 36, 322 + (i % 8) * 82, 248 + (i / 8) * 66, 74, 60, () => { if (joinCode.Length < 5) { joinCode += ch; RefreshCode(); } });
+            }
+            B(p, "btn_red", "DELETE", 34, 322, 530, 200, 76, () => { if (joinCode.Length > 0) { joinCode = joinCode.Substring(0, joinCode.Length - 1); RefreshCode(); } });
+            B(p, "btn_green", "JOIN", 46, 560, 530, 200, 76, () => { if (joinCode.Length == 5) Net.Join(joinCode); });
+            statusText = L(p, Net.Status, false, 28, new Color(1f, 0.7f, 0.5f), 0, 620, 1280);
+        }
+
+        void RefreshCode()
+        {
+            if (codeText == null) return;
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < 5; i++) sb.Append(i < joinCode.Length ? joinCode[i] : '_').Append(i < 4 ? " " : "");
+            codeText.text = sb.ToString();
+        }
+
+        /// A keyboard works too, next to the letter buttons.
+        void TypeCode()
+        {
+            foreach (char c in Input.inputString)
+            {
+                if (c == '\b') { if (joinCode.Length > 0) { joinCode = joinCode.Substring(0, joinCode.Length - 1); RefreshCode(); } }
+                else if (c == '\r' || c == '\n') { if (joinCode.Length == 5) Net.Join(joinCode); }
+                else
+                {
+                    char u = char.ToUpperInvariant(c);
+                    if (CodeChars.IndexOf(u) >= 0 && joinCode.Length < 5) { joinCode += u; RefreshCode(); }
+                }
+            }
+        }
+
+        static readonly string[] SlotRole = { "LEFT TOWER", "THE WALL", "RIGHT TOWER" };
+        static readonly string[] SlotPor = { "por_lis", "por_shaun", "por_sam" };
+
+        /// The waiting room: three places, the room code, and START for the host.
+        public void Lobby()
+        {
+            var p = NewPage("Lobby", new Color(0.03f, 0.01f, 0.05f, 0.86f));
+            Ribbon(p, 390, 12, 500, "YOUR ROOM", 60);
+            var back = B(p, "round_dark", "", 0, 22, 18, 84, 84, () => { Net.Leave(); Coop(); }, TL);
+            Hud.In(UIKit.Pic(back.transform, "ic_back", Color.white).rectTransform, new Vector2(84, 84), 14, 10, 56, 56);
+            L(p, "ROOM CODE", false, 26, Color.white, 0, 130, 1280);
+            L(p, string.IsNullOrEmpty(Net.RoomCode) ? "-----" : Net.RoomCode, true, 110, UIKit.Gold, 0, 156, 1280);
+            L(p, "Send the code to your friends: they choose CO-OP > JOIN WITH CODE", false, 22, new Color(1f, 1f, 1f, 0.8f), 0, 272, 1280);
+            for (int i = 0; i < 3; i++)
+            {
+                float x = 170 + i * 320, y = 316;
+                LobbyPlayerJson who = null;
+                foreach (var pl in Net.Players) if (pl.slot == i) who = pl;
+                P(p, "panel", x, y, 300, 220);
+                P(p, SlotPor[i], x + 86, y + 12, 128, 128, who != null ? Color.white : new Color(0.3f, 0.3f, 0.34f));
+                L(p, SlotRole[i], true, 30, new Color(0.7f, 0.85f, 1f), x, y + 142, 300);
+                L(p, who != null ? who.name + (who.host ? "  (HOST)" : "") : "WAITING...", false, 24, who != null ? Color.white : new Color(1f, 1f, 1f, 0.5f), x, y + 180, 300);
+            }
+            int n = Net.Players.Count;
+            if (Net.YouHost) B(p, "btn_green", "START  (" + n + (n == 1 ? " PLAYER)" : " PLAYERS)"), 46, 410, 566, 460, 100, () => Net.StartRoom());
+            else B(p, "btn_dark", "WAITING FOR THE HOST...", 36, 410, 566, 460, 100, null);
+            L(p, "Empty places are played by the AI.", false, 20, new Color(1f, 1f, 1f, 0.7f), 0, 676, 1280, TextAnchor.MiddleCenter, false);
+        }
+
+        /// A guest waiting for the host to begin (or continue) the run.
+        public void Waiting(string text)
+        {
+            var p = NewPage("Waiting", new Color(0.03f, 0.01f, 0.05f, 0.7f));
+            L(p, text, true, 70, Color.white, 0, 250, 1280);
+            var back = B(p, "round_dark", "", 0, 22, 18, 84, 84, () => Game.I.ShowMenu(), TL);
+            Hud.In(UIKit.Pic(back.transform, "ic_back", Color.white).rectTransform, new Vector2(84, 84), 14, 10, 56, 56);
+        }
+
         // ------------------------------------------------------------------ results
         public void Complete(int level, int stars, int kills, int coins)
         {
@@ -288,7 +433,9 @@ namespace ZombiePile
             var ar = (RectTransform)arm.transform;
             Hud.In(UIKit.Pic(ar, "ic_upgrade", Color.white).rectTransform, new Vector2(250, 112), 16, 16, 64, 64);
             Hud.In(UIKit.Title(ar, "ARMORY", 46, Color.white).rectTransform, new Vector2(250, 112), 82, 26, 160, 46);
-            B(p, "btn_green", "RETRY", 60, 650, 470, 250, 112, () => Game.I.PlayLevel(level));
+            if (Net.IsClient) B(p, "btn_dark", "WAITING...", 44, 650, 470, 250, 112, null);
+            else if (Net.IsHost) B(p, "btn_green", "RETRY", 60, 650, 470, 250, 112, () => Game.I.PlayCoop());
+            else B(p, "btn_green", "RETRY", 60, 650, 470, 250, 112, () => Game.I.PlayLevel(level));
         }
 
         public void EndlessOver(int wave, int best, int coins, bool newBest)

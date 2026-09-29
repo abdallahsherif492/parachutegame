@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace ZombiePile
 {
-    public enum ZState { Run, Climb, Pile, Leap, Knock, Breach }
+    public enum ZState { Run, Climb, Pile, Leap, Knock, Breach, Overrun }
 
     /// A zombie, driven by script while alive (runs up the street, climbs the pile, clings to it, goes over
     /// the wall) and by physics once dead (ragdoll). Living zombies are kinematic: no physics pile-ups,
@@ -14,6 +14,8 @@ namespace ZombiePile
         public const float BaseSpeed = 4.3f;
         public static readonly List<Zombie> Alive = new List<Zombie>();
         public static readonly Dictionary<int, Zombie> ById = new Dictionary<int, Zombie>();
+        /// Everything that exists as a zombie (also the ones vaulting the wall or pouring into the camp).
+        public static readonly List<Zombie> All = new List<Zombie>();
         static int nextId = 1;
 
         /// Set by the network host: called when a zombie dies (impulse, point, headshot, blastAt, blastForce).
@@ -67,7 +69,8 @@ namespace ZombiePile
         Vector3 from, spot, knockV;
         float dur;
         bool leapt, pileBottom;
-        Vector3 netPos;
+        Vector3 netPos, orTop, orLand;
+        float orDelay;
         ZState netState = ZState.Run;
 
         public static Zombie Spawn(ZType type, Vector3 pos, float hpScale, float speedScale)
@@ -98,6 +101,7 @@ namespace ZombiePile
         /// Latest host state for a puppet.
         public void PuppetSet(Vector3 pos, ZState st, float hpFrac, bool armored)
         {
+            if (!IsAlive) return;
             netPos = pos;
             Hp = Mathf.Clamp01(hpFrac);
             if (!armored && Armor > 0f) { Armor = 0f; PopCone(Vector3.up); }
@@ -164,6 +168,7 @@ namespace ZombiePile
             IsAlive = true;
             State = ZState.Run;
             Alive.Add(this);
+            All.Add(this);
             ById[Id] = this;
             TrackHitboxes();
         }
@@ -229,6 +234,7 @@ namespace ZombiePile
                 case ZState.Leap: Leap(dt); break;
                 case ZState.Knock: Knocked(dt); break;
                 case ZState.Breach: Breach(dt); break;
+                case ZState.Overrun: Overrunning(dt); break;
             }
             if (this == null || !gameObject.activeSelf) return;
             if (dt > 0f) Velocity = (transform.position - before) / dt;
@@ -272,6 +278,59 @@ namespace ZombiePile
                 case ZState.Leap: kit.Play(kit.jump ?? kit.climb ?? kit.run, 0.08f, 1f); break;
                 case ZState.Knock: kit.Play(kit.climb ?? kit.run, 0.05f, 1.5f); break;
                 case ZState.Breach: kit.Play(kit.climb ?? kit.run, 0.05f, 1.6f); break;
+                case ZState.Overrun: kit.Play(kit.run, 0.1f, 1.3f); break;
+            }
+        }
+
+        // ------------------------------------------------------------------ the wall has fallen
+        /// The horde pours over the wall into the camp (shown from the camp camera while the results wait).
+        public static void OverrunAll()
+        {
+            foreach (var z in new List<Zombie>(Alive))
+                if (z != null && !z.Puppet && z.State != ZState.Breach && z.State != ZState.Overrun) z.Overrun(Random.Range(0f, 1.6f));
+        }
+
+        void Overrun(float delay)
+        {
+            if (col >= 0) Pile.Remove(this, col);
+            col = -1;
+            if (bodyCol != null) bodyCol.enabled = false;
+            if (headCol != null) headCol.enabled = false;
+            from = transform.position;
+            orTop = new Vector3(Mathf.Clamp(from.x, -Arena.HalfWidth, Arena.HalfWidth), Arena.WallHeight + 0.3f, Arena.WallFront + 0.05f);
+            orLand = new Vector3(Random.Range(-6f, 6f), 0f, Random.Range(-5.5f, -9f));
+            orDelay = delay;
+            stateT = 0f;
+            State = ZState.Overrun;
+            PlayFor(ZState.Climb);
+        }
+
+        void Overrunning(float dt)
+        {
+            if (stateT < orDelay) return;
+            float t = stateT - orDelay;
+            if (t < 0.6f)
+            {
+                transform.position = Vector3.Lerp(from, orTop, Mathf.SmoothStep(0f, 1f, t / 0.6f));
+                transform.rotation = Quaternion.identity;
+            }
+            else if (t < 1.4f)
+            {
+                float k = (t - 0.6f) / 0.8f;
+                var p = Vector3.Lerp(orTop, orLand, k);
+                p.y = Mathf.Lerp(orTop.y, 0f, k * k) + Mathf.Sin(k * Mathf.PI) * 1.6f;
+                transform.position = p;
+                if (k > 0.5f) kit.Play(kit.run, 0.1f, 1.3f);
+            }
+            else
+            {
+                var target = new Vector3(Random.value < 0.5f ? orLand.x : 0f, 0f, Arena.CampSpot.z);
+                var d = target - transform.position; d.y = 0f;
+                if (d.sqrMagnitude > 0.3f)
+                {
+                    transform.position += d.normalized * 3.4f * dt;
+                    transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(-d.normalized), dt * 8f);
+                }
             }
         }
 
@@ -588,11 +647,12 @@ namespace ZombiePile
         {
             foreach (var z in FindObjectsByType<Zombie>(FindObjectsSortMode.None)) Destroy(z.gameObject);
             Alive.Clear();
+            All.Clear();
             ById.Clear();
             Pile.Clear();
             Ragdoll.ClearAll();
         }
 
-        void OnDestroy() { Alive.Remove(this); Zombie z; if (ById.TryGetValue(Id, out z) && z == this) ById.Remove(Id); }
+        void OnDestroy() { Alive.Remove(this); All.Remove(this); Zombie z; if (ById.TryGetValue(Id, out z) && z == this) ById.Remove(Id); }
     }
 }

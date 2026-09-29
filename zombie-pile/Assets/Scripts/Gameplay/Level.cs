@@ -75,7 +75,7 @@ namespace ZombiePile
                 if (!bannerShown)
                 {
                     bannerShown = true;
-                    if (bt.banner != null && Hud.I != null) { Hud.I.Banner(bt.banner, bt.sub, 2f); SoundBank.I.Play(SoundBank.I.horn, 0.7f); }
+                    if (bt.banner != null && Hud.I != null) { Game.Say(bt.banner, bt.sub, 2f); SoundBank.I.Play(SoundBank.I.horn, 0.7f); }
                     if (bt.crate) Crate.Drop(new Vector3((float)(rnd.NextDouble() * 4.0 - 2.0), 0f, 9f + (float)rnd.NextDouble() * 8f));
                     if (bt.boss) Boss = Spawn(ZType.Boss, 0f);
                 }

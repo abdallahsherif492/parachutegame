@@ -10,3 +10,4 @@ MemoryCaptures/
 *.sln
 .vs/
 .idea/
+server/node_modules/

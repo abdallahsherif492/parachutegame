@@ -180,6 +180,11 @@ namespace ZombiePile
             Burst(at, 16, new Color(0.3f, 0.28f, 0.3f), 7f, 0.26f);
         }
 
+        public void Smoke(Vector3 at, float size)
+        {
+            Spawn(at, new Color(0.3f, 0.28f, 0.28f, 0.45f), Vector3.up * 1.3f + Random.insideUnitSphere * 0.3f, 0.3f * size, 1.4f * size, 2.4f);
+        }
+
         public void Dust(Vector3 at, float size)
         {
             for (int i = 0; i < 3; i++)

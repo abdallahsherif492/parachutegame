@@ -39,31 +39,12 @@ namespace ZombiePile
             SkyEnv.SetFog(32f, 70f);
             if (Kit.Available)
             {
-                // real models: Unity lighting with soft shadows, warm sun, trilight ambient and fog
-                var sun = GameObject.Find("Sun");
-                if (sun != null)
-                {
-                    var l = sun.GetComponent<Light>();
-                    l.shadows = LightShadows.Soft;
-                    l.shadowStrength = 0.7f;
-                    l.intensity = 1.25f;
-                    l.color = new Color(1f, 0.93f, 0.85f);
-                    sun.transform.rotation = Quaternion.LookRotation(new Vector3(12f, -22f, -4f));
-                }
+                // real models use Unity's lighting: soft shadows (the sun, ambient and fog are set per level by Theme)
                 QualitySettings.shadows = ShadowQuality.All;
                 QualitySettings.shadowResolution = ShadowResolution.High;
                 QualitySettings.shadowDistance = 55f;
                 QualitySettings.shadowCascades = 2;
-                RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
-                RenderSettings.ambientSkyColor = new Color(0.95f, 0.78f, 0.66f);
-                RenderSettings.ambientEquatorColor = new Color(0.6f, 0.46f, 0.42f);
-                RenderSettings.ambientGroundColor = new Color(0.24f, 0.2f, 0.22f);
-                RenderSettings.fog = true;
-                RenderSettings.fogMode = FogMode.Linear;
-                RenderSettings.fogColor = sky;
-                // the far end of the street (where the horde spawns) disappears into the haze
-                RenderSettings.fogStartDistance = 32f;
-                RenderSettings.fogEndDistance = 70f;
+                QualitySettings.pixelLightCount = 4;
             }
 
             Save.Load();

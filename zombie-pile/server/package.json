@@ -1,0 +1,10 @@
+{
+  "name": "zombie-pile-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Matchmaking and relay server for Zombie Pile co-op rooms (up to 3 players)",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "test": "node test.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "ws": "^8.18.0" }
+}

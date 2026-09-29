@@ -10,11 +10,18 @@ namespace ZombiePile
         static readonly Collider[] found = new Collider[256];
         static readonly HashSet<Zombie> done = new HashSet<Zombie>();
 
-        public static void Explode(Vector3 at, float radius, float dmg, float force, bool big)
+        /// Just the look and sound of an explosion (clients get this from the host).
+        public static void Fx_(Vector3 at, float radius, bool big)
         {
             Fx.I.Explosion(at, radius);
             SoundBank.I.Play(SoundBank.I.boom, big ? 1f : 0.8f, Random.Range(0.88f, 1.05f));
             CameraRig.I.Shake(big ? 0.9f : 0.6f);
+        }
+
+        public static void Explode(Vector3 at, float radius, float dmg, float force, bool big)
+        {
+            Fx_(at, radius, big);
+            if (Net.IsHost) Net.Host.Explosion(at, radius, big);
             int mask = (1 << Zombie.Layer) | (1 << Arena.Props);
             int n = Physics.OverlapSphereNonAlloc(at, radius, found, mask, QueryTriggerInteraction.Collide);
             done.Clear();
@@ -29,7 +36,7 @@ namespace ZombiePile
                 var z = c.GetComponentInParent<Zombie>();
                 if (z == null || done.Contains(z)) continue;
                 done.Add(z);
-                if (z.Blast(at, radius, dmg * Game.DamageBoost, force) && Hud.I != null) Hud.I.Damage(z.Center, Mathf.RoundToInt(dmg * Game.DamageBoost), false);
+                if (z.Blast(at, radius, dmg * Game.DamageBoost, force) && Hud.I != null) Game.Dmg(z.Center, Mathf.RoundToInt(dmg * Game.DamageBoost), false);
             }
         }
     }
@@ -40,11 +47,14 @@ namespace ZombiePile
         Vector3 from, to;
         float t, flight, radius, dmg;
 
-        public static void Throw(Vector3 from, Vector3 to, float radius, float dmg)
+        bool explodes = true;
+
+        /// explodes = false: only the flight (a client showing the host's barrel; the blast arrives as its own event).
+        public static void Throw(Vector3 from, Vector3 to, float radius, float dmg, bool explodes = true)
         {
             var go = new GameObject("ThrownBarrel");
             var b = go.AddComponent<ThrownBarrel>();
-            b.from = from; b.to = to; b.radius = radius; b.dmg = dmg;
+            b.from = from; b.to = to; b.radius = radius; b.dmg = dmg; b.explodes = explodes;
             b.flight = Mathf.Clamp(Vector3.Distance(from, to) / 20f, 0.45f, 1.05f);
             var m = Kit.Place("Barrel", Vector3.zero, 0f, 0.85f, go.transform, true);
             if (m != null) m.transform.localPosition = Vector3.down * 0.45f;
@@ -58,7 +68,7 @@ namespace ZombiePile
             transform.position = p;
             transform.Rotate(new Vector3(420f, 80f, 0f) * Time.deltaTime);
             if (t < 1f) return;
-            Boom.Explode(to + Vector3.up * 0.4f, radius, dmg, 12f, true);
+            if (explodes) Boom.Explode(to + Vector3.up * 0.4f, radius, dmg, 12f, true);
             Destroy(gameObject);
         }
     }
@@ -72,6 +82,9 @@ namespace ZombiePile
             SoundBank.I.Play(SoundBank.I.jet, 0.9f);
             Game.I.StartCoroutine(Run(aim));
         }
+
+        /// A client only hears the jet: the bombs arrive as explosions.
+        public static void CallFxOnly() { SoundBank.I.Play(SoundBank.I.jet, 0.9f); }
 
         static IEnumerator Run(Vector3 aim)
         {

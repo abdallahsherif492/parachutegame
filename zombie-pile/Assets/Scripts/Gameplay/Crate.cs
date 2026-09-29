@@ -9,16 +9,18 @@ namespace ZombiePile
     {
         Transform chute;
         float hp = 3f, groundT, sway;
-        bool landed, open;
+        bool landed, open, visual;
         Vector3 target;
 
-        public static Crate Drop(Vector3 landAt)
+        /// visualOnly: a client's copy of the host's crate (shots that hit it do nothing; the host opens it).
+        public static Crate Drop(Vector3 landAt, bool visualOnly = false)
         {
             var go = new GameObject("Crate");
             go.layer = Arena.Props;
             go.transform.position = landAt + Vector3.up * 16f;
             var c = go.AddComponent<Crate>();
             c.target = landAt;
+            c.visual = visualOnly;
             Kit.Place("Chest_Special", go.transform.position, Random.Range(-30f, 30f), 1.7f, go.transform, true);
             var box = go.AddComponent<BoxCollider>();
             box.size = new Vector3(1.6f, 1.0f, 1.2f);
@@ -39,7 +41,11 @@ namespace ZombiePile
                     Quaternion.LookRotation(top - bottom));
             }
             SoundBank.I.Play(SoundBank.I.chime, 0.5f, 0.8f);
-            if (Hud.I != null) Hud.I.Banner("SUPPLY DROP!", "Shoot the crate!", 1.6f);
+            if (!visualOnly)
+            {
+                Game.Say("SUPPLY DROP!", "Shoot the crate!", 1.6f);
+                if (Net.IsHost) Net.Host.CrateDrop(landAt);
+            }
             return c;
         }
 
@@ -72,19 +78,30 @@ namespace ZombiePile
 
         public void Hit()
         {
-            if (open) return;
+            if (open || visual) return;
             hp -= 1f;
             Fx.I.Sparks(transform.position + Vector3.up * 0.6f);
             if (hp <= 0f) Open();
         }
 
-        public void Open()
+        /// The host opened it: a client only shows the burst.
+        public void OpenVisual()
         {
             if (open) return;
+            open = true;
+            Fx.I.Burst(transform.position + Vector3.up * 0.6f, 20, new Color(1f, 0.8f, 0.2f), 7f, 0.16f);
+            SoundBank.I.Play(SoundBank.I.coin, 0.9f, 0.9f);
+            Destroy(gameObject);
+        }
+
+        public void Open()
+        {
+            if (open || visual) return;
             open = true;
             var at = transform.position + Vector3.up * 0.6f;
             Fx.I.Burst(at, 20, new Color(1f, 0.8f, 0.2f), 7f, 0.16f);
             SoundBank.I.Play(SoundBank.I.coin, 0.9f, 0.9f);
+            if (Net.IsHost) Net.Host.CrateOpen(at);
             if (Game.I != null)
             {
                 Game.I.AddCoins(15 + 5 * Game.I.LevelNumber, at);

@@ -17,6 +17,7 @@ namespace ZombiePile
         public int seen;                       // zombie types already introduced (bit per ZType id)
         public bool muted;
         public bool switchTip;                 // the "switch to the tower" tip was shown
+        public string name;                    // shown to other players in co-op rooms
         public int totalKills, plays;
     }
 

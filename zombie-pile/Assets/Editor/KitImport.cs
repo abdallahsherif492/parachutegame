@@ -46,7 +46,7 @@ namespace ZombiePile.EditorTools
             foreach (var c in clips)
             {
                 string n = c.name.ToLowerInvariant();
-                bool once = n.Contains("death") || n.Contains("hitreact") || n.Contains("punch") || n.EndsWith("jump") || n.Contains("jump_land") || n.Contains("wave") || n.EndsWith("yes") || n.EndsWith("no");
+                bool once = n.Contains("death") || n.Contains("hitreact") || n.Contains("punch") || n.EndsWith("jump") || n.Contains("jump_land") || n.Contains("wave") || n.EndsWith("yes") || n.EndsWith("no") || n.EndsWith("duck");
                 c.loopTime = !once;
                 c.wrapMode = once ? WrapMode.ClampForever : WrapMode.Loop;
             }

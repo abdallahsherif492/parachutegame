@@ -4,19 +4,45 @@ using UnityEngine.EventSystems;
 
 namespace ZombiePile
 {
-    /// One of the two shooters: Shaun on the wall (SMG / rifle / shotgun, throws barrels) and Lis on the
-    /// tower (sniper rifle, sees the pile on the wall face). The one the camera is on follows the player's
-    /// aim; the other keeps firing on its own at a lower rate (Lis goes for the zombies about to climb over).
+    /// Who drives a shooter: the local player (the camera is on it), a remote player (network host only),
+    /// or the AI safety net.
+    public enum Control { AI, Local, Remote }
+
+    /// What a remote player brought with them (their own upgrades), applied to their shooter on the host.
+    public class PlayerStats
+    {
+        public int weapon, gunDmg, gunRate, gunBullets, snDmg, snRate, snPierce, barrelPow, barrelReload, airLevel;
+    }
+
+    /// The three shooters, left to right on screen: Lis on the left tower, Shaun on the wall, Sam on the right
+    /// tower (slots 0, 1, 2 = keys 1, 2, 3 = camera views 0, 1, 2). Shaun has the SMG / rifle / shotgun and
+    /// the barrels and airstrikes; the tower shooters are snipers who see the pile on the wall face. The one
+    /// the player is on follows their aim; the others keep firing on their own at a low rate as a safety net
+    /// (or are driven by other players in a co-op room).
     public class Shooter : MonoBehaviour
     {
-        public static Shooter Wall, Tower;
-        public static Shooter Active { get { return CameraRig.I != null && CameraRig.I.View == 1 ? Tower : Wall; } }
+        public static readonly Shooter[] Slots = new Shooter[3];
+        public static Shooter Wall { get { return Slots[1]; } }
+        public static Shooter Active { get { int v = CameraRig.I != null ? CameraRig.I.View : 1; return Slots[Mathf.Clamp(v, 0, 2)]; } }
+        public static readonly string[] Names = { "LIS", "SHAUN", "SAM" };
 
-        public bool IsTower { get; private set; }
+        public int Slot { get; private set; }
+        public Control Ctl = Control.AI;
+        public PlayerStats Remote;                       // set on the host for a remote player's shooter
+        Vector3 remoteOrigin, remoteDir = Vector3.forward, remoteAim;
+        bool remoteFire;
+        public bool IsTower { get { return Slot != 1; } }
         public bool Firing { get; private set; }
         public Vector3 AimPoint { get; private set; }
-        public float BarrelReady { get { return 1f - Mathf.Clamp01(barrelT / Econ.BarrelCooldown(Econ.Lvl(Up.BarrelReload))); } }
-        public float AirReady { get { return 1f - Mathf.Clamp01(airT / Econ.AirstrikeCooldown(Econ.Lvl(Up.Airstrike))); } }
+        public Ray LastRay { get; private set; }         // the pointer ray of the last frame (sent to the host)
+        float netBarrel = 1f, netAir = 1f;
+        float barrelMax = 6f, airMax = 40f;
+        public float BarrelReady { get { return Net.IsClient ? netBarrel : 1f - Mathf.Clamp01(barrelT / barrelMax); } }
+        public float AirReady { get { return Net.IsClient ? netAir : 1f - Mathf.Clamp01(airT / airMax); } }
+        /// Cooldowns as the host reports them (clients only show them).
+        public void SetNetCooldowns(float barrel, float air) { netBarrel = barrel; netAir = air; }
+        /// Where another player is aiming (clients see the other shooters turn and fire).
+        public void SetNetAim(Vector3 aim, bool firing) { AimPoint = aim; Firing = firing; }
 
         Transform yaw, muzzle;
         GameObject model;
@@ -30,18 +56,33 @@ namespace ZombiePile
         static readonly HashSet<Zombie> seen = new HashSet<Zombie>();
         const int ShotMask = (1 << 0) | (1 << Arena.Props) | (1 << Zombie.Layer);
 
-        public static void BuildBoth()
+        public static void BuildAll()
         {
-            Wall = Make("Shaun", "Characters_Shaun", new Vector3(0f, Arena.WallHeight, Arena.WallFront - 1.3f), false);
-            Tower = Make("Lis", "Characters_Lis", Arena.TowerSpot, true);
+            var right = Arena.TowerSpot; right.x = -right.x;
+            Slots[0] = Make(0, "Lis", "Characters_Lis", Arena.TowerSpot);
+            Slots[1] = Make(1, "Shaun", "Characters_Shaun", new Vector3(0f, Arena.WallHeight, Arena.WallFront - 1.3f));
+            Slots[2] = Make(2, "Sam", "Characters_Sam", right);
+            SetLocal(1);
         }
 
-        static Shooter Make(string name, string modelName, Vector3 pos, bool tower)
+        /// The player moves to a slot: it is theirs now, the others go back to the AI (or stay remote).
+        public static void SetLocal(int slot)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                var s = Slots[i];
+                if (s == null) continue;
+                if (i == slot) s.Ctl = Control.Local;
+                else if (s.Ctl == Control.Local) s.Ctl = Control.AI;
+            }
+        }
+
+        static Shooter Make(int slot, string name, string modelName, Vector3 pos)
         {
             var go = new GameObject(name);
             go.transform.position = pos;
             var s = go.AddComponent<Shooter>();
-            s.IsTower = tower;
+            s.Slot = slot;
             s.cam = Camera.main;
             // the soldier turns as a whole ('yaw'); the model inside keeps any facing correction from Kit
             s.yaw = new GameObject("Yaw").transform;
@@ -61,7 +102,9 @@ namespace ZombiePile
 
         static Vector3 Flat(Vector3 v) { v.y = 0f; return v.sqrMagnitude < 0.0001f ? Vector3.forward : v; }
 
-        WeaponDef W { get { return IsTower ? Econ.Sniper : Econ.Weapon; } }
+        int WeaponId { get { return Remote != null ? Remote.weapon : Save.Data.weapon; } }
+        WeaponDef W { get { return IsTower ? Econ.Sniper : Econ.Weapons[Mathf.Clamp(WeaponId, 0, Econ.Weapons.Length - 1)]; } }
+        int L(Up u, int remote) { return Remote != null ? remote : Econ.Lvl(u); }
 
         public void RefreshWeapon()
         {
@@ -76,7 +119,7 @@ namespace ZombiePile
         {
             get
             {
-                float m = IsTower ? Econ.SniperDamageMult(Econ.Lvl(Up.SniperDamage)) : Econ.GunDamageMult(Econ.Lvl(Up.GunDamage));
+                float m = IsTower ? Econ.SniperDamageMult(L(Up.SniperDamage, Remote != null ? Remote.snDmg : 0)) : Econ.GunDamageMult(L(Up.GunDamage, Remote != null ? Remote.gunDmg : 0));
                 return W.damage * m * Game.DamageBoost;
             }
         }
@@ -84,12 +127,18 @@ namespace ZombiePile
         {
             get
             {
-                float m = IsTower ? Econ.SniperRateMult(Econ.Lvl(Up.SniperRate)) : Econ.GunRateMult(Econ.Lvl(Up.GunRate));
+                float m = IsTower ? Econ.SniperRateMult(L(Up.SniperRate, Remote != null ? Remote.snRate : 0)) : Econ.GunRateMult(L(Up.GunRate, Remote != null ? Remote.gunRate : 0));
                 return W.rate * m * Game.RateBoost;
             }
         }
-        int Bullets { get { return W.bullets + (IsTower ? 0 : Econ.Lvl(Up.GunBullets)); } }
-        int Pierce { get { return W.pierce + (IsTower ? Econ.Lvl(Up.SniperPierce) : 0); } }
+        int Bullets { get { return W.bullets + (IsTower ? 0 : L(Up.GunBullets, Remote != null ? Remote.gunBullets : 0)); } }
+        int Pierce { get { return W.pierce + (IsTower ? L(Up.SniperPierce, Remote != null ? Remote.snPierce : 0) : 0); } }
+
+        /// Remote player's pointer, from the network (host side).
+        public void SetRemoteInput(Vector3 origin, Vector3 dir, Vector3 aim, bool fire)
+        {
+            remoteOrigin = origin; remoteDir = dir.sqrMagnitude > 0.001f ? dir.normalized : Vector3.forward; remoteAim = aim; remoteFire = fire;
+        }
 
         // ------------------------------------------------------------------ per frame
         void Update()
@@ -101,9 +150,11 @@ namespace ZombiePile
             bool playing = Game.I != null && Game.I.Playing;
             if (!playing) { Firing = false; Face(dt); return; }
 
-            bool active = Active == this && !CameraRig.I.Switching;
+            bool active = Ctl == Control.Local && !CameraRig.I.Switching;
             Ray ray;
-            if (active) Firing = ManualAim(out ray);
+            if (Ctl == Control.Remote) { ray = new Ray(remoteOrigin, remoteDir); AimPoint = remoteAim; Firing = remoteFire; active = true; }
+            else if (active) { Firing = ManualAim(out ray); LastRay = ray; }
+            else if (Net.IsClient) ray = new Ray(muzzle.position, yaw.forward);      // aim and fire come from the host
             else Firing = AiAim(dt, out ray);
             Face(dt);
             if (gunR != null) muzzle.position = gunR.bounds.center + yaw.forward * gunR.bounds.extents.magnitude * 0.85f;
@@ -111,6 +162,7 @@ namespace ZombiePile
             fireT -= dt;
             // the idle shooter is only a safety net: slow, and it only fires at real threats
             float rate = Rate * (active ? 1f : (IsTower ? 0.18f : 0.12f));
+            if (Net.IsClient) { if (Ctl != Control.Local) return; }   // clients only show their own shots; the host fires for everybody
             if (Firing && fireT <= 0f)
             {
                 fireT = 1f / Mathf.Max(0.1f, rate);
@@ -261,21 +313,30 @@ namespace ZombiePile
                 if (z == null)
                 {
                     var drum = hit.collider.GetComponentInParent<ExplosiveBarrel>();
-                    if (drum != null) { end = hit.point; drum.Detonate(); break; }
+                    if (drum != null) { end = hit.point; if (!Net.IsClient) drum.Detonate(); break; }
                     var crate = hit.collider.GetComponentInParent<Crate>();
-                    if (crate != null) { end = hit.point; crate.Hit(); break; }
+                    if (crate != null) { end = hit.point; if (!Net.IsClient) crate.Hit(); break; }
                     end = hit.point;
                     Fx.I.Dust(hit.point, 0.25f);
                     break;
                 }
                 if (seen.Contains(z) || !z.IsAlive) continue;
                 seen.Add(z);
+                if (Net.IsClient)
+                {
+                    // the host does the damage: here only the tracer and a puff of blood
+                    end = hit.point;
+                    Fx.I.Blood(hit.point, -ray.direction, 3);
+                    if (left-- <= 0) break;
+                    continue;
+                }
                 bool head = z.HeadCollider != null && hit.collider == z.HeadCollider && z.Armor <= 0f;
                 float dmg = Damage * (head ? w.headMult : 1f) * Random.Range(0.9f, 1.1f) * (manual ? 1f : 0.5f);
                 bool killed = z.Hit(dmg, ray.direction, hit.point, head, w.kick);
                 if (Hud.I != null)
                 {
-                    Hud.I.Damage(hit.point, Mathf.RoundToInt(dmg), head);
+                    Game.Dmg(hit.point, Mathf.RoundToInt(dmg), head);
+                    if (Net.IsHost) Net.Host.Hit(z.Id);
                     if (manual) Hud.I.HitMark(killed);
                 }
                 SoundBank.I.Play(head ? SoundBank.I.headshot : SoundBank.I.hit, head ? 0.45f : 0.28f, Random.Range(0.9f, 1.15f));
@@ -283,29 +344,43 @@ namespace ZombiePile
                 if (left-- <= 0) break;
             }
             Fx.I.Tracer(muzzle.position, end, IsTower);
+            if (Net.IsHost) Net.Host.ShotFx(Slot, muzzle.position, end, IsTower);
         }
 
         // ------------------------------------------------------------------ abilities (the wall gunner's)
-        public void ThrowBarrel()
+        public void ThrowBarrel() { ThrowBarrelAt(Active.AimPoint, null); }
+
+        /// Whoever presses the button throws a barrel from the wall; a remote player's own upgrades apply.
+        public void ThrowBarrelAt(Vector3 aim, PlayerStats st)
         {
-            if (Game.I == null || !Game.I.Playing || barrelT > 0f) return;
-            barrelT = Econ.BarrelCooldown(Econ.Lvl(Up.BarrelReload));
+            if (Game.I == null || !Game.I.Playing) return;
+            if (Net.IsClient) { Net.PressBarrel(); return; }
+            if (barrelT > 0f) return;
+            int l = st != null ? st.barrelPow : Econ.Lvl(Up.BarrelPower);
+            barrelMax = barrelT = Econ.BarrelCooldown(st != null ? st.barrelReload : Econ.Lvl(Up.BarrelReload));
             SoundBank.I.Play(SoundBank.I.throwS, 0.6f);
-            int l = Econ.Lvl(Up.BarrelPower);
-            var target = Active.AimPoint;
-            target.z = Mathf.Max(target.z, Arena.WallFront + 0.8f);
-            ThrownBarrel.Throw(muzzle.position + Vector3.up * 0.4f, target, Econ.BarrelRadius(l), Econ.BarrelDamage(l));
+            aim.z = Mathf.Max(aim.z, Arena.WallFront + 0.8f);
+            var from = muzzle.position + Vector3.up * 0.4f;
+            ThrownBarrel.Throw(from, aim, Econ.BarrelRadius(l), Econ.BarrelDamage(l), true);
+            if (Net.IsHost) Net.Host.BarrelThrown(from, aim);
         }
 
-        public void CallAirstrike()
+        public void CallAirstrike() { CallAirstrikeAt(Active.AimPoint, null); }
+
+        public void CallAirstrikeAt(Vector3 aim, PlayerStats st)
         {
-            if (Game.I == null || !Game.I.Playing || Econ.Lvl(Up.Airstrike) <= 0 || airT > 0f) return;
-            airT = Econ.AirstrikeCooldown(Econ.Lvl(Up.Airstrike));
-            Airstrike.Call(Active.AimPoint);
-            if (Hud.I != null) Hud.I.Banner("AIRSTRIKE!", "", 1.1f);
+            if (Game.I == null || !Game.I.Playing) return;
+            if (Net.IsClient) { Net.PressAirstrike(); return; }
+            int lv = st != null ? st.airLevel : Econ.Lvl(Up.Airstrike);
+            if (lv <= 0 || airT > 0f) return;
+            airMax = airT = Econ.AirstrikeCooldown(lv);
+            Airstrike.Call(aim);
+            Game.Say("AIRSTRIKE!", "", 1.1f);
+            if (Net.IsHost) Net.Host.Airstrike(aim);
         }
 
         public void ResetCooldowns() { barrelT = 0f; airT = 0f; }
+        public void SetCooldownMax(float barrel, float air) { barrelMax = barrel; airMax = air; }
 
         sealed class HitComparer : IComparer<RaycastHit>
         {

@@ -70,6 +70,11 @@ namespace ZombiePile
             text = new Color(1f, 0.35f, 0.3f)
         };
 
+        /// Network codes: the index in this table.
+        public static readonly ZType[] Table = { Walker, Walker2, Sprinter, Brute, Cone, Leaper, Boomer, Boss };
+        public static int NetCode(ZType t) { int i = System.Array.IndexOf(Table, t); return i < 0 ? 0 : i; }
+        public static ZType FromNet(int code) { return Table[Mathf.Clamp(code, 0, Table.Length - 1)]; }
+
         public static readonly ZType[] Specials = { Sprinter, Brute, Cone, Leaper, Boomer };
         public static readonly ZType[] Introduced = { Sprinter, Brute, Cone, Boss, Leaper, Boomer };
 
